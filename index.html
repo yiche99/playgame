@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一彻游戏 | 在线小游戏平台</title>
+  <meta name="description" content="一彻游戏平台 - 做饭模拟器、法官模拟器、GTA、木筏求生等精彩小游戏等你来玩！">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+
+  <!-- 导航栏 -->
+  <nav class="navbar">
+    <div class="logo">
+      <div class="logo-icon">🎮</div>
+      <span class="logo-text">一彻游戏</span>
+    </div>
+    <div class="search-box">
+      <span>🔍</span>
+      <input type="text" id="searchInput" placeholder="搜索游戏...">
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn" onclick="document.getElementById('gameGrid').scrollIntoView({behavior:'smooth'})">所有游戏</button>
+    </div>
+  </nav>
+
+  <!-- 英雄区域 -->
+  <header class="hero">
+    <h1>玩无界 · 乐无穷</h1>
+    <p>10+ 款精品小游戏，做饭、求生、跑酷、对战……总有一款适合你！</p>
+  </header>
+
+  <!-- 分类标签 -->
+  <div class="categories" id="categories"></div>
+
+  <!-- 游戏网格 -->
+  <main class="game-grid" id="gameGrid"></main>
+
+  <!-- 游戏模态框 -->
+  <div class="game-modal" id="gameModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle"></div>
+        <button class="close-btn" onclick="closeModal()">✕</button>
+      </div>
+      <div class="game-frame-wrapper" id="gameFrameWrapper"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <!-- 页脚 -->
+  <footer>
+    <p>© 2025 一彻游戏平台 · 用 ❤️ 打造的游戏世界</p>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
