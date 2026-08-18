@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>木筏求生 - Raft Survival</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  background: #1a1a2e; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  height: 100vh; 
+  overflow: hidden;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  user-select: none;
+}
+canvas { 
+  display: block; 
+  border: 2px solid #333;
+  border-radius: 4px;
+  box-shadow: 0 0 40px rgba(0,150,255,0.2);
+}
+#ui-layer {
+  position: absolute;
+  pointer-events: none;
+}
+#ui-layer > * { pointer-events: auto; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script src="game.js?v=3.6.0"></script>
+</body>
+</html>

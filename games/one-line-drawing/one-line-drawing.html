@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>风狂一笔画</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --panel: #12121f;
+    --gold: #d4a853;
+    --gold-light: #f0d78c;
+    --text: #c8c8d4;
+    --text-light: #e8e8f0;
+    --red: #c0392b;
+    --green: #27ae60;
+    --blue-magic: #5b7fef;
+    --purple: #7c3aed;
+    --cyan: #22d3ee;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'STSong','SimSun','Songti SC','Microsoft YaHei',serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: default;
+    user-select: none;
+  }
+  #particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+  #app { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+  .game-title { font-size: 3.2rem; font-weight: 900; background: linear-gradient(135deg, #f0d78c, #d4a853, #b8860b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 20px 0 5px; text-align: center; animation: titleGlow 2s ease-in-out infinite alternate; }
+  @keyframes titleGlow { 0% { filter: drop-shadow(0 0 8px rgba(212,168,83,0.3)); } 100% { filter: drop-shadow(0 0 20px rgba(240,215,140,0.6)); } }
+  .game-subtitle { font-size: 1.1rem; color: var(--gold); letter-spacing: 6px; margin-bottom: 30px; }
+  .panel { background: var(--panel); border: 1px solid rgba(212,168,83,0.2); border-radius: 16px; padding: 30px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.4); margin-bottom: 20px; }
+  .btn { font-family: inherit; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: all 0.3s; letter-spacing: 2px; position: relative; overflow: hidden; }
+  .btn:active { transform: scale(0.96); }
+  .btn-gold { background: linear-gradient(135deg, #d4a853, #b8860b); color: #1a1a2e; font-weight: 700; box-shadow: 0 4px 15px rgba(212,168,83,0.3); }
+  .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(212,168,83,0.5); }
+  .btn-magic { background: linear-gradient(135deg, #5b7fef, #7c3aed); color: #fff; font-weight: 700; box-shadow: 0 4px 15px rgba(91,127,239,0.3); }
+  .btn-magic:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(91,127,239,0.5); }
+  .btn-danger { background: linear-gradient(135deg, #c0392b, #e74c3c); color: #fff; font-weight: 700; }
+  .btn-danger:hover { transform: translateY(-2px); }
+  .btn-sm { padding: 8px 20px; font-size: 0.85rem; letter-spacing: 1px; }
+
+  .layer-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; width: 100%; }
+  @media (max-width: 700px) { .layer-grid { grid-template-columns: repeat(2, 1fr); } }
+  .layer-card { background: linear-gradient(135deg, rgba(20,20,40,0.9), rgba(30,30,60,0.9)); border: 2px solid rgba(212,168,83,0.15); border-radius: 16px; padding: 20px 12px; text-align: center; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
+  .layer-card:hover { border-color: var(--gold); transform: translateY(-4px); box-shadow: 0 8px 30px rgba(212,168,83,0.2); }
+  .layer-card.locked { opacity: 0.4; cursor: not-allowed; filter: grayscale(60%); }
+  .layer-card.locked:hover { border-color: rgba(212,168,83,0.15); transform: none; box-shadow: none; }
+  .layer-card.completed { border-color: var(--green) !important; }
+  .layer-card .layer-num { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #f0d78c, #b8860b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .layer-card.completed .layer-num { background: linear-gradient(135deg, #27ae60, #2ecc71); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .layer-card .layer-name { font-size: 0.9rem; color: var(--text); margin-top: 4px; letter-spacing: 2px; }
+  .layer-card .layer-icon { font-size: 2rem; margin-bottom: 4px; }
+  .layer-card .complete-badge { position: absolute; top: 8px; right: 8px; color: var(--green); font-size: 1.2rem; }
+
+  .level-select { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 20px 0; }
+  .level-btn { width: 110px; height: 110px; border-radius: 16px; border: 2px solid rgba(212,168,83,0.2); background: rgba(20,20,40,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; color: var(--text); }
+  .level-btn:hover { border-color: var(--gold); box-shadow: 0 4px 20px rgba(212,168,83,0.2); transform: translateY(-2px); }
+  .level-btn.completed { border-color: var(--green); }
+  .level-btn.locked { opacity: 0.4; cursor: not-allowed; }
+  .level-btn .lvl-type { font-size: 0.65rem; color: var(--cyan); letter-spacing: 1px; margin-top: 2px; }
+  .level-btn .lvl-num { font-size: 1.5rem; font-weight: 900; }
+  .level-btn .lvl-name { font-size: 0.7rem; letter-spacing: 1px; }
+  .level-btn.puzzle-type { border-color: rgba(91,127,239,0.3); }
+  .level-btn.puzzle-type:hover { border-color: var(--blue-magic); }
+
+  .story-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; animation: fadeIn 0.5s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .story-box { background: var(--panel); border: 2px solid var(--gold); border-radius: 20px; padding: 40px; max-width: 550px; width: 90%; text-align: center; box-shadow: 0 0 60px rgba(212,168,83,0.2); animation: slideUp 0.5s; }
+  @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .story-box .story-icon { font-size: 3rem; margin-bottom: 10px; }
+  .story-box .story-title { font-size: 1.6rem; color: var(--gold-light); margin-bottom: 16px; letter-spacing: 3px; }
+  .story-box .story-text { font-size: 1rem; line-height: 2; color: var(--text-light); margin-bottom: 24px; text-align: left; text-indent: 2em; }
+  .story-box .story-speaker { font-size: 0.85rem; color: var(--gold); text-align: right; margin-bottom: 16px; }
+
+  .game-canvas-wrap { position: relative; width: 100%; display: flex; justify-content: center; margin: 10px 0; }
+  #gameCanvas { border-radius: 12px; background: rgba(10,10,20,0.6); border: 1px solid rgba(212,168,83,0.15); cursor: pointer; max-width: 100%; height: auto; }
+  .game-info { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; width: 100%; }
+  .hearts { color: #e74c3c; font-size: 1.3rem; letter-spacing: 4px; }
+  .progress-dots { display: flex; gap: 6px; }
+  .progress-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(212,168,83,0.3); }
+  .progress-dot.done { background: var(--green); }
+  .progress-dot.current { background: var(--gold); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+  .path-hint { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
+  .path-step { background: rgba(212,168,83,0.15); border: 1px solid rgba(212,168,83,0.3); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: var(--gold); }
+  .path-step.active { background: var(--gold); color: #1a1a2e; }
+  .path-arrow { color: var(--gold); }
+
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: var(--panel); border: 2px solid var(--gold); border-radius: 20px; padding: 36px; max-width: 450px; width: 90%; text-align: center; }
+  .modal-box h3 { font-size: 1.5rem; color: var(--gold-light); margin-bottom: 16px; }
+  .modal-box p { line-height: 1.8; margin-bottom: 20px; }
+
+  .top-nav { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .back-btn { background: none; border: 1px solid rgba(212,168,83,0.3); color: var(--gold); padding: 6px 16px; border-radius: 20px; cursor: pointer; font-family: inherit; font-size: 0.85rem; transition: all 0.3s; }
+  .back-btn:hover { background: rgba(212,168,83,0.1); }
+
+  .victory-sparkle { position: fixed; pointer-events: none; z-index: 300; animation: sparkleBurst 1.2s ease-out forwards; font-size: 2rem; }
+  @keyframes sparkleBurst { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; } }
+
+  /* 通关动画层 */
+  #clearAnimOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 250; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .clear-anim-container { text-align: center; }
+  .clear-anim-title { font-size: 2rem; color: var(--gold-light); font-weight: 900; margin-bottom: 10px; opacity: 0; animation: clearTitleIn 0.8s ease-out 0.2s forwards; }
+  @keyframes clearTitleIn { 0% { opacity: 0; transform: translateY(-30px) scale(0.8); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+  .clear-anim-name { font-size: 1.2rem; color: var(--cyan); opacity: 0; animation: clearTitleIn 0.8s ease-out 0.5s forwards; }
+  .clear-anim-ring { width: 200px; height: 200px; border: 3px solid var(--gold); border-radius: 50%; margin: 20px auto; position: relative; opacity: 0; animation: clearRingIn 0.6s ease-out 0.3s forwards; }
+  @keyframes clearRingIn { 0% { opacity: 0; transform: scale(0); } 60% { opacity: 1; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+  .clear-anim-ring::before { content: ''; position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px; border: 1px solid rgba(240,215,140,0.4); border-radius: 50%; animation: ringPulse 1.5s ease-in-out 0.6s infinite; }
+  .clear-anim-ring::after { content: ''; position: absolute; top: -20px; left: -20px; right: -20px; bottom: -20px; border: 1px solid rgba(240,215,140,0.2); border-radius: 50%; animation: ringPulse 1.5s ease-in-out 0.9s infinite; }
+  @keyframes ringPulse { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.05); opacity: 1; } }
+  .clear-anim-seal { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 3rem; opacity: 0; animation: sealAppear 0.6s ease-out 0.8s forwards; }
+  @keyframes sealAppear { 0% { opacity: 0; transform: translate(-50%,-50%) rotate(-180deg) scale(0); } 100% { opacity: 1; transform: translate(-50%,-50%) rotate(0deg) scale(1); } }
+
+  /* 保存提示 */
+  #saveIndicator { position: fixed; bottom: 20px; right: 20px; background: rgba(39,174,96,0.9); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; z-index: 400; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  #saveIndicator.show { opacity: 1; }
+  
+  /* 音效开关 */
+  .sound-toggle { position: fixed; top: 20px; right: 20px; z-index: 50; background: rgba(18,18,31,0.8); border: 1px solid rgba(212,168,83,0.3); color: var(--gold); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+  .sound-toggle:hover { border-color: var(--gold); box-shadow: 0 0 15px rgba(212,168,83,0.3); }
+  .sound-toggle.muted { opacity: 0.5; }
+
+  /* 拼图游戏 */
+  .puzzle-container { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .puzzle-grid { display: grid; gap: 4px; justify-content: center; }
+  .puzzle-tile { aspect-ratio: 1; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; }
+  .puzzle-tile.empty { background: rgba(255,255,255,0.03); cursor: default; }
+  .puzzle-tile:hover:not(.empty):not(.matched) { transform: scale(1.05); }
+
+  /* 记忆翻牌 */
+  .memory-card { aspect-ratio: 1; border-radius: 8px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; font-size: 2rem; perspective: 600px; }
+  .memory-card .inner { width: 100%; height: 100%; transition: transform 0.4s; transform-style: preserve-3d; position: relative; }
+  .memory-card.flipped .inner { transform: rotateY(180deg); }
+  .memory-card .front, .memory-card .back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .memory-card .front { background: linear-gradient(135deg, #5b7fef, #7c3aed); color: #fff; font-size: 1.5rem; }
+  .memory-card .back { background: linear-gradient(135deg, rgba(20,20,40,0.9), rgba(30,30,60,0.9)); border: 2px solid rgba(212,168,83,0.4); transform: rotateY(180deg); }
+  .memory-card.matched { opacity: 0.5; cursor: default; pointer-events: none; }
+
+  /* 颜色匹配 */
+  .color-target { width: 80px; height: 80px; border-radius: 50%; margin: 10px auto; border: 3px solid rgba(255,255,255,0.2); }
+  .color-slider-group { display: flex; gap: 10px; align-items: center; margin: 6px 0; }
+  .color-slider-group label { width: 20px; color: var(--text); font-weight: 700; }
+  .color-slider-group input[type="range"] { flex: 1; accent-color: var(--gold); }
+
+  /* 迷宫 */
+  .maze-cell { aspect-ratio: 1; border-radius: 2px; transition: all 0.1s; }
+  .maze-cell.wall { background: rgba(91,127,239,0.4); }
+  .maze-cell.path { background: rgba(212,168,83,0.3); }
+  .maze-cell.start { background: var(--green); }
+  .maze-cell.end { background: var(--gold); }
+  .maze-cell.player { background: var(--cyan); animation: pulse 0.8s infinite; }
+
+  /* 图案序列 */
+  .sequence-display { display: flex; gap: 12px; justify-content: center; margin: 16px 0; }
+  .sequence-item { font-size: 2.5rem; animation: seqPop 0.3s ease-out; }
+  @keyframes seqPop { 0% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+  .pattern-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pattern-btn { padding: 16px; font-size: 2rem; border-radius: 12px; cursor: pointer; background: rgba(20,20,40,0.8); border: 2px solid rgba(212,168,83,0.2); transition: all 0.2s; }
+  .pattern-btn:hover { border-color: var(--gold); background: rgba(212,168,83,0.1); }
+  .pattern-btn.wrong { animation: shake 0.4s; border-color: #e74c3c; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 500px) {
+    .game-title { font-size: 2rem; }
+    .panel { padding: 16px; }
+    .layer-card { padding: 14px 8px; }
+    .layer-card .layer-num { font-size: 1.8rem; }
+    .level-btn { width: 90px; height: 90px; }
+    .story-box { padding: 24px; }
+    .story-box .story-title { font-size: 1.2rem; }
+    .btn { padding: 10px 20px; font-size: 0.85rem; }
+    .clear-anim-ring { width: 140px; height: 140px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+<button class="sound-toggle" id="soundToggle" title="音效开关">🔊</button>
+<div id="saveIndicator">💾 已保存</div>
+<div id="app"></div>
+<div id="storyOverlay" class="story-overlay hidden"></div>
+<div id="clearAnimOverlay"></div>
+<div id="modalOverlay" class="modal-overlay hidden"><div class="modal-box" id="modalBox"></div></div>
+
+<script>
+// ============================================================
+// 音效系统 (Web Audio API)
+// ============================================================
+const AudioFX = (() => {
+  let ctx = null;
+  let muted = false;
+  
+  function getCtx() {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function play(freq, type, duration, vol = 0.15, ramp = true) {
+    if (muted) return;
+    const c = getCtx();
+    if (!c) return;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, c.currentTime);
+    gain.gain.setValueAtTime(vol, c.currentTime);
+    if (ramp) gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
+    else gain.gain.setValueAtTime(0, c.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(c.currentTime);
+    osc.stop(c.currentTime + duration);
+  }
+
+  function playMelody(notes) {
+    if (muted) return;
+    const c = getCtx();
+    if (!c) return;
+    let t = c.currentTime;
+    notes.forEach(([freq, dur, vol = 0.12]) => {
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(t);
+      osc.stop(t + dur);
+      t += dur;
+    });
+  }
+
+  return {
+    muted: () => muted,
+    toggle() { muted = !muted; return muted; },
+    init() { getCtx(); },
+    click() { play(800, 'sine', 0.08, 0.1); },
+    pathWalk(step) {
+      const baseFreq = 300 + step * 50;
+      play(baseFreq, 'sine', 0.12, 0.1);
+      setTimeout(() => play(baseFreq * 1.5, 'sine', 0.08, 0.06), 60);
+    },
+    error() { play(150, 'square', 0.2, 0.08); },
+    levelClear() {
+      playMelody([
+        [523, 0.1], [659, 0.1], [784, 0.1], [1047, 0.2],
+        [784, 0.1], [1047, 0.3]
+      ]);
+    },
+    layerClear() {
+      playMelody([
+        [523, 0.12], [659, 0.12], [784, 0.12], [1047, 0.15],
+        [1319, 0.12], [1568, 0.15], [1047, 0.1], [1319, 0.1], [1568, 0.4]
+      ]);
+    },
+    fail() {
+      playMelody([
+        [400, 0.15], [350, 0.15], [300, 0.2], [200, 0.3]
+      ]);
+    },
+    storyOpen() { play(600, 'sine', 0.5, 0.06); },
+    buttonHover() { play(1000, 'sine', 0.05, 0.04); },
+    magicActivate() {
+      playMelody([
+        [440, 0.08], [554, 0.08], [659, 0.08], [880, 0.08],
+        [1109, 0.08], [1319, 0.08], [1760, 0.2]
+      ]);
+    },
+    puzzleClick() { play(600, 'sine', 0.1, 0.08); },
+    puzzleMatch() { playMelody([[523, 0.1], [659, 0.1], [784, 0.15]]); },
+    puzzleWrong() { play(200, 'triangle', 0.3, 0.08); }
+  };
+})();
+
+// 音效按钮
+const soundToggle = document.getElementById('soundToggle');
+soundToggle.addEventListener('click', () => {
+  AudioFX.init();
+  const muted = AudioFX.toggle();
+  soundToggle.textContent = muted ? '🔇' : '🔊';
+  soundToggle.classList.toggle('muted', muted);
+});
+
+// ============================================================
+// 保存指示器
+// ============================================================
+const saveIndicator = document.getElementById('saveIndicator');
+let saveTimeout;
+function showSaveIndicator() {
+  saveIndicator.classList.add('show');
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => saveIndicator.classList.remove('show'), 1500);
+}
+
+// ============================================================
+// 语音系统 (Web Speech API)
+// ============================================================
+const VoiceSystem = (() => {
+  let enabled = true;
+  let speaking = false;
+
+  function speak(text, rate = 0.9) {
+    if (!enabled || speaking || !window.speechSynthesis) return;
+    try {
+      speaking = true;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'zh-CN';
+      utter.rate = rate;
+      utter.pitch = 1;
+      utter.volume = 0.7;
+      utter.onend = () => { speaking = false; };
+      utter.onerror = () => { speaking = false; };
+      speechSynthesis.speak(utter);
+    } catch(e) { speaking = false; }
+  }
+
+  function stop() {
+    if (window.speechSynthesis) {
+      speechSynthesis.cancel();
+      speaking = false;
+    }
+  }
+
+  return {
+    speak, stop,
+    toggle() { enabled = !enabled; return enabled; },
+    get enabled() { return enabled; }
+  };
+})();
+
+// ============================================================
+// 粒子背景
+// ============================================================
+(function() {
+  const c = document.getElementById('particles');
+  const ctx = c.getContext('2d');
+  let pts = [];
+  function rs() { c.width = window.innerWidth; c.height = window.innerHeight; }
+  rs(); window.addEventListener('resize', rs);
+  class P {
+    constructor() { this.reset(); this.y = Math.random() * c.height; }
+    reset() { this.x = Math.random() * c.width; this.y = -10; this.s = Math.random() * 2 + 0.5; this.sp = Math.random() * 0.4 + 0.1; this.op = Math.random() * 0.5 + 0.1; this.dft = Math.random() * 0.3 - 0.15; }
+    up() { this.y += this.sp; this.x += this.dft; if (this.y > c.height + 10) this.reset(); if (this.x < -10) this.x = c.width + 10; if (this.x > c.width + 10) this.x = -10; }
+    draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.s, 0, Math.PI * 2); ctx.fillStyle = `rgba(212,168,83,${this.op})`; ctx.fill(); }
+  }
+  for (let i = 0; i < 80; i++) pts.push(new P());
+  (function anim() { ctx.clearRect(0, 0, c.width, c.height); pts.forEach(p => { p.up(); p.draw(); }); requestAnimationFrame(anim); })();
+})();
+
+// ============================================================
+// 8个独特一笔画结构（使用Hierholzer算法生成，确保欧拉图）
+// ============================================================
+const UNIQUE_GRAPHS = [
+  // 图1: K5 完全图 (5节点, 10边) - 欧拉图（所有节点度数=4，偶数）
+  { nodes:5, edges:[[0,1],[0,2],[0,3],[0,4],[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]], solution:[0,1,2,0,3,1,4,2,3,4,0] },
+  // 图2: 6节点环+跳1弦 (12边) - 每个节点度数=4
+  { nodes:6, edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,2],[2,4],[4,0],[1,3],[3,5],[5,1]], solution:[0,1,2,3,4,5,3,1,5,0,2,4,0] },
+  // 图3: 7节点环+跳1弦+直径 (15边) - 节点0,3度数=5(奇)，其余度数=4(偶) → 2个奇度，欧拉路径存在
+  { nodes:7, edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0],[0,2],[2,4],[4,6],[6,1],[1,3],[3,5],[5,0],[0,3]], solution:[0,1,2,3,4,5,6,0,2,4,6,1,3,5,0,3] },
+  // 图4: 8节点环+跳1弦 (16边) - 所有节点度数=4
+  { nodes:8, edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],[0,2],[2,4],[4,6],[6,0],[1,3],[3,5],[5,7],[7,1]], solution:[0,1,2,3,4,5,6,7,5,3,1,7,0,2,4,6,0] },
+  // 图5: 5节点不完全图 (9边) - 节点0,4度数=3(奇)，其余=4(偶) → 2个奇度
+  { nodes:5, edges:[[0,1],[0,2],[0,3],[0,4],[1,2],[1,3],[2,3],[2,4],[3,4]], solution:[1,0,2,1,3,0,4,2,3,4] },
+  // 图6: 6节点环+弦+直径 (13边) - 节点0,3度数=5(奇)，其余=4(偶) → 2个奇度
+  { nodes:6, edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,0],[0,2],[2,4],[4,0],[1,3],[3,5],[5,1],[0,3]], solution:[0,1,2,3,4,5,0,2,4,0,3,1,5,3] },
+  // 图7: 7节点环+跳1弦 (14边) - 所有节点度数=4
+  { nodes:7, edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0],[0,2],[2,4],[4,6],[6,1],[1,3],[3,5],[5,0]], solution:[0,1,2,3,4,5,6,0,2,4,6,1,3,5,0] },
+  // 图8: 8节点环+跳1弦+直径 (17边) - 节点0,4度数=5(奇)，其余=4(偶) → 2个奇度
+  { nodes:8, edges:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],[0,2],[2,4],[4,6],[6,0],[1,3],[3,5],[5,7],[7,1],[0,4]], solution:[0,1,2,3,4,5,6,7,5,3,1,7,0,2,4,6,0,4] }
+];
+
+// ============================================================
+// 解谜小游戏类型
+// ============================================================
+const PuzzleGames = {
+  // 类型1: 记忆翻牌（无限尝试）
+  memoryMatch: {
+    name: '记忆翻牌',
+    icon: '🃏',
+    init(container, onComplete, onFail) {
+      const emojis = ['⭐','🌙','🔥','💎','🍀','⚡','🦋','🌸'];
+      const pairs = [...emojis, ...emojis];
+      // Fisher-Yates shuffle
+      for (let i = pairs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pairs[i], pairs[j]] = [pairs[j], pairs[i]];
+      }
+      let flipped = [];
+      let matched = 0;
+      let locked = false;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">翻牌找到所有配对 · 无限尝试</p>
+          <div class="puzzle-grid" style="grid-template-columns:repeat(4,70px);" id="memGrid"></div>
+        </div>`;
+
+      const grid = container.querySelector('#memGrid');
+      pairs.forEach((emoji, idx) => {
+        const card = document.createElement('div');
+        card.className = 'memory-card';
+        card.dataset.emoji = emoji;
+        card.dataset.idx = idx;
+        card.innerHTML = `<div class="inner"><div class="front">?</div><div class="back">${emoji}</div></div>`;
+        card.addEventListener('click', () => {
+          if (locked || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+          AudioFX.puzzleClick();
+          card.classList.add('flipped');
+          flipped.push(card);
+          if (flipped.length === 2) {
+            locked = true;
+            if (flipped[0].dataset.emoji === flipped[1].dataset.emoji) {
+              AudioFX.puzzleMatch();
+              flipped.forEach(c => c.classList.add('matched'));
+              matched += 2;
+              flipped = [];
+              locked = false;
+              if (matched === pairs.length) {
+                setTimeout(() => onComplete(), 400);
+              }
+            } else {
+              AudioFX.puzzleWrong();
+              setTimeout(() => {
+                flipped.forEach(c => c.classList.remove('flipped'));
+                flipped = [];
+                locked = false;
+              }, 600);
+            }
+          }
+        });
+        grid.appendChild(card);
+      });
+    }
+  },
+
+  // 类型2: 滑动拼图（无限尝试）
+  slidingPuzzle: {
+    name: '滑动拼图',
+    icon: '🧩',
+    init(container, onComplete, onFail) {
+      // Create solvable 3x3 puzzle
+      const tiles = [1,2,3,4,5,6,7,8,0]; // 0 = empty
+      // Shuffle by making random moves from solved state (guarantees solvability)
+      let emptyIdx = 8;
+      for (let m = 0; m < 100; m++) {
+        const moves = [];
+        const row = Math.floor(emptyIdx / 3), col = emptyIdx % 3;
+        if (row > 0) moves.push(emptyIdx - 3);
+        if (row < 2) moves.push(emptyIdx + 3);
+        if (col > 0) moves.push(emptyIdx - 1);
+        if (col < 2) moves.push(emptyIdx + 1);
+        const swap = moves[Math.floor(Math.random() * moves.length)];
+        [tiles[emptyIdx], tiles[swap]] = [tiles[swap], tiles[emptyIdx]];
+        emptyIdx = swap;
+      }
+      let moves = 0;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">将数字按顺序排列 · 已走 <span id="slideMoves">0</span> 步</p>
+          <div class="puzzle-grid" style="grid-template-columns:repeat(3,70px);" id="slideGrid"></div>
+          <button class="btn btn-sm btn-magic" id="slideRetry" style="margin-top:10px;">🔄 打乱重来</button>
+        </div>`;
+
+      const grid = container.querySelector('#slideGrid');
+      function render() {
+        grid.innerHTML = '';
+        tiles.forEach((t, i) => {
+          const tile = document.createElement('div');
+          tile.className = 'puzzle-tile' + (t === 0 ? ' empty' : '');
+          tile.style.background = t === 0 ? 'transparent' : 'linear-gradient(135deg, #5b7fef, #7c3aed)';
+          tile.textContent = t === 0 ? '' : t;
+          if (t !== 0) {
+            tile.addEventListener('click', () => {
+              const ei = tiles.indexOf(0);
+              const row = Math.floor(ei / 3), col = ei % 3;
+              const tiRow = Math.floor(i / 3), tiCol = i % 3;
+              if (Math.abs(row - tiRow) + Math.abs(col - tiCol) === 1) {
+                AudioFX.puzzleClick();
+                [tiles[i], tiles[ei]] = [tiles[ei], tiles[i]];
+                moves++;
+                container.querySelector('#slideMoves').textContent = moves;
+                render();
+                if (tiles.join(',') === '1,2,3,4,5,6,7,8,0') {
+                  setTimeout(() => onComplete(), 300);
+                }
+              }
+            });
+          }
+          grid.appendChild(tile);
+        });
+      }
+      render();
+      
+      document.getElementById('slideRetry').addEventListener('click', () => {
+        AudioFX.puzzleClick();
+        // Reshuffle
+        let ei = tiles.indexOf(0);
+        for (let m = 0; m < 100; m++) {
+          const moves2 = [];
+          const row = Math.floor(ei / 3), col = ei % 3;
+          if (row > 0) moves2.push(ei - 3);
+          if (row < 2) moves2.push(ei + 3);
+          if (col > 0) moves2.push(ei - 1);
+          if (col < 2) moves2.push(ei + 1);
+          const swap = moves2[Math.floor(Math.random() * moves2.length)];
+          [tiles[ei], tiles[swap]] = [tiles[swap], tiles[ei]];
+          ei = swap;
+        }
+        moves = 0;
+        container.querySelector('#slideMoves').textContent = '0';
+        render();
+      });
+    }
+  },
+
+  // 类型3: 颜色匹配（无限尝试）
+  colorMatch: {
+    name: '色彩调和',
+    icon: '🎨',
+    init(container, onComplete, onFail) {
+      const targetR = Math.floor(Math.random() * 200) + 30;
+      const targetG = Math.floor(Math.random() * 200) + 30;
+      const targetB = Math.floor(Math.random() * 200) + 30;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">调配出目标颜色 · 无限尝试</p>
+          <div class="color-target" id="colTarget" style="background:rgb(${targetR},${targetG},${targetB});"></div>
+          <div style="margin:10px 0;">
+            <div class="color-slider-group"><label>R</label><input type="range" id="sliderR" min="0" max="255" value="128"></div>
+            <div class="color-slider-group"><label>G</label><input type="range" id="sliderG" min="0" max="255" value="128"></div>
+            <div class="color-slider-group"><label>B</label><input type="range" id="sliderB" min="0" max="255" value="128"></div>
+          </div>
+          <div style="width:80px;height:80px;border-radius:50%;margin:10px auto;border:3px solid rgba(255,255,255,0.2);" id="colPreview"></div>
+          <button class="btn btn-gold btn-sm" id="colSubmit">确认调配</button>
+        </div>`;
+
+      function updatePreview() {
+        const r = +document.getElementById('sliderR').value;
+        const g = +document.getElementById('sliderG').value;
+        const b = +document.getElementById('sliderB').value;
+        document.getElementById('colPreview').style.background = `rgb(${r},${g},${b})`;
+      }
+      ['sliderR','sliderG','sliderB'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updatePreview);
+      });
+      updatePreview();
+
+      document.getElementById('colSubmit').addEventListener('click', () => {
+        const r = +document.getElementById('sliderR').value;
+        const g = +document.getElementById('sliderG').value;
+        const b = +document.getElementById('sliderB').value;
+        const diff = Math.abs(r - targetR) + Math.abs(g - targetG) + Math.abs(b - targetB);
+        if (diff < 40) {
+          AudioFX.puzzleMatch();
+          onComplete();
+        } else {
+          AudioFX.puzzleWrong();
+          // 无限尝试，给出提示
+          const hint = [];
+          if (Math.abs(r - targetR) > 30) hint.push('红色' + (r < targetR ? '太暗' : '太亮'));
+          if (Math.abs(g - targetG) > 30) hint.push('绿色' + (g < targetG ? '太暗' : '太亮'));
+          if (Math.abs(b - targetB) > 30) hint.push('蓝色' + (b < targetB ? '太暗' : '太亮'));
+          const el = container.querySelector('#colSubmit');
+          el.textContent = hint.length ? '❌ ' + hint.join('，') : '❌ 接近了，再试试！';
+          el.style.background = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+          setTimeout(() => {
+            el.textContent = '确认调配';
+            el.style.background = '';
+          }, 1500);
+        }
+      });
+    }
+  },
+
+  // 类型4: 迷宫（无限尝试）
+  mazeRunner: {
+    name: '迷宫逃脱',
+    icon: '🏃',
+    init(container, onComplete, onFail) {
+      const size = 7;
+      // Simple maze generation using recursive backtracking
+      const maze = Array(size).fill(null).map(() => Array(size).fill(1));
+      function carve(x, y) {
+        maze[y][x] = 0;
+        const dirs = [[0,-2],[2,0],[0,2],[-2,0]];
+        // Shuffle
+        for (let i = dirs.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+        }
+        for (const [dx, dy] of dirs) {
+          const nx = x + dx, ny = y + dy;
+          if (nx > 0 && nx < size - 1 && ny > 0 && ny < size - 1 && maze[ny][nx] === 1) {
+            maze[y + dy/2][x + dx/2] = 0;
+            carve(nx, ny);
+          }
+        }
+      }
+      carve(1, 1);
+      maze[1][1] = 2; // start
+      maze[size-2][size-2] = 3; // end
+      let px = 1, py = 1;
+      let steps = 0;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">用方向键或点击移动 · 已走 <span id="mazeSteps">0</span> 步</p>
+          <div class="puzzle-grid" style="grid-template-columns:repeat(${size},40px);" id="mazeGrid"></div>
+          <div style="display:flex;gap:4px;margin-top:8px;">
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;" id="mzUp">↑</button>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;" id="mzLeft">←</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;" id="mzDown">↓</button>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;" id="mzRight">→</button>
+          </div>
+          <button class="btn btn-sm btn-magic" id="mzRetry" style="margin-top:8px;">🔄 回到起点</button>
+        </div>`;
+
+      const grid = container.querySelector('#mazeGrid');
+      function render() {
+        grid.innerHTML = '';
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const cell = document.createElement('div');
+            cell.className = 'maze-cell';
+            if (maze[y][x] === 1) cell.classList.add('wall');
+            else if (maze[y][x] === 2) cell.classList.add('start');
+            else if (maze[y][x] === 3) cell.classList.add('end');
+            if (x === px && y === py && maze[y][x] !== 3) cell.classList.add('player');
+            grid.appendChild(cell);
+          }
+        }
+      }
+
+      function move(dx, dy) {
+        const nx = px + dx, ny = py + dy;
+        if (nx < 0 || nx >= size || ny < 0 || ny >= size || maze[ny][nx] === 1) return;
+        AudioFX.puzzleClick();
+        px = nx; py = ny;
+        steps++;
+        container.querySelector('#mazeSteps').textContent = steps;
+        render();
+        if (maze[ny][nx] === 3) {
+          setTimeout(() => onComplete(), 300);
+        }
+      }
+
+      render();
+      document.getElementById('mzUp').addEventListener('click', () => move(0, -1));
+      document.getElementById('mzDown').addEventListener('click', () => move(0, 1));
+      document.getElementById('mzLeft').addEventListener('click', () => move(-1, 0));
+      document.getElementById('mzRight').addEventListener('click', () => move(1, 0));
+      document.getElementById('mzRetry').addEventListener('click', () => {
+        AudioFX.puzzleClick();
+        px = 1; py = 1; steps = 0;
+        container.querySelector('#mazeSteps').textContent = '0';
+        render();
+      });
+
+      // Keyboard controls
+      const keyHandler = (e) => {
+        switch(e.key) {
+          case 'ArrowUp': e.preventDefault(); move(0, -1); break;
+          case 'ArrowDown': e.preventDefault(); move(0, 1); break;
+          case 'ArrowLeft': e.preventDefault(); move(-1, 0); break;
+          case 'ArrowRight': e.preventDefault(); move(1, 0); break;
+        }
+      };
+      document.addEventListener('keydown', keyHandler);
+      container._cleanup = () => document.removeEventListener('keydown', keyHandler);
+    },
+    cleanup(container) { if (container._cleanup) container._cleanup(); }
+  },
+
+  // 类型5: 图案序列记忆（无限尝试）
+  patternMemory: {
+    name: '序列记忆',
+    icon: '🧠',
+    init(container, onComplete, onFail) {
+      const symbols = ['⭐','🌙','🔥','💎','🍀','⚡','🦋','🌸','🎵'];
+      const sequence = [];
+      const seqLen = 6;
+      for (let i = 0; i < seqLen; i++) {
+        sequence.push(symbols[Math.floor(Math.random() * symbols.length)]);
+      }
+      let userIdx = 0;
+      let showingSequence = true;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">记住图案序列然后复现 · 无限尝试</p>
+          <div class="sequence-display" id="seqDisplay">
+            ${sequence.map(() => '<span class="sequence-item">❓</span>').join('')}
+          </div>
+          <div class="pattern-buttons" id="patBtns"></div>
+          <p style="color:#888;font-size:0.8rem;" id="patStatus">正在展示序列...</p>
+          <button class="btn btn-sm btn-magic hidden" id="patRetry">🔄 再看一遍</button>
+        </div>`;
+
+      const btnsDiv = container.querySelector('#patBtns');
+      symbols.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'pattern-btn';
+        btn.textContent = s;
+        btn.addEventListener('click', () => {
+          if (showingSequence) return;
+          AudioFX.puzzleClick();
+          if (s === sequence[userIdx]) {
+            userIdx++;
+            const items = container.querySelectorAll('.sequence-item');
+            if (items[userIdx - 1]) items[userIdx - 1].textContent = s;
+            if (userIdx === seqLen) {
+              AudioFX.puzzleMatch();
+              setTimeout(() => onComplete(), 400);
+            }
+          } else {
+            AudioFX.puzzleWrong();
+            btn.classList.add('wrong');
+            setTimeout(() => btn.classList.remove('wrong'), 400);
+            // Reset and show sequence again
+            userIdx = 0;
+            showingSequence = true;
+            const items = container.querySelectorAll('.sequence-item');
+            items.forEach(item => item.textContent = '❓');
+            container.querySelector('#patStatus').textContent = '记错了……再看一遍！';
+            setTimeout(() => {
+              let si = 0;
+              function resh() {
+                if (si < seqLen) { items[si].textContent = sequence[si]; si++; setTimeout(resh, 500); }
+                else {
+                  setTimeout(() => { items.forEach(item => item.textContent = '❓'); showingSequence = false; container.querySelector('#patStatus').textContent = '请按顺序点击图案！'; }, 800);
+                }
+              }
+              resh();
+            }, 800);
+          }
+        });
+        btnsDiv.appendChild(btn);
+      });
+
+      // Show sequence one by one
+      const items = container.querySelectorAll('.sequence-item');
+      let showIdx = 0;
+      function showNext() {
+        if (showIdx < seqLen) {
+          items[showIdx].textContent = sequence[showIdx];
+          showIdx++;
+          setTimeout(showNext, 500);
+        } else {
+          // Hide after a moment
+          setTimeout(() => {
+            items.forEach(item => item.textContent = '❓');
+            showingSequence = false;
+            container.querySelector('#patStatus').textContent = '请按顺序点击图案！';
+            container.querySelector('#patRetry').classList.remove('hidden');
+          }, 800);
+        }
+      }
+      setTimeout(showNext, 500);
+
+      container.querySelector('#patRetry').addEventListener('click', () => {
+        if (showingSequence) return;
+        AudioFX.puzzleClick();
+        showingSequence = true;
+        userIdx = 0;
+        const its = container.querySelectorAll('.sequence-item');
+        its.forEach(item => item.textContent = '❓');
+        container.querySelector('#patStatus').textContent = '正在展示序列...';
+        container.querySelector('#patRetry').classList.add('hidden');
+        let si2 = 0;
+        function resh2() {
+          if (si2 < seqLen) { its[si2].textContent = sequence[si2]; si2++; setTimeout(resh2, 500); }
+          else {
+            setTimeout(() => {
+              its.forEach(item => item.textContent = '❓');
+              showingSequence = false;
+              container.querySelector('#patStatus').textContent = '请按顺序点击图案！';
+              container.querySelector('#patRetry').classList.remove('hidden');
+            }, 800);
+          }
+        }
+        resh2();
+      });
+    }
+  }
+  ,
+
+  // 类型6: 幸运骰子 — 超简单，点击骰子看运气
+  luckyDice: {
+    name: '幸运骰子',
+    icon: '🎲',
+    init(container, onComplete, onFail) {
+      const targetFace = Math.floor(Math.random() * 6) + 1;
+      const faceEmojis = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+      let rolling = false;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">掷出 <span style="font-size:1.5rem;">${faceEmojis[targetFace]}</span> 即可过关！</p>
+          <div style="font-size:6rem;margin:20px 0;transition:transform 0.1s;cursor:pointer;user-select:none;" id="diceFace">🎲</div>
+          <p style="color:#888;font-size:0.85rem;">点击骰子🎲来掷骰</p>
+        </div>`;
+
+      const diceEl = container.querySelector('#diceFace');
+      diceEl.addEventListener('click', () => {
+        if (rolling) return;
+        rolling = true;
+        AudioFX.puzzleClick();
+        // Roll animation
+        let count = 0;
+        const maxRolls = 8;
+        const rollInterval = setInterval(() => {
+          const rnd = Math.floor(Math.random() * 6) + 1;
+          diceEl.textContent = faceEmojis[rnd];
+          diceEl.style.transform = `rotate(${Math.random()*30-15}deg) scale(1.1)`;
+          count++;
+          if (count >= maxRolls) {
+            clearInterval(rollInterval);
+            diceEl.style.transform = 'rotate(0deg) scale(1)';
+            const result = Math.floor(Math.random() * 6) + 1;
+            diceEl.textContent = faceEmojis[result];
+            rolling = false;
+            if (result === targetFace) {
+              AudioFX.puzzleMatch();
+              diceEl.style.color = 'var(--green)';
+              setTimeout(() => onComplete(), 600);
+            } else {
+              AudioFX.puzzleWrong();
+              diceEl.style.color = '#e74c3c';
+              setTimeout(() => { diceEl.style.color = ''; }, 500);
+            }
+          }
+        }, 100);
+      });
+    }
+  },
+
+  // 类型7: 点灯游戏 — 超简单，点亮所有灯
+  lightUp: {
+    name: '点亮星灯',
+    icon: '💡',
+    init(container, onComplete, onFail) {
+      const totalLights = 5;
+      let litCount = 0;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">点亮所有 <b>${totalLights}</b> 盏星灯！</p>
+          <div style="display:flex;gap:16px;justify-content:center;margin:20px 0;flex-wrap:wrap;" id="lightsRow"></div>
+          <p style="color:#888;font-size:0.85rem;">依次点击每盏灯来点亮它们 ✨</p>
+        </div>`;
+
+      const row = container.querySelector('#lightsRow');
+      const states = Array(totalLights).fill(false);
+      
+      function render() {
+        row.innerHTML = '';
+        states.forEach((lit, i) => {
+          const lamp = document.createElement('div');
+          lamp.style.cssText = `
+            width:60px;height:80px;border-radius:50% 50% 30% 30%;
+            background:${lit ? 'linear-gradient(180deg, #f0d78c 0%, #d4a853 50%, #b8860b 100%)' : 'linear-gradient(180deg, #333 0%, #1a1a2e 50%, #111 100%)'};
+            box-shadow:${lit ? '0 0 30px rgba(240,215,140,0.8), 0 0 60px rgba(212,168,83,0.4)' : '0 4px 8px rgba(0,0,0,0.5)'};
+            cursor:pointer;transition:all 0.3s;
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.5rem;
+          `;
+          lamp.textContent = lit ? '✨' : '💡';
+          lamp.addEventListener('click', () => {
+            if (states[i]) return;
+            AudioFX.puzzleClick();
+            states[i] = true;
+            litCount++;
+            render();
+            if (litCount === totalLights) {
+              AudioFX.puzzleMatch();
+              setTimeout(() => onComplete(), 400);
+            }
+          });
+          row.appendChild(lamp);
+        });
+      }
+      render();
+    }
+  },
+
+  // 类型8: 猜数字 — 超简单，1-20猜数字
+  guessNumber: {
+    name: '数字占卜',
+    icon: '🔢',
+    init(container, onComplete, onFail) {
+      const answer = Math.floor(Math.random() * 20) + 1;
+      let attempts = 0;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">猜一个 1~20 之间的数字 🔮</p>
+          <div style="margin:16px 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;" id="guessBtns"></div>
+          <p style="color:#888;font-size:0.85rem;min-height:1.5em;" id="guessHint">请选择一个数字</p>
+        </div>`;
+
+      const btnsDiv = container.querySelector('#guessBtns');
+      const hintEl = container.querySelector('#guessHint');
+      
+      for (let i = 1; i <= 20; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm';
+        btn.style.cssText = 'width:42px;height:42px;padding:0;background:rgba(91,127,239,0.2);border:1px solid rgba(91,127,239,0.3);color:var(--text);border-radius:8px;cursor:pointer;font-size:0.85rem;';
+        btn.textContent = i;
+        btn.addEventListener('click', () => {
+          AudioFX.puzzleClick();
+          attempts++;
+          if (i === answer) {
+            AudioFX.puzzleMatch();
+            btn.style.background = 'var(--green)';
+            btn.style.color = '#fff';
+            hintEl.innerHTML = `🎉 猜对了！就是 <b>${answer}</b>（猜了${attempts}次）`;
+            // Disable all buttons
+            btnsDiv.querySelectorAll('button').forEach(b => b.disabled = true);
+            setTimeout(() => onComplete(), 800);
+          } else if (i < answer) {
+            btn.style.opacity = '0.3';
+            btn.disabled = true;
+            hintEl.innerHTML = `📈 <b>${i}</b> 太小了，往大猜！`;
+          } else {
+            btn.style.opacity = '0.3';
+            btn.disabled = true;
+            hintEl.innerHTML = `📉 <b>${i}</b> 太大了，往小猜！`;
+          }
+        });
+        btnsDiv.appendChild(btn);
+      }
+    }
+  },
+
+  // 类型9: 快速点击 — 超简单，在星星消失前点击
+  quickTap: {
+    name: '追星逐月',
+    icon: '⭐',
+    init(container, onComplete, onFail) {
+      const totalTargets = 5;
+      let caught = 0;
+      let timeout = null;
+
+      container.innerHTML = `
+        <div class="puzzle-container">
+          <p style="color:var(--cyan);">抓住 <b>${totalTargets}</b> 颗流星！已抓：<span id="caughtCount">0</span></p>
+          <div style="position:relative;width:100%;height:300px;background:rgba(10,10,30,0.5);border-radius:16px;overflow:hidden;cursor:crosshair;" id="tapArea">
+            <p style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#555;pointer-events:none;" id="tapHint">点击出现的星星 ⭐</p>
+          </div>
+        </div>`;
+
+      const area = container.querySelector('#tapArea');
+      const caughtEl = container.querySelector('#caughtCount');
+      const hintEl = container.querySelector('#tapHint');
+
+      function spawnStar() {
+        if (caught >= totalTargets) return;
+        hintEl.textContent = '';
+        const star = document.createElement('div');
+        const x = 20 + Math.random() * (area.clientWidth - 60);
+        const y = 20 + Math.random() * (area.clientHeight - 60);
+        const size = 40 + Math.random() * 20;
+        star.style.cssText = `
+          position:absolute;left:${x}px;top:${y}px;
+          width:${size}px;height:${size}px;
+          font-size:${size-8}px;
+          line-height:${size}px;text-align:center;
+          cursor:pointer;user-select:none;
+          animation: starPop 0.3s ease-out;
+          z-index:10;
+        `;
+        star.textContent = '⭐';
+        star.addEventListener('click', (e) => {
+          e.stopPropagation();
+          AudioFX.puzzleClick();
+          caught++;
+          caughtEl.textContent = caught;
+          star.remove();
+          clearTimeout(timeout);
+          if (caught >= totalTargets) {
+            AudioFX.puzzleMatch();
+            hintEl.textContent = '全部抓住！';
+            setTimeout(() => onComplete(), 500);
+          } else {
+            setTimeout(spawnStar, 400 + Math.random() * 600);
+          }
+        });
+        area.appendChild(star);
+        // Auto-disappear after 3 seconds
+        timeout = setTimeout(() => {
+          if (star.parentNode) {
+            star.remove();
+            setTimeout(spawnStar, 300);
+          }
+        }, 3000);
+      }
+
+      // Add keyframe
+      if (!document.getElementById('starPopStyle')) {
+        const style = document.createElement('style');
+        style.id = 'starPopStyle';
+        style.textContent = '@keyframes starPop{0%{transform:scale(0)rotate(-180deg);opacity:0}100%{transform:scale(1)rotate(0deg);opacity:1}}';
+        document.head.appendChild(style);
+      }
+
+      setTimeout(spawnStar, 500);
+    }
+  }
+};
+
+// ============================================================
+// 关卡数据: 每层 1 个独特一笔画 + 2 个解谜小游戏
+// ============================================================
+const LAYER_DATA = [
+  {
+    id:1, name:'秘境大厅', icon:'🏛️',
+    story:{
+      intro:{ title:'第一章 · 秘境大厅', text:'风之大陆的中央，矗立着一座由远古魔法构筑的秘境大厅。千年来，它静静等待着被选中的勇者。大厅的四壁镶嵌着星辰碎片，每当风吹过，便会奏响古老的乐章。\n\n一位白发老者从光影中显现，他手持水晶法杖，眼中闪烁着千年的智慧。"勇者啊，风之试炼已经开启。唯有通过全部八层考验，方能唤醒沉睡的风之精灵，阻止黑暗领主吞噬这片大陆。"', speaker:'——秘境守护者 · 埃尔文', icon:'🏛️', voice:true },
+      clear:{ title:'秘境大厅 · 通过！', text:'秘境大厅的魔法阵逐渐亮起，璀璨的光芒中，一扇通往下一层的传送门缓缓开启。埃尔文微微颔首："不错，但这仅仅是开始。真正的试炼，还在前方等待着你。"', speaker:'——秘境守护者 · 埃尔文', icon:'✨', voice:true }
+    },
+    levels:[
+      { id:'1-1', type:'stroke', graphIdx:0, name:'星辉之路', hint:'五颗星辰碎片悬浮于大厅穹顶，彼此间闪烁着古老的共鸣之光。埃尔文说，这是风之精灵留下的第一道印记。', clearAnim:'star' },
+      { id:'1-2', type:'puzzle', puzzleType:'memoryMatch', name:'记忆之泉', hint:'大厅中央的魔法泉水倒映着星空的图案。只有记住这些图案的勇者，才能通过水之试炼。', clearAnim:'water' },
+      { id:'1-3', type:'puzzle', puzzleType:'luckyDice', name:'命运骰子', hint:'埃尔文取出一枚古老的魔法骰子。"命运女神眷顾勇者。掷出她想要的点数，你便能通过。"', clearAnim:'dice' }
+    ]
+  },
+  {
+    id:2, name:'僵尸危机', icon:'🧟',
+    story:{
+      intro:{ title:'第二章 · 僵尸危机', text:'穿过传送门，眼前是一片被诅咒的荒芜之地。腐化的气息弥漫在空气中，地面爬满了暗紫色的藤蔓。亡灵法师莫格雷斯曾是一位伟大的守护者，却被黑暗力量侵蚀，将整片区域的生灵变成了僵尸。\n\n"活着的东西……都该死……"低沉的呢喃从地底传来。你必须用一笔画的魔法阵净化这片土地，解开莫格雷斯的诅咒，让亡灵得以安息。', speaker:'——亡灵法师 · 莫格雷斯', icon:'🧟', voice:true },
+      clear:{ title:'僵尸危机 · 净化！', text:'魔法阵的光芒驱散了腐化的气息。莫格雷斯的灵魂终于从黑暗中解脱，他露出了一丝微笑，化作点点星光升向天空。"谢谢你，勇者……我终于可以……安息了……"', speaker:'——亡灵法师 · 莫格雷斯（已净化）', icon:'💀✨', voice:true }
+    },
+    levels:[
+      { id:'2-1', type:'stroke', graphIdx:1, name:'六芒净化阵', hint:'六道腐化的魔法节点在荒原上闪烁。每一道节点之间的连线都是一条被诅咒的灵魂锁链，你需要将它们全部激活。', clearAnim:'purify' },
+      { id:'2-2', type:'puzzle', puzzleType:'mazeRunner', name:'亡灵迷宫', hint:'莫格雷斯的怨念在荒原上凝聚成了一座不断变化的迷宫。在步数耗尽之前找到出口，否则将被永远困在其中。', clearAnim:'shadow' },
+      { id:'2-3', type:'puzzle', puzzleType:'lightUp', name:'亡灵安息', hint:'五盏灵魂之灯环绕在净化法阵周围。点亮它们，让亡灵们找到通往安息之地的路。', clearAnim:'light' }
+    ]
+  },
+  {
+    id:3, name:'奇石迷阵', icon:'🗿',
+    story:{
+      intro:{ title:'第三章 · 奇石迷阵', text:'风带着你来到一片石林，巨大的石柱如巨人般矗立，每一根石柱上都刻满了古老的符文。这里是远古石灵族的圣地，他们用这些石柱建造了一座巨大的迷阵，用来考验来访者的智慧。\n\n石柱之间流动着荧蓝色的魔法能量，只有用一笔画连接所有能量线，迷阵才会为你开启出路。石灵长老的声音在石柱间回荡："智慧与耐心，是破解迷阵的唯一钥匙。"', speaker:'——石灵长老 · 磐岩', icon:'🗿', voice:true },
+      clear:{ title:'奇石迷阵 · 破解！', text:'石柱上的符文依次亮起，巨大的石阵缓缓转动，为你让出一条通路。磐岩长老的声音中带着赞许："你的智慧如风一般灵动。去吧，后面的试炼将更加艰难。"', speaker:'——石灵长老 · 磐岩', icon:'🪨✨', voice:true }
+    },
+    levels:[
+      { id:'3-1', type:'stroke', graphIdx:2, name:'七柱迷阵', hint:'七根石柱环绕成阵，石灵族的古老符文在柱身闪烁。磐岩长老说，只有连接所有符文之线的人，才能看到隐藏的第八根天柱。', clearAnim:'maze' },
+      { id:'3-2', type:'puzzle', puzzleType:'patternMemory', name:'符文序列', hint:'石柱上的符文按照古老的顺序依次亮起。记住这个序列——它是石灵族传承千年的秘密之语。', clearAnim:'rune' },
+      { id:'3-3', type:'puzzle', puzzleType:'guessNumber', name:'石灵预言', hint:'磐岩长老在石板上刻下了一个神秘的数字。"猜出这个数字，它将揭示你接下来的命运。"', clearAnim:'number' }
+    ]
+  },
+  {
+    id:4, name:'无尽深渊', icon:'🕳️',
+    story:{
+      intro:{ title:'第四章 · 无尽深渊', text:'脚下一空，你坠入了无底的深渊。四周是无尽的黑暗，只有偶尔飘过的幽蓝色灵魂碎片提供微弱的光芒。深渊之主——一头巨大的虚空龙，在这片黑暗中沉睡了万年。\n\n"凡人……你竟敢闯入我的领域……"虚空龙的声音如同雷鸣，震得深渊都在颤抖。深渊中悬浮着无数魔法平台，你必须在它们之间画出一条完整的路径，才能唤醒虚空龙并击败它。', speaker:'——虚空龙 · 尼德霍格', icon:'🐉', voice:true },
+      clear:{ title:'无尽深渊 · 征服！', text:'虚空龙被你的勇气所震撼，它低下头颅，用低沉的声音说道："你是第一个让我心悦诚服的凡人。带上我的祝福，去面对更深层的黑暗吧。"龙之祝福化作一道流光，融入你的体内。', speaker:'——虚空龙 · 尼德霍格', icon:'🐉✨', voice:true }
+    },
+    levels:[
+      { id:'4-1', type:'stroke', graphIdx:3, name:'八荒龙阵', hint:'虚空龙的鳞片化为八道魔法节点悬浮在深渊中。龙息在节点间流动，形成了错综复杂的魔力网络——这就是传说中的八荒龙阵。', clearAnim:'dragon' },
+      { id:'4-2', type:'puzzle', puzzleType:'memoryMatch', name:'龙鳞记忆', hint:'虚空龙抖落了十六片闪烁着幽光的龙鳞。每一片龙鳞都映照着深渊中的一段记忆，找到它们之间的配对。', clearAnim:'void' },
+      { id:'4-3', type:'puzzle', puzzleType:'quickTap', name:'深渊流星', hint:'虚空龙打了个哈欠，龙息化作流星在深渊中飞窜。"抓住它们——这些是我梦境中散落的碎片。"', clearAnim:'meteor' }
+    ]
+  },
+  {
+    id:5, name:'恐怖深海', icon:'🌊',
+    story:{
+      intro:{ title:'第五章 · 恐怖深海', text:'深渊底部竟是一片汪洋！你被卷入深海之中，周围是散发着荧光的深海植物和不知名的巨大生物。深海女王塞壬娜统治着这片水域，她的歌声能让任何生物迷失方向。\n\n"又一个迷失的灵魂……来吧，听听我的歌声……"塞壬娜的声音在水中传播，带着致命的诱惑。你必须在海床上画出魔法阵，抵御她的魅惑之音，找到通往下一层的漩涡之门。', speaker:'——深海女王 · 塞壬娜', icon:'🧜‍♀️', voice:true },
+      clear:{ title:'恐怖深海 · 突破！', text:'塞壬娜的歌声戛然而止。她惊讶地发现，你的意志坚不可摧。"真是有趣的人类……我已经很久没有遇到像你这样的勇者了。"她挥动三叉戟，为你打开了通往下一层的漩涡。', speaker:'——深海女王 · 塞壬娜', icon:'🌊✨', voice:true }
+    },
+    levels:[
+      { id:'5-1', type:'stroke', graphIdx:4, name:'五潮之约', hint:'五道洋流在深海交汇，形成了塞壬娜的五潮封印。她轻笑着："画完这条线，我就让你通过——如果你能抗拒我的歌声的话。"', clearAnim:'whirlpool' },
+      { id:'5-2', type:'puzzle', puzzleType:'colorMatch', name:'珊瑚之色', hint:'深海的珊瑚失去了颜色——那是塞壬娜悲伤的诅咒。找到珊瑚原本的颜色，让深海重新焕发光彩。', clearAnim:'coral' },
+      { id:'5-3', type:'puzzle', puzzleType:'luckyDice', name:'潮汐骰运', hint:'塞壬娜将一枚贝壳骰子抛入水中。"海潮的涨落由命运决定——就像这枚骰子。掷出命运之数吧。"', clearAnim:'shell' }
+    ]
+  },
+  {
+    id:6, name:'暗夜草原', icon:'🌙',
+    story:{
+      intro:{ title:'第六章 · 暗夜草原', text:'穿过漩涡，你来到一片广袤的草原。但这里的天空永远是夜晚，繁星如钻石般洒满苍穹。草原上生活着月影狼族，他们是风的子民，却因黑暗领主的诅咒而无法在白天现身。\n\n狼王阿尔法从狼群中走出，他的眼中闪烁着月光："陌生人，你身上有风的气息。如果你能通过我们的试炼，月影狼族将成为你最忠实的盟友。"', speaker:'——狼王 · 阿尔法', icon:'🐺', voice:true },
+      clear:{ title:'暗夜草原 · 结盟！', text:'狼王仰天长啸，群狼齐声应和，月光变得更加明亮。阿尔法走到你面前，低下头颅："从今往后，月影狼族与你同在。让风指引我们共同的征途！"', speaker:'——狼王 · 阿尔法', icon:'🐺✨', voice:true }
+    },
+    levels:[
+      { id:'6-1', type:'stroke', graphIdx:5, name:'月影六芒', hint:'六道月光穿过云层，在草原上投下了六芒星的影子。狼王说，月影狼族的先祖曾在这六芒星下立下永恒的誓言。', clearAnim:'moon' },
+      { id:'6-2', type:'puzzle', puzzleType:'slidingPuzzle', name:'狼群阵列', hint:'狼群在月光下排列成了古老的狩猎阵型。但黑暗诅咒打乱了它们的阵列，帮它们恢复阵型，赢得狼群的信任。', clearAnim:'wolf' },
+      { id:'6-3', type:'puzzle', puzzleType:'lightUp', name:'月夜星灯', hint:'月光下，五盏星灯散落在草原各处。狼王说，点亮它们，月影狼族的先祖之魂将为你照亮前路。', clearAnim:'lamp' }
+    ]
+  },
+  {
+    id:7, name:'黄金深坑', icon:'⛏️',
+    story:{
+      intro:{ title:'第七章 · 黄金深坑', text:'草原的尽头是一个巨大的矿坑，深不见底。坑壁上镶嵌着无数黄金和宝石，闪烁着令人目眩的光芒。但这里也是贪婪之龙戈尔德的巢穴，它收集了整个大陆的财富，并用魔法将它们变成了致命的陷阱。\n\n"哈哈哈！又一个想来偷我宝藏的虫子！"戈尔德的咆哮震得黄金碎片纷纷落下。黄金虽然耀眼，但每一块都可能触发致命的魔法陷阱。你需要用一笔画激活安全通路，深入坑底。', speaker:'——贪婪之龙 · 戈尔德', icon:'💰', voice:true },
+      clear:{ title:'黄金深坑 · 征服！', text:'戈尔德看着你毫发无伤地到达坑底，难以置信地眨着眼睛。"不可能……我的陷阱是完美的！"但它随即大笑起来："有趣！太有趣了！拿去吧，这些黄金对我来说不过是玩具。真正的财富是你的勇气。"', speaker:'——贪婪之龙 · 戈尔德', icon:'💎✨', voice:true }
+    },
+    levels:[
+      { id:'7-1', type:'stroke', graphIdx:6, name:'七星金环', hint:'七枚黄金齿轮在深坑中缓缓转动，它们之间延伸出十四条金色的魔力锁链。戈尔德得意地说，从没有人能一次走完所有的锁链。', clearAnim:'gold' },
+      { id:'7-2', type:'puzzle', puzzleType:'mazeRunner', name:'宝石矿道', hint:'黄金深坑的矿道错综复杂，每一面墙都镶嵌着价值连城的宝石。但戈尔德在其中布下了无数陷阱——快找到出路！', clearAnim:'gem' },
+      { id:'7-3', type:'puzzle', puzzleType:'guessNumber', name:'宝藏密码', hint:'戈尔德的金库大门上有一个数字锁。"猜出密码，这些黄金就是你的——反正它们对我而言只是玩具。"戈尔德咧嘴笑道。', clearAnim:'code' }
+    ]
+  },
+  {
+    id:8, name:'深暗之域', icon:'🌑',
+    story:{
+      intro:{ title:'终章 · 深暗之域', text:'终于，你来到了黑暗领主的领域。这里没有光，没有声音，只有纯粹的黑暗。黑暗领主艾瑞波斯——一切诅咒的源头——在虚空中睁开了眼睛，那是一双比黑暗更深的眼睛。\n\n"你终于来了……风之勇者……"艾瑞波斯的声音不带任何感情，"我等待这一刻已经千年。来吧，完成最后的试炼。如果你失败，整个大陆将永远沉入黑暗。"', speaker:'——黑暗领主 · 艾瑞波斯', icon:'👁️', voice:true },
+      clear:{ title:'深暗之域 · 光复！', text:'当最后一笔落下，整个深暗之域开始崩塌——不，是在重生！黑暗碎裂成无数碎片，璀璨的光芒从裂缝中迸发。艾瑞波斯的身形消散在光芒中，留下的只有一声叹息："原来……光明的滋味……如此温暖……"\n\n风之精灵从沉睡中苏醒，她张开翅膀，将光芒洒向整个大陆。你完成了所有试炼，成为了传说中的风之勇者。大陆上的每一个生灵都会记住这一天。', speaker:'——风之精灵 · 希尔芙', icon:'🧚✨', voice:true }
+    },
+    levels:[
+      { id:'8-1', type:'stroke', graphIdx:7, name:'终焉八芒星', hint:'黑暗领主在虚空中刻下了八芒星的终极封印。这是最复杂的魔法阵——十七道黑暗锁链纵横交错，一笔定乾坤。', clearAnim:'final' },
+      { id:'8-2', type:'puzzle', puzzleType:'patternMemory', name:'虚空低语', hint:'艾瑞波斯在黑暗中低语，一串古老的咒文从他的口中飘出，化作发光的符文序列。记住它——这是打开光明之门的钥匙。', clearAnim:'dark' },
+      { id:'8-3', type:'puzzle', puzzleType:'quickTap', name:'光明余烬', hint:'黑暗中，最后的光明碎片化作流星在虚空中飞舞。抓住它们——这是唤醒风之精灵的最后希望。', clearAnim:'spark' }
+    ]
+  }
+];
+
+// ============================================================
+// 游戏状态管理
+// ============================================================
+const STATE_KEY = 'feng_stroke_save_v4';
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return { currentLayer:0, layerProgress:{}, currentLevel:null, hearts:3, unlockedLayer:1, completedLayers:[], firstTime:true };
+}
+
+function saveState(s) {
+  localStorage.setItem(STATE_KEY, JSON.stringify(s));
+  showSaveIndicator();
+}
+
+let G = loadState();
+
+// ============================================================
+// UI 辅助函数
+// ============================================================
+const app = document.getElementById('app');
+const storyOverlay = document.getElementById('storyOverlay');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalBox = document.getElementById('modalBox');
+const clearAnimOverlay = document.getElementById('clearAnimOverlay');
+
+function showStory(data, onClose) {
+  AudioFX.storyOpen();
+  storyOverlay.innerHTML = `
+    <div class="story-box">
+      <div class="story-icon">${data.icon}</div>
+      <div class="story-title">${data.title}</div>
+      <div class="story-text">${data.text.replace(/\n/g, '<br>')}</div>
+      <div class="story-speaker">${data.speaker}</div>
+      <button class="btn btn-gold" id="storyContinue">继 续</button>
+    </div>
+  `;
+  storyOverlay.classList.remove('hidden');
+  document.getElementById('storyContinue').addEventListener('click', () => {
+    AudioFX.click();
+    VoiceSystem.stop();
+    storyOverlay.classList.add('hidden');
+    if (onClose) onClose();
+  });
+  if (data.voice) {
+    VoiceSystem.speak(data.text.replace(/\n/g, ' '));
+  }
+}
+
+function showModal(title, message, buttons) {
+  modalBox.innerHTML = `
+    <h3>${title}</h3>
+    <p>${message.replace(/\n/g, '<br>')}</p>
+    <div>${buttons.map((b,i) => `<button class="btn ${b.cls||'btn-gold'}" id="modalBtn${i}" style="margin:4px;">${b.label}</button>`).join('')}</div>
+  `;
+  modalOverlay.classList.remove('hidden');
+  buttons.forEach((b, i) => {
+    document.getElementById('modalBtn'+i).addEventListener('click', () => {
+      AudioFX.click();
+      modalOverlay.classList.add('hidden');
+      if (b.action) b.action();
+    });
+  });
+}
+
+// 通关动画
+function showClearAnimation(levelData, onComplete) {
+  const animType = levelData.clearAnim || 'star';
+  const icons = {
+    star:'⭐', seal:'🔯', wind:'💨', purify:'✨', tear:'💧',
+    rune:'🔮', maze:'🏗️', stone:'🪨', void:'🌀', shadow:'🌑',
+    dragon:'🐉', coral:'🪸', siren:'🧜‍♀️', whirlpool:'🌪️',
+    moon:'🌕', wolf:'🐺', gold:'🪙', gem:'💎', vault:'🏦',
+    dark:'🕳️', crack:'⚡', final:'👑', water:'💧'
+  };
+  
+  clearAnimOverlay.innerHTML = `
+    <div class="clear-anim-container">
+      <div class="clear-anim-ring">
+        <div class="clear-anim-seal">${icons[animType] || '✨'}</div>
+      </div>
+      <div class="clear-anim-title">✦ 魔法阵激活 ✦</div>
+      <div class="clear-anim-name">「${levelData.name}」通关！</div>
+    </div>
+  `;
+  
+  AudioFX.magicActivate();
+  
+  setTimeout(() => {
+    clearAnimOverlay.innerHTML = '';
+    if (onComplete) onComplete();
+  }, 2500);
+}
+
+function spawnVictoryParticles() {
+  const emojis = ['✨','🌟','💫','⭐','🎉','💎','🔥','⚡'];
+  for (let i = 0; i < 25; i++) {
+    const el = document.createElement('div');
+    el.className = 'victory-sparkle';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = (20 + Math.random() * 60) + '%';
+    el.style.top = (20 + Math.random() * 50) + '%';
+    el.style.setProperty('--dx', (Math.random() - 0.5) * 400 + 'px');
+    el.style.setProperty('--dy', (Math.random() - 0.5) * 400 + 'px');
+    el.style.animationDuration = (1 + Math.random()) + 's';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 2000);
+  }
+}
+
+// ============================================================
+// 渲染：大厅
+// ============================================================
+function renderLobby() {
+  G.currentLevel = null;
+  G.hearts = 3;
+  saveState(G);
+
+  let cards = '';
+  for (let i = 0; i < 8; i++) {
+    const layer = LAYER_DATA[i];
+    const lid = i + 1;
+    const unlocked = lid <= G.unlockedLayer;
+    const completed = G.completedLayers.includes(lid);
+    const progress = G.layerProgress[lid] || [];
+    const doneCount = progress.filter(Boolean).length;
+
+    cards += `
+      <div class="layer-card ${!unlocked ? 'locked' : ''} ${completed ? 'completed' : ''}"
+           ${unlocked ? `onclick="AudioFX.click();enterLayer(${lid})"` : ''}>
+        ${completed ? '<span class="complete-badge">✅</span>' : ''}
+        <div class="layer-icon">${layer.icon}</div>
+        <div class="layer-num">${unlocked ? (completed ? '✓' : lid) : '🔒'}</div>
+        <div class="layer-name">${layer.name}</div>
+        <div style="font-size:0.7rem;color:#888;margin-top:4px;">${unlocked ? (completed ? '已完成' : `${doneCount}/3 关`) : '未解锁'}</div>
+      </div>
+    `;
+  }
+
+  const allDone = G.completedLayers.length === 8;
+
+  app.innerHTML = `
+    <div class="game-title">风狂一笔画</div>
+    <div class="game-subtitle">✦ 风 之 试 炼 ✦</div>
+    <div class="panel">
+      <div style="text-align:center;margin-bottom:20px;color:var(--gold-light);font-size:1.1rem;letter-spacing:3px;">选 择 试 炼 之 层</div>
+      <div class="layer-grid">${cards}</div>
+      ${allDone ? `<div style="text-align:center;margin-top:24px;"><p style="color:var(--gold-light);font-size:1.2rem;margin-bottom:12px;">🎉 恭喜！你已通过全部八层试炼！</p><p style="color:var(--cyan);margin-bottom:16px;">你已成为传说中的风之勇者！</p><button class="btn btn-gold" onclick="AudioFX.click();resetGame()">重新开始</button></div>` : ''}
+    </div>
+    <div style="text-align:center;margin-top:10px;"><button class="btn btn-sm" style="background:transparent;border:1px solid rgba(212,168,83,0.3);color:var(--gold);" onclick="AudioFX.click();resetGame()">🔄 重置进度</button></div>
+  `;
+}
+
+// ============================================================
+// 渲染：层选择
+// ============================================================
+function enterLayer(layerId) {
+  G.currentLayer = layerId;
+  G.hearts = 3;
+  G.currentLevel = null;
+  saveState(G);
+
+  const layer = LAYER_DATA[layerId - 1];
+  const progress = G.layerProgress[layerId] || [];
+  const doneCount = progress.filter(Boolean).length;
+
+  let levelsHtml = '';
+  for (let i = 0; i < 3; i++) {
+    const lvl = layer.levels[i];
+    const done = progress[i] || false;
+    const locked = i > 0 && !progress[i-1] && !done;
+    const isPuzzle = lvl.type === 'puzzle';
+    levelsHtml += `
+      <div class="level-btn ${isPuzzle ? 'puzzle-type' : ''} ${done ? 'completed' : ''} ${locked ? 'locked' : ''}"
+           ${!locked ? `onclick="AudioFX.click();startLevel(${layerId}, ${i})"` : ''}>
+        <div class="lvl-num">${done ? '✓' : (i+1)}</div>
+        <div class="lvl-name">${lvl.name}</div>
+        <div class="lvl-type">${isPuzzle ? (PuzzleGames[lvl.puzzleType]?.icon||'🎮')+' 解谜' : '✏️ 一笔画'}</div>
+      </div>
+    `;
+  }
+
+  app.innerHTML = `
+    <div class="top-nav">
+      <button class="back-btn" onclick="AudioFX.click();renderLobby()">← 返回大厅</button>
+      <span style="color:var(--gold);">❤️ x ${G.hearts}</span>
+    </div>
+    <div class="game-title" style="font-size:2rem;">${layer.icon} ${layer.name}</div>
+    <div class="game-subtitle">第 ${layerId} 层 · ${doneCount}/3 关</div>
+    <div class="panel">
+      <div style="text-align:center;margin-bottom:16px;color:var(--gold-light);letter-spacing:2px;">选 择 关 卡</div>
+      <div class="level-select">${levelsHtml}</div>
+      <div style="text-align:center;margin-top:16px;"><p style="color:#888;font-size:0.8rem;">❤️ 一笔画挑战次数：${G.hearts} 次（点错消耗）| 🧩 解谜关卡：无限尝试</p></div>
+    </div>
+  `;
+}
+
+// ============================================================
+// 开始关卡（统一入口：一笔画或解谜）
+// ============================================================
+function startLevel(layerId, levelIdx) {
+  const layer = LAYER_DATA[layerId - 1];
+  const level = layer.levels[levelIdx];
+  G.currentLevel = { layerId, levelIdx };
+  saveState(G);
+  const progress = G.layerProgress[layerId] || [];
+  const isFirstTime = !progress[levelIdx];
+
+  function beginGame() {
+    if (level.type === 'stroke') {
+      initStrokeGame(layerId, levelIdx, level);
+    } else {
+      initPuzzleGame(layerId, levelIdx, level);
+    }
+  }
+
+  if (isFirstTime) {
+    if (levelIdx === 0 && layer.story.intro) {
+      showStory(layer.story.intro, beginGame);
+    } else {
+      showStory({
+        title: `第${layerId}层 · 第${levelIdx+1}关`,
+        text: `你继续在${layer.name}中前行。新的挑战「${level.name}」已经出现。${level.type === 'puzzle' ? '这次的考验与以往不同——智慧与观察力将是你最好的武器。' : '魔法阵的结构变得更加复杂。集中精神，风会指引你的方向。'}`,
+        speaker: '——风之低语', icon: layer.icon, voice: false
+      }, beginGame);
+    }
+  } else { beginGame(); }
+}
+
+// ============================================================
+// 一笔画游戏核心
+// ============================================================
+let strokeState = null;
+let puzzleActive = false;
+
+function initStrokeGame(layerId, levelIdx, levelData) {
+  puzzleActive = false;
+  const graph = UNIQUE_GRAPHS[levelData.graphIdx];
+  const nodes = graph.nodes;
+  const edges = graph.edges;
+  const cx = 250, cy = 250, r = 180;
+  const nodePositions = [];
+  for (let i = 0; i < nodes; i++) {
+    const angle = (2 * Math.PI * i / nodes) - Math.PI / 2;
+    nodePositions.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+  }
+  strokeState = { layerId, levelIdx, levelData, nodes, edges, nodePositions, currentNode: null, visitedEdges: {}, path: [], completed: false, canvasWidth: 500, canvasHeight: 500 };
+  renderStrokeGame();
+}
+
+function edgeKey(a, b) { return a < b ? `${a}-${b}` : `${b}-${a}`; }
+
+function renderStrokeGame() {
+  const gs = strokeState;
+  const layer = LAYER_DATA[gs.layerId - 1];
+  const progress = G.layerProgress[gs.layerId] || [];
+
+  app.innerHTML = `
+    <div class="top-nav">
+      <button class="back-btn" onclick="AudioFX.click();backToLayer(${gs.layerId})">← 返回关卡选择</button>
+      <span style="color:var(--gold);">❤️ <span class="hearts">${'❤️'.repeat(G.hearts)}<span style="opacity:0.25">${'🖤'.repeat(3-G.hearts)}</span></span></span>
+    </div>
+    <div style="text-align:center;">
+      <span style="color:var(--gold-light);font-size:1.1rem;">${layer.icon} ${layer.name}</span>
+      <span style="color:#888;"> · 第${gs.levelIdx+1}关 · </span>
+      <span style="color:var(--cyan);">${gs.levelData.name}</span>
+      <span style="color:#888;font-size:0.8rem;"> (一笔画)</span>
+    </div>
+    <div class="game-info">
+      <div class="info-item"><span style="color:#888;">关卡进度：</span><div class="progress-dots">${[0,1,2].map(i => `<div class="progress-dot ${progress[i] ? 'done' : (i === gs.levelIdx ? 'current' : '')}"></div>`).join('')}</div></div>
+      <div class="info-item"><span style="color:#888;">路径：</span><span style="color:var(--cyan);" id="edgeCount">${Object.keys(gs.visitedEdges).length}/${gs.edges.length} 条边</span></div>
+    </div>
+    <div class="game-canvas-wrap"><canvas id="gameCanvas" width="${gs.canvasWidth}" height="${gs.canvasHeight}"></canvas></div>
+    <div style="text-align:center;margin-top:8px;color:#888;font-size:0.85rem;">📖 ${gs.levelData.hint}</div>
+    <div style="text-align:center;margin-top:12px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-sm btn-danger" onclick="AudioFX.click();giveUpLevel()">🏳️ 放弃</button>
+    </div>
+    <div id="pathDisplay" class="path-hint" style="margin-top:12px;"></div>
+    <div style="text-align:center;margin-top:4px;color:#e74c3c;font-size:0.75rem;">⚠ 点击错误的节点将直接消耗一次挑战机会</div>
+  `;
+
+  const canvas = document.getElementById('gameCanvas');
+  drawStrokeGame(canvas);
+  updatePathDisplay();
+  canvas.addEventListener('click', (e) => handleStrokeClick(e, canvas));
+  canvas.addEventListener('mousemove', (e) => handleStrokeHover(e, canvas));
+}
+
+function drawStrokeGame(canvas) {
+  const gs = strokeState;
+  const ctx = canvas.getContext('2d');
+  const W = gs.canvasWidth, H = gs.canvasHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  for (const [a, b] of gs.edges) {
+    const key = edgeKey(a, b);
+    const visited = gs.visitedEdges[key];
+    const pa = gs.nodePositions[a], pb = gs.nodePositions[b];
+    ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+    ctx.lineWidth = visited ? 3 : 1.5;
+    ctx.strokeStyle = visited ? 'rgba(240,215,140,0.9)' : 'rgba(255,255,255,0.12)';
+    if (visited) { ctx.shadowColor = 'rgba(240,215,140,0.5)'; ctx.shadowBlur = 6; }
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+
+  if (gs.path.length >= 2) {
+    ctx.beginPath();
+    ctx.moveTo(gs.nodePositions[gs.path[0]].x, gs.nodePositions[gs.path[0]].y);
+    for (let i = 1; i < gs.path.length; i++) ctx.lineTo(gs.nodePositions[gs.path[i]].x, gs.nodePositions[gs.path[i]].y);
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(91,127,239,0.8)';
+    ctx.shadowColor = 'rgba(91,127,239,0.6)'; ctx.shadowBlur = 10;
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+
+  for (let i = 0; i < gs.nodes; i++) {
+    const p = gs.nodePositions[i];
+    const isCurrent = gs.currentNode === i;
+    const isStart = gs.path.length > 0 && gs.path[0] === i;
+    const isLast = gs.path.length > 0 && gs.path[gs.path.length - 1] === i;
+
+    if (isCurrent || isLast) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(240,215,140,0.15)'; ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI * 2);
+    const grad = ctx.createRadialGradient(p.x-3, p.y-3, 2, p.x, p.y, 16);
+    if (isCurrent) { grad.addColorStop(0,'#fff'); grad.addColorStop(0.5,'#f0d78c'); grad.addColorStop(1,'#b8860b'); }
+    else if (isLast) { grad.addColorStop(0,'#f0d78c'); grad.addColorStop(1,'#7c3aed'); }
+    else if (isStart) { grad.addColorStop(0,'#22d3ee'); grad.addColorStop(1,'#0e7490'); }
+    else { grad.addColorStop(0,'#c8c8d4'); grad.addColorStop(1,'#4a4a6a'); }
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.strokeStyle = isCurrent ? '#f0d78c' : 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px "STSong","SimSun","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i + 1, p.x, p.y);
+  }
+
+  if (gs.currentNode !== null) {
+    const p = gs.nodePositions[gs.currentNode];
+    ctx.beginPath(); ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+    ctx.strokeStyle = '#f0d78c'; ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+
+function handleStrokeClick(e, canvas) {
+  if (strokeState.completed) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = strokeState.canvasWidth / rect.width;
+  const scaleY = strokeState.canvasHeight / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top) * scaleY;
+
+  let clickedNode = null;
+  for (let i = 0; i < strokeState.nodes; i++) {
+    if (Math.sqrt((mx - strokeState.nodePositions[i].x) ** 2 + (my - strokeState.nodePositions[i].y) ** 2) < 24) {
+      clickedNode = i; break;
+    }
+  }
+  if (clickedNode === null) return;
+
+  const gs = strokeState;
+
+  // First click: select start node
+  if (gs.path.length === 0) {
+    gs.path.push(clickedNode);
+    gs.currentNode = clickedNode;
+    AudioFX.click();
+    drawStrokeGame(canvas);
+    updatePathDisplay();
+    return;
+  }
+
+  // Subsequent clicks: attempt to draw edge
+  if (gs.currentNode !== null) {
+    const from = gs.currentNode, to = clickedNode;
+    if (from === to) return; // Same node, ignore
+    
+    const key = edgeKey(from, to);
+    const edgeExists = gs.edges.some(([a,b]) => (a===from&&b===to)||(a===to&&b===from));
+    
+    // Check for invalid move: no edge OR edge already visited
+    if (!edgeExists || gs.visitedEdges[key]) {
+      // Mistake! Lose a life immediately
+      AudioFX.error();
+      handleStrokeMistake(canvas);
+      return;
+    }
+
+    // Valid move
+    gs.visitedEdges[key] = true;
+    gs.path.push(to);
+    gs.currentNode = to;
+    AudioFX.pathWalk(gs.path.length);
+
+    drawStrokeGame(canvas);
+    updatePathDisplay();
+    checkStrokeCompletion();
+  }
+}
+
+function handleStrokeMistake(canvas) {
+  const gs = strokeState;
+  // Flash red on canvas
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(231,76,60,0.3)';
+  ctx.fillRect(0, 0, gs.canvasWidth, gs.canvasHeight);
+  setTimeout(() => drawStrokeGame(canvas), 200);
+
+  // Lose a life
+  G.hearts--;
+  AudioFX.fail();
+
+  if (G.hearts <= 0) {
+    G.hearts = 3;
+    G.layerProgress[gs.layerId] = [];
+    saveState(G);
+    strokeState = null;
+    showModal('💔 挑战失败', `一步走错，魔法阵崩溃了！\n「${LAYER_DATA[gs.layerId-1].name}」的进度已被重置。\n请重新挑战这一层。`, [
+      { label: '重新开始', cls: 'btn-danger', action: () => enterLayer(gs.layerId) }
+    ]);
+  } else {
+    saveState(G);
+    strokeState = null;
+    showModal('⚠️ 走错了！', `你触发了魔法阵的反噬！\n剩余挑战机会：${G.hearts} 次。\n请重新尝试本关卡。`, [
+      { label: '重试', cls: 'btn-magic', action: () => initStrokeGame(gs.layerId, gs.levelIdx, gs.levelData) }
+    ]);
+  }
+}
+
+function handleStrokeHover(e, canvas) {
+  if (strokeState.completed) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = strokeState.canvasWidth / rect.width;
+  const scaleY = strokeState.canvasHeight / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top) * scaleY;
+
+  let hoveringNode = null;
+  for (let i = 0; i < strokeState.nodes; i++) {
+    if (Math.sqrt((mx - strokeState.nodePositions[i].x) ** 2 + (my - strokeState.nodePositions[i].y) ** 2) < 24) {
+      hoveringNode = i; break;
+    }
+  }
+
+  if (strokeState.currentNode !== null && hoveringNode !== null && hoveringNode !== strokeState.currentNode) {
+    const key = edgeKey(strokeState.currentNode, hoveringNode);
+    const edgeExists = strokeState.edges.some(([a,b]) => (a===strokeState.currentNode&&b===hoveringNode)||(a===hoveringNode&&b===strokeState.currentNode));
+    canvas.style.cursor = (edgeExists && !strokeState.visitedEdges[key]) ? 'pointer' : 'not-allowed';
+  } else if (hoveringNode !== null && strokeState.path.length === 0) {
+    canvas.style.cursor = 'pointer';
+  } else {
+    canvas.style.cursor = hoveringNode !== null ? 'pointer' : 'default';
+  }
+}
+
+function updatePathDisplay() {
+  const gs = strokeState;
+  const display = document.getElementById('pathDisplay');
+  const countEl = document.getElementById('edgeCount');
+  if (!display) return;
+  let html = '';
+  for (let i = 0; i < gs.path.length; i++) {
+    if (i > 0) html += '<span class="path-arrow">→</span>';
+    html += `<span class="path-step ${i === gs.path.length-1 ? 'active' : ''}">${gs.path[i]+1}</span>`;
+  }
+  display.innerHTML = html || '<span style="color:#888;">👆 点击节点开始绘制路径</span>';
+  if (countEl) countEl.textContent = `${Object.keys(gs.visitedEdges).length}/${gs.edges.length} 条边`;
+}
+
+function checkStrokeCompletion() {
+  const gs = strokeState;
+  if (Object.keys(gs.visitedEdges).length === gs.edges.length) {
+    gs.completed = true;
+    setTimeout(() => levelComplete(), 500);
+  }
+}
+
+// ============================================================
+// 解谜小游戏
+// ============================================================
+function initPuzzleGame(layerId, levelIdx, levelData) {
+  strokeState = null;
+  puzzleActive = true;
+  const layer = LAYER_DATA[layerId - 1];
+  const progress = G.layerProgress[layerId] || [];
+  const puzzleDef = PuzzleGames[levelData.puzzleType];
+
+  app.innerHTML = `
+    <div class="top-nav">
+      <button class="back-btn" onclick="AudioFX.click();backToLayer(${layerId})">← 返回关卡选择</button>
+      <span style="color:var(--cyan);font-size:0.85rem;">🧩 解谜试炼 · 无限尝试</span>
+    </div>
+    <div style="text-align:center;">
+      <span style="color:var(--gold-light);font-size:1.1rem;">${layer.icon} ${layer.name}</span>
+      <span style="color:#888;"> · 第${levelIdx+1}关 · </span>
+      <span style="color:var(--cyan);">${levelData.name}</span>
+      <span style="color:#888;font-size:0.8rem;"> (${puzzleDef.icon} ${puzzleDef.name})</span>
+    </div>
+    <div class="game-info">
+      <div class="info-item"><span style="color:#888;">关卡进度：</span><div class="progress-dots">${[0,1,2].map(i => `<div class="progress-dot ${progress[i] ? 'done' : (i === levelIdx ? 'current' : '')}"></div>`).join('')}</div></div>
+    </div>
+    <div class="panel">
+      <div id="puzzleContainer" class="puzzle-container"></div>
+    </div>
+    <div style="text-align:center;margin-top:8px;color:#888;font-size:0.85rem;">📖 ${levelData.hint}</div>
+  `;
+
+  const container = document.getElementById('puzzleContainer');
+  const puzzleState = { layerId, levelIdx, levelData };
+  
+  puzzleDef.init(container, 
+    () => {
+      // onComplete
+      puzzleActive = false;
+      levelComplete();
+    },
+    () => {
+      // onFail
+      puzzleActive = false;
+      handlePuzzleFail(puzzleState);
+    }
+  );
+}
+
+function handlePuzzleFail(ps) {
+  // 解谜小游戏不消耗爱心，可以无限重试
+  AudioFX.fail();
+  showModal('⚠️ 未能通过', `试炼失败……\n别灰心，解谜试炼可以无限次尝试！\n再试一次吧。`, [
+    { label: '重试', cls: 'btn-magic', action: () => startLevel(ps.layerId, ps.levelIdx) },
+    { label: '返回关卡选择', cls: 'btn-gold', action: () => enterLayer(ps.layerId) }
+  ]);
+}
+
+// ============================================================
+// 关卡完成
+// ============================================================
+function levelComplete() {
+  const cl = G.currentLevel;
+  const layerId = cl.layerId;
+  const levelIdx = cl.levelIdx;
+
+  if (!G.layerProgress[layerId]) G.layerProgress[layerId] = [];
+  G.layerProgress[layerId][levelIdx] = true;
+  const progress = G.layerProgress[layerId];
+  const allDone = progress.length === 3 && progress.every(Boolean);
+  saveState(G);
+
+  AudioFX.levelClear();
+  spawnVictoryParticles();
+
+  const levelData = LAYER_DATA[layerId - 1].levels[levelIdx];
+
+  showClearAnimation(levelData, () => {
+    if (allDone) {
+      if (!G.completedLayers.includes(layerId)) G.completedLayers.push(layerId);
+      if (layerId < 8) G.unlockedLayer = Math.max(G.unlockedLayer, layerId + 1);
+      saveState(G);
+      AudioFX.layerClear();
+      spawnVictoryParticles();
+
+      const layer = LAYER_DATA[layerId - 1];
+      setTimeout(() => {
+        showStory(layer.story.clear, () => renderLobby());
+      }, 500);
+    } else {
+      showModal('✨ 关卡通过！', `「${levelData.name}」完成！\n继续挑战下一关吧！`, [
+        { label: '继续', cls: 'btn-gold', action: () => { G.hearts = 3; saveState(G); enterLayer(layerId); }}
+      ]);
+    }
+  });
+}
+
+function backToLayer(layerId) {
+  strokeState = null;
+  puzzleActive = false;
+  G.currentLevel = null;
+  saveState(G);
+  enterLayer(layerId);
+}
+
+function giveUpLevel() {
+  showModal('🤔 确认放弃？', '放弃本关将消耗一次挑战机会。\n如果机会用完，本层进度将被重置。', [
+    { label: '取消', cls: 'btn-gold', action: () => {} },
+    { label: '确认放弃', cls: 'btn-danger', action: () => failLevel() }
+  ]);
+}
+
+function failLevel() {
+  const cl = G.currentLevel;
+  G.hearts--;
+  AudioFX.fail();
+
+  if (G.hearts <= 0) {
+    G.hearts = 3;
+    G.layerProgress[cl.layerId] = [];
+    saveState(G);
+    strokeState = null;
+    puzzleActive = false;
+    showModal('💔 挑战失败', `你已经用完了所有挑战机会！\n「${LAYER_DATA[cl.layerId-1].name}」的进度已被重置。\n请重新挑战这一层。`, [
+      { label: '重新开始', cls: 'btn-danger', action: () => enterLayer(cl.layerId) }
+    ]);
+  } else {
+    saveState(G);
+    showModal('⚠️ 路径未完成', `你还有 ${G.hearts} 次挑战机会。\n请重新尝试本关卡。`, [
+      { label: '重试', cls: 'btn-magic', action: () => startLevel(cl.layerId, cl.levelIdx) }
+    ]);
+  }
+}
+
+function resetGame() {
+  showModal('⚠️ 重置游戏', '确定要重置所有游戏进度吗？此操作不可撤销。', [
+    { label: '取消', cls: 'btn-gold', action: () => {} },
+    { label: '确认重置', cls: 'btn-danger', action: () => {
+      G = { currentLayer:0, layerProgress:{}, currentLevel:null, hearts:3, unlockedLayer:1, completedLayers:[], firstTime:true };
+      saveState(G);
+      strokeState = null;
+      puzzleActive = false;
+      renderLobby();
+    }}
+  ]);
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+function init() {
+  if (G.firstTime) {
+    G.firstTime = false;
+    saveState(G);
+    showStory({
+      title: '序章 · 风之觉醒',
+      text: '在这片名为"风之大陆"的传奇之地上，风是万物之源。千年前，风之精灵希尔芙用她的力量创造了这片广袤的世界，并在其中埋藏了八道试炼。只有通过全部试炼的勇者，才能获得风之精灵的祝福，成为大陆的守护者。\n\n如今，黑暗领主艾瑞波斯正在吞噬这片大陆的光明。风在呼唤，命运之轮已经开始转动。你，被选中的勇者，将踏上这段充满魔法与奇迹的旅程。',
+      speaker: '——风之精灵 · 希尔芙',
+      icon: '🧚',
+      voice: true
+    }, () => renderLobby());
+  } else {
+    renderLobby();
+  }
+}
+
+init();
+</script>
+</body>
+</html>

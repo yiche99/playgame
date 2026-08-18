@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一彻航空 - 航空公司模拟经营</title>
+<style>
+:root {
+  --bg: #0a0e17; --panel: #111827; --border: #1e293b; --text: #e2e8f0; --text-dim: #94a3b8;
+  --gold: #f59e0b; --gold-bg: #f59e0b20; --blue: #3b82f6; --blue-bg: #3b82f620;
+  --green: #10b981; --green-bg: #10b98120; --red: #ef4444; --red-bg: #ef444420;
+  --purple: #8b5cf6; --purple-bg: #8b5cf620; --orange: #f97316;
+  --radius: 10px; --transition: 0.2s ease;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.header-left { display: flex; align-items: center; gap: 10px; }
+.airline-logo { font-size: 1.8rem; cursor: pointer; }
+.airline-name { font-size: 1.2rem; font-weight: 800; background: linear-gradient(135deg, #f59e0b, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; cursor: pointer; letter-spacing: 1px; }
+.header-stats { display: flex; gap: 14px; align-items: center; font-size: 0.8rem; }
+.stat-item { display: flex; align-items: center; gap: 3px; font-weight: 600; }
+.stat-gold { color: var(--gold); } .stat-planes { color: var(--blue); } .stat-routes { color: var(--green); } .stat-rep { color: var(--purple); }
+.time-indicator { font-size: 0.72rem; padding: 3px 8px; border-radius: 10px; font-weight: 600; }
+.time-day { background: #3b82f620; color: #60a5fa; } .time-night { background: #1e1b4b; color: #818cf8; }
+.main-layout { display: flex; height: calc(100vh - 46px); }
+.sidebar { width: 190px; background: var(--panel); border-right: 1px solid var(--border); padding: 6px 0; display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.nav-btn { display: flex; align-items: center; gap: 7px; padding: 9px 14px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 0.82rem; transition: var(--transition); text-align: left; width: 100%; border-left: 3px solid transparent; }
+.nav-btn:hover { color: var(--text); background: #ffffff05; }
+.nav-btn.active { color: var(--text); background: var(--blue-bg); border-left-color: var(--blue); }
+.content { flex: 1; overflow-y: auto; padding: 14px 18px; }
+.panel-view { display: none; } .panel-view.active { display: block; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.card-title { font-size: 0.95rem; font-weight: 700; }
+.btn { padding: 5px 12px; border-radius: 5px; border: none; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: var(--transition); display: inline-flex; align-items: center; gap: 3px; }
+.btn:hover { filter: brightness(1.15); } .btn:active { transform: translateY(0); }
+.btn-gold { background: linear-gradient(135deg, #f59e0b, #d97706); color: #0f172a; }
+.btn-green { background: var(--green); color: white; } .btn-red { background: var(--red); color: white; } .btn-blue { background: var(--blue); color: white; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-sm { padding: 3px 8px; font-size: 0.72rem; } .btn-lg { padding: 9px 18px; font-size: 0.9rem; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; filter: none; }
+.plane-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.plane-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: var(--transition); cursor: pointer; }
+.plane-card:hover { border-color: var(--blue); transform: translateY(-2px); }
+.plane-card.owned { border-color: var(--green); }
+.plane-card-header { padding: 10px; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; align-items: center; gap: 8px; }
+.plane-icon { font-size: 2rem; } .plane-info { flex: 1; }
+.plane-name { font-size: 0.9rem; font-weight: 700; } .plane-maker { font-size: 0.72rem; color: var(--text-dim); }
+.plane-era { font-size: 0.65rem; color: var(--orange); }
+.plane-card-body { padding: 8px 12px; }
+.plane-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.75rem; }
+.plane-stat { color: var(--text-dim); } .plane-stat span { color: var(--text); font-weight: 600; }
+.plane-card-footer { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.plane-price { font-weight: 700; color: var(--gold); font-size: 0.9rem; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; max-width: 650px; width: 95%; max-height: 85vh; overflow-y: auto; position: relative; }
+.modal h3 { margin-bottom: 10px; font-size: 1rem; }
+.modal-close { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.3rem; }
+.fleet-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 5px; }
+.fleet-icon { font-size: 1.6rem; } .fleet-info { flex: 1; }
+.fleet-name { font-weight: 700; font-size: 0.85rem; } .fleet-detail { font-size: 0.74rem; color: var(--text-dim); }
+.fleet-status { padding: 2px 7px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+.status-idle { background: var(--green-bg); color: var(--green); } .status-flying { background: var(--blue-bg); color: var(--blue); } .status-maintenance { background: var(--red-bg); color: var(--red); }
+.route-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.route-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; transition: var(--transition); }
+.route-card:hover { border-color: var(--purple); } .route-card.out-of-range { border-color: var(--orange); background: rgba(249,115,22,0.05); }
+.route-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; }
+.route-cities { font-weight: 700; font-size: 0.9rem; } .route-distance { font-size: 0.74rem; color: var(--text-dim); }
+.route-rewards { display: flex; gap: 10px; font-size: 0.76rem; margin: 5px 0; flex-wrap: wrap; }
+.route-reward { display: flex; align-items: center; gap: 2px; }
+.route-assign { margin-top: 8px; }
+.route-assign select { padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.78rem; width: 100%; margin-bottom: 5px; }
+.seat-layout-preview { background: #1a1f2e; border-radius: 6px; padding: 14px; margin: 8px 0; }
+.seat-deck { margin-bottom: 10px; }
+.seat-deck-label { font-size: 0.68rem; color: var(--text-dim); margin-bottom: 3px; padding: 1px 6px; background: #1e293b; border-radius: 3px; display: inline-block; }
+.plane-body-deck { margin: 0 auto; border-radius: 14px; background: #1e293b; border: 2px solid #334155; padding: 6px; }
+.seat-row { display: flex; justify-content: center; gap: 2px; padding: 1px 0; align-items: center; }
+.aisle { width: 8px; flex-shrink: 0; }
+.seat { width: 16px; height: 16px; border-radius: 2px; font-size: 0.4rem; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.seat-economy { background: #3b82f6; color: white; } .seat-business { background: #f59e0b; color: #0f172a; } .seat-first { background: #ef4444; color: white; }
+.cockpit-nose { width: 20px; height: 12px; background: #334155; border-radius: 50% 50% 0 0; margin: 0 auto; }
+.tail-fin { width: 12px; height: 20px; background: #334155; clip-path: polygon(0 0, 100% 0, 80% 100%, 20% 100%); margin: 0 auto; }
+.seat-type-config { display: flex; align-items: center; gap: 8px; padding: 6px; background: var(--bg); border-radius: 5px; margin-bottom: 5px; }
+.seat-type-label { width: 48px; font-size: 0.74rem; font-weight: 600; }
+.seat-type-input { width: 44px; padding: 3px; border-radius: 3px; border: 1px solid var(--border); background: var(--panel); color: var(--text); text-align: center; font-size: 0.76rem; }
+.seat-model-select { flex: 1; padding: 3px 5px; border-radius: 3px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-size: 0.72rem; }
+.engine-card { border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: pointer; transition: var(--transition); display: flex; align-items: center; gap: 10px; }
+.engine-card:hover { border-color: var(--blue); } .engine-card.equipped { border-color: var(--green); background: var(--green-bg); }
+.engine-icon { font-size: 1.6rem; } .engine-info { flex: 1; } .engine-name { font-weight: 700; font-size: 0.85rem; } .engine-specs { font-size: 0.72rem; color: var(--text-dim); }
+.flight-timer { display: inline-flex; align-items: center; gap: 2px; background: var(--blue-bg); padding: 1px 6px; border-radius: 8px; font-size: 0.7rem; color: var(--blue); font-weight: 600; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+.flight-timer.active { animation: pulse 1.5s ease-in-out infinite; }
+.toast { position: fixed; bottom: 16px; right: 16px; padding: 8px 16px; border-radius: 6px; background: var(--panel); border: 1px solid var(--border); z-index: 300; animation: slideIn 0.3s ease; font-size: 0.8rem; }
+.toast.success { border-color: var(--green); } .toast.error { border-color: var(--red); } .toast.info { border-color: var(--blue); }
+@keyframes slideIn { from { transform: translateY(15px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+.name-setup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 500; display: flex; align-items: center; justify-content: center; }
+.name-setup-box { background: var(--panel); border: 2px solid var(--gold); border-radius: 14px; padding: 30px; text-align: center; max-width: 540px; width: 90%; max-height: 90vh; overflow-y: auto; }
+.name-setup-box h2 { font-size: 1.4rem; margin-bottom: 4px; background: linear-gradient(135deg, #f59e0b, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.name-setup-box p { color: var(--text-dim); margin-bottom: 12px; font-size: 0.82rem; }
+.name-setup-box input { width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; text-align: center; margin-bottom: 10px; }
+.name-setup-box input:focus { outline: none; border-color: var(--gold); }
+.logo-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 10px 0; }
+.logo-option { padding: 8px; border-radius: 6px; border: 2px solid var(--border); cursor: pointer; font-size: 1.8rem; text-align: center; transition: var(--transition); background: var(--bg); }
+.logo-option:hover { border-color: var(--blue); } .logo-option.selected { border-color: var(--gold); background: var(--gold-bg); }
+.setup-livery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin: 6px 0; }
+.setup-livery-card { background: var(--bg); border: 2px solid var(--border); border-radius: 6px; padding: 6px; cursor: pointer; text-align: center; transition: var(--transition); }
+.setup-livery-card:hover { border-color: var(--blue); }
+.setup-livery-card.selected { border-color: var(--gold); background: var(--gold-bg); }
+.setup-livery-bar { height: 20px; border-radius: 3px; margin-bottom: 3px; display: flex; overflow: hidden; }
+.setup-pixel-canvas { display: flex; flex-direction: column; gap: 1px; background: var(--bg); padding: 4px; border-radius: 4px; margin: 6px auto; }
+.setup-pixel-row { display: flex; gap: 1px; }
+.setup-pixel-cell { width: 16px; height: 16px; border-radius: 1px; cursor: pointer; }
+.setup-pixel-cell:hover { transform: scale(1.2); z-index: 1; }
+.review-item { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 5px; display: flex; gap: 8px; align-items: flex-start; }
+.review-avatar { font-size: 1.4rem; flex-shrink: 0; } .review-content { flex: 1; } .review-name { font-weight: 700; font-size: 0.8rem; }
+.review-text { font-size: 0.76rem; color: var(--text-dim); margin: 1px 0; } .review-rating { color: var(--gold); font-size: 0.76rem; }
+.review-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.review-stat-card { background: var(--bg); border-radius: 6px; padding: 8px; text-align: center; }
+.review-stat-val { font-size: 1.2rem; font-weight: 700; } .review-stat-lbl { font-size: 0.68rem; color: var(--text-dim); }
+.sort-tabs { display: flex; gap: 1px; background: var(--bg); border-radius: 5px; padding: 1px; }
+.sort-btn { padding: 4px 8px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; border-radius: 3px; font-size: 0.72rem; font-weight: 600; transition: var(--transition); }
+.sort-btn.active { background: var(--gold); color: #0f172a; }
+.log-list { max-height: 350px; overflow-y: auto; font-size: 0.78rem; }
+.log-item { padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; gap: 5px; }
+.log-time { color: var(--text-dim); white-space: nowrap; font-size: 0.68rem; } .log-income { color: var(--green); } .log-expense { color: var(--red); }
+.empty-state { text-align: center; padding: 30px 14px; color: var(--text-dim); }
+.empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 8px; } .empty-state h3 { margin-bottom: 4px; color: var(--text); font-size: 0.95rem; }
+.tabs { display: flex; gap: 1px; margin-bottom: 10px; background: var(--bg); border-radius: 5px; padding: 1px; }
+.tab-btn { flex: 1; padding: 5px 10px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; border-radius: 3px; font-size: 0.76rem; font-weight: 600; transition: var(--transition); }
+.tab-btn.active { background: var(--blue); color: white; }
+.history-item { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 0.78rem; display: flex; gap: 8px; align-items: center; }
+.history-time { color: var(--text-dim); font-size: 0.7rem; white-space: nowrap; } .history-crash { color: var(--red); font-weight: 700; }
+.save-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}.save-slot{background:var(--bg);border:2px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;transition:var(--transition);}.save-slot:hover{border-color:var(--blue);}.save-slot.filled{border-color:var(--green);}.save-slot.active-slot{border-color:var(--blue);box-shadow:0 0 12px rgba(59,130,246,0.4);}.save-slot-num{font-size:0.68rem;color:var(--text-dim);margin-bottom:4px;}.save-slot-time{font-size:0.72rem;color:var(--text-dim);margin-bottom:6px;}.save-slot-name{font-size:0.9rem;font-weight:700;margin-bottom:4px;}.save-slot-info{font-size:0.74rem;color:var(--text-dim);margin-bottom:8px;}.save-slot-actions{display:flex;gap:4px;justify-content:center;flex-wrap:wrap;}.save-slot-empty{font-size:0.82rem;color:var(--text-dim);padding:20px 0;}.bankrupt-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:600;display:flex;align-items:center;justify-content:center;}.bankrupt-box{background:var(--panel);border:2px solid var(--red);border-radius:14px;padding:30px;text-align:center;max-width:420px;width:90%;}.bankrupt-box h2{color:var(--red);font-size:1.5rem;margin-bottom:8px;}.livery-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}.livery-preset-card{background:var(--bg);border:2px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;text-align:center;transition:var(--transition);}.livery-preset-card:hover{border-color:var(--blue);}.livery-preset-card.selected{border-color:var(--gold);}.livery-preview-bar{height:24px;border-radius:4px;margin-bottom:4px;display:flex;overflow:hidden;}.livery-color-stripe{flex:1;}.pixel-editor{margin:8px 0;display:flex;flex-direction:column;align-items:center;}.pixel-canvas{display:flex;flex-direction:column;gap:1px;background:var(--bg);padding:4px;border-radius:4px;}.pixel-row{display:flex;gap:1px;}.pixel-cell{width:18px;height:18px;border-radius:1px;cursor:pointer;transition:0.1s;}.pixel-cell:hover{transform:scale(1.2);z-index:1;}.palette-bar{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;justify-content:center;}.palette-color{width:22px;height:22px;border-radius:3px;cursor:pointer;border:2px solid transparent;}.palette-color.selected{border-color:white;}.palette-color.eraser{border:1px dashed var(--text-dim);}.meal-card{border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:4px;cursor:pointer;transition:var(--transition);display:flex;align-items:center;gap:8px;}.meal-card:hover{border-color:var(--blue);}.meal-card.selected{border-color:var(--green);background:var(--green-bg);}.meal-quality-badge{padding:2px 6px;border-radius:8px;font-size:0.65rem;font-weight:700;}.meal-quality-basic{background:#9ca3af20;color:#9ca3af;}.meal-quality-standard{background:#3b82f620;color:#3b82f6;}.meal-quality-premium{background:#f59e0b20;color:#f59e0b;}.meal-quality-luxury{background:#ef444420;color:#ef4444;}.toilet-indicator{display:inline-flex;gap:4px;align-items:center;padding:3px 8px;border-radius:10px;font-size:0.74rem;}.toilet-good{background:var(--green-bg);color:var(--green);}.toilet-warning{background:rgba(249,115,22,0.15);color:var(--orange);}.toilet-bad{background:var(--red-bg);color:var(--red);}.maintenance-badge{font-size:0.7rem;padding:2px 6px;border-radius:8px;font-weight:600;}.maintenance-good{background:var(--green-bg);color:var(--green);}.maintenance-warning{background:rgba(249,115,22,0.15);color:var(--orange);}.maintenance-overdue{background:var(--red-bg);color:var(--red);}
+@media (max-width: 768px) { .sidebar { width: 44px; } .nav-btn span { display: none; } .plane-grid, .route-grid { grid-template-columns: 1fr; } }
+/* ========== 制造商市场 ========== */
+.maker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
+.maker-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:var(--transition);}
+.maker-card:hover{border-color:var(--gold);}
+.maker-card.expanded{border-color:var(--gold);grid-column:1/-1;}
+.maker-card-header{display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,#1e293b,#0f172a);}
+.maker-icon{font-size:2.5rem;flex-shrink:0;width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:rgba(245,158,11,0.1);border-radius:12px;}
+.maker-info{flex:1;min-width:0;}
+.maker-name{font-size:1.05rem;font-weight:800;color:var(--text);}
+.maker-desc{font-size:0.72rem;color:var(--text-dim);margin-top:2px;}
+.maker-count{font-size:0.72rem;color:var(--gold);margin-top:4px;}
+.maker-expand-icon{font-size:1.2rem;color:var(--text-dim);transition:transform 0.2s;flex-shrink:0;}
+.maker-card.expanded .maker-expand-icon{transform:rotate(90deg);}
+.maker-planes{display:none;padding:0 10px 10px 10px;border-top:1px solid var(--border);}
+.maker-card.expanded .maker-planes{display:block;}
+.maker-planes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;padding-top:8px;}
+@media (max-width: 768px) { .maker-grid{grid-template-columns:1fr;} .maker-card.expanded{grid-column:1;} }
+</style>
+</head>
+<body>
+
+<!-- 航司设置弹窗 -->
+<div class="name-setup-overlay" id="name-setup">
+  <div class="name-setup-box">
+    <h2>✈ 创建你的航空公司</h2>
+    <p>取个名字，选个标志，设计飞机外观</p>
+    <input type="text" id="airline-name-input" placeholder="航司名称..." maxlength="20" value="一彻航空">
+    <p style="font-size:0.75rem;color:var(--text-dim);margin:8px 0 4px;">选择航司标志：</p>
+    <div class="logo-grid" id="logo-grid"></div>
+    <p style="font-size:0.75rem;color:var(--text-dim);margin:10px 0 4px;">🎨 飞机默认涂装（新飞机将使用此外观）：</p>
+    <div class="tabs" style="margin-bottom:6px;">
+      <button class="tab-btn active" onclick="switchSetupLiveryTab('preset');return false;">🎨预设涂装</button>
+      <button class="tab-btn" onclick="switchSetupLiveryTab('custom');return false;">🖌️手绘涂装</button>
+    </div>
+    <div id="setup-livery-content"></div>
+    <p style="font-size:0.72rem;color:var(--green);margin:4px 0;">初始资金：200,000 🪙</p>
+    <button class="btn btn-gold btn-lg" style="width:100%;margin-top:6px;" onclick="confirmSetup()">🚀 开启航空帝国</button>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <span class="airline-logo" id="header-logo" onclick="showRenameModal()" title="点击修改">✈</span>
+    <span class="airline-name" id="header-title" onclick="showRenameModal()">一彻航空</span>
+  </div>
+  <div class="header-stats">
+    <span class="time-indicator" id="time-indicator">☀️ 白天</span>
+    <div class="stat-item stat-gold">🪙 <span id="header-gold">0</span></div>
+    <div class="stat-item stat-planes">🛩️ <span id="header-planes">0</span></div>
+    <div class="stat-item stat-routes">🗺️ <span id="header-routes">0</span></div>
+    <div class="stat-item stat-rep">⭐ <span id="header-rep">0</span></div>
+    <div>📅 第<span id="header-day">1</span>天</div>
+  </div>
+</div>
+
+<div class="main-layout">
+  <div class="sidebar">
+    <button class="nav-btn active" data-panel="dashboard">📊<span>仪表盘</span></button>
+    <button class="nav-btn" data-panel="market">🛒<span>飞机市场</span></button>
+    <button class="nav-btn" data-panel="fleet">🛩️<span>我的机队</span></button>
+    <button class="nav-btn" data-panel="routes">🗺️<span>航线运营</span></button>
+    <button class="nav-btn" data-panel="upgrades">🔧<span>飞机改造</span></button>
+    <button class="nav-btn" data-panel="reviews">💬<span>乘客评价</span></button>
+    <button class="nav-btn" data-panel="history">📜<span>运营历史</span></button>
+    <button class="nav-btn" data-panel="achievements">🏆<span>成就</span></button>
+    <button class="nav-btn" data-panel="log">📋<span>日志</span></button>
+    <button class="nav-btn" data-panel="saves">💾<span>存档</span></button>
+  </div>
+
+  <div class="content" id="content">
+    <div class="panel-view active" id="panel-dashboard">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📊 <span id="dash-company-name">公司概况</span></div>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-outline btn-sm" onclick="advanceDays(7)">📅 快进7天</button>
+            <button class="btn btn-blue btn-sm" onclick="autoOperate()">⚡ 自动运营</button>
+            <button class="btn btn-gold btn-sm" onclick="advanceDay()">⏩ 推进一天</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+          <div class="card" style="background:var(--gold-bg);border-color:var(--gold);padding:10px;"><div style="font-size:0.7rem;color:var(--text-dim);">💰 金币</div><div style="font-size:1.4rem;font-weight:800;color:var(--gold);" id="dash-gold">0</div></div>
+          <div class="card" style="background:var(--blue-bg);border-color:var(--blue);padding:10px;"><div style="font-size:0.7rem;color:var(--text-dim);">🛩️ 飞机</div><div style="font-size:1.4rem;font-weight:800;color:var(--blue);" id="dash-planes">0</div></div>
+          <div class="card" style="background:var(--green-bg);border-color:var(--green);padding:10px;"><div style="font-size:0.7rem;color:var(--text-dim);">🗺️ 航线</div><div style="font-size:1.4rem;font-weight:800;color:var(--green);" id="dash-routes">0</div></div>
+          <div class="card" style="background:var(--purple-bg);border-color:var(--purple);padding:10px;"><div style="font-size:0.7rem;color:var(--text-dim);">⭐ 声誉</div><div style="font-size:1.4rem;font-weight:800;color:var(--purple);" id="dash-rep">0</div></div>
+          <div class="card" style="background:rgba(244,114,182,0.1);border-color:#f472b6;padding:10px;"><div style="font-size:0.7rem;color:var(--text-dim);">👥 旅客</div><div style="font-size:1.4rem;font-weight:800;color:#f472b6;" id="dash-pax">0</div></div>
+        </div>
+        <div id="maint-alert" style="margin-top:4px;"></div>
+      </div>
+      <div class="card"><div class="card-title" style="margin-bottom:8px;">📈 经营数据</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div>累计收入：<span style="color:var(--green);font-weight:700;" id="dash-income">+0</span></div>
+          <div>累计支出：<span style="color:var(--red);font-weight:700;" id="dash-fuel">-0</span></div>
+          <div>净利润：<span id="dash-net" style="font-weight:700;">0</span></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-title" style="margin-bottom:8px;">🎯 当前航班</div><div id="active-flights" style="max-height:200px;overflow-y:auto;"></div></div>
+    </div>
+    <div class="panel-view" id="panel-market"><div class="card"><div class="card-header"><div class="card-title">🛒 飞机市场</div><div style="display:flex;gap:4px;align-items:center;"><div class="sort-tabs"><button class="sort-btn active" onclick="setSort('year')">📅年份</button><button class="sort-btn" onclick="setSort('price')">💰价格</button><button class="sort-btn" onclick="setSort('seats')">🪑座位</button><button class="sort-btn" onclick="setSort('range')">🗺️航程</button></div><select id="market-filter" onchange="renderMarket()" style="padding:3px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.76rem;"><option value="all">全部时代</option><option value="vintage">🏛️古董</option><option value="narrow">✈️窄体</option><option value="wide">🛫宽体</option><option value="jumbo">🏰超大型</option></select><button id="market-collapse-all" class="btn btn-outline btn-sm" onclick="collapseAllMakers()" style="display:none;">📂收起全部</button></div></div><div class="maker-grid" id="market-grid"></div></div></div>
+    <div class="panel-view" id="panel-fleet"><div class="card"><div class="card-header"><div class="card-title">🛩️ 我的机队</div><span style="font-size:0.78rem;color:var(--text-dim);" id="fleet-count">0架</span></div><div id="fleet-list"></div></div></div>
+    <div class="panel-view" id="panel-routes"><div class="card"><div class="card-header"><div class="card-title">🗺️ 航线网络</div><button class="btn btn-outline btn-sm" onclick="unlockRandomRoute()">🔓 解锁航线(500🪙)</button></div><div class="route-grid" id="route-grid"></div></div></div>
+    <div class="panel-view" id="panel-upgrades"><div class="card"><div class="card-title" style="margin-bottom:8px;">🔧 飞机改造</div><select id="upgrade-select" onchange="renderUpgrade()" style="padding:5px 8px;border-radius:3px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%;margin-bottom:8px;font-size:0.82rem;"><option value="">-- 选择飞机 --</option></select><div id="upgrade-content"></div></div></div>
+    <div class="panel-view" id="panel-reviews"><div class="card"><div class="card-title" style="margin-bottom:8px;">💬 乘客评价</div><div class="review-stats" id="review-stats"></div><div id="reviews-list" style="max-height:350px;overflow-y:auto;"></div></div></div>
+    <div class="panel-view" id="panel-history"><div class="card"><div class="card-header"><div class="card-title">📜 运营历史</div><span style="font-size:0.76rem;color:var(--text-dim);" id="history-count">0条记录</span></div><div id="history-list" style="max-height:400px;overflow-y:auto;"></div></div></div>
+    <div class="panel-view" id="panel-achievements"><div class="card"><div class="card-title" style="margin-bottom:8px;">🏆 成就殿堂</div><div id="achievements-list"></div></div></div>
+    <div class="panel-view" id="panel-log"><div class="card"><div class="card-header"><div class="card-title">📋 经营日志</div><button class="btn btn-outline btn-sm" onclick="clearLog()">清空</button></div><div class="log-list" id="log-list"></div></div></div>
+    <div class="panel-view" id="panel-saves"><div class="card"><div class="card-header"><div class="card-title">💾 存档管理</div><div><button class="btn btn-outline btn-sm" onclick="importSavePrompt()">📥导入存档</button><input type="file" id="import-file-input" accept=".json" style="display:none;" onchange="handleImportFile(event)"></div></div><div class="save-grid" id="save-grid"></div><p style="font-size:0.72rem;color:var(--text-dim);margin-top:8px;">💡每5天自动存档到槽位1 | 破产时存档将被删除</p></div></div>
+  </div>
+</div>
+<div id="bankrupt-overlay" style="display:none;" class="bankrupt-overlay"><div class="bankrupt-box"><h2>💀 破产！</h2><p style="color:var(--text-dim);margin-bottom:12px;">你的航空公司因经营不善宣告破产。<br>所有存档已被删除。</p><button class="btn btn-red btn-lg" style="width:100%;" onclick="resetGame()">🔄 重新开始</button></div></div>
+
+<div id="modal-container"></div><div id="toast-container"></div>
+
+<script>
+// ==================== 航司图标 ====================
+const AIRLINE_LOGOS = [
+  { emoji:'✈️', name:'通用' },{ emoji:'🛫', name:'起飞' },{ emoji:'🦅', name:'雄鹰' },{ emoji:'🌏', name:'环球' },{ emoji:'🏯', name:'东方' },{ emoji:'🐉', name:'龙' },
+  { emoji:'🌸', name:'樱花' },{ emoji:'⭐', name:'明星' },{ emoji:'💎', name:'钻石' },{ emoji:'🦢', name:'天鹅' },{ emoji:'🌙', name:'月亮' },{ emoji:'🔥', name:'火焰' },
+  { emoji:'🐼', name:'熊猫' },{ emoji:'🏆', name:'冠军' },{ emoji:'🌈', name:'彩虹' },{ emoji:'🦋', name:'蝴蝶' },{ emoji:'🌴', name:'棕榈' },{ emoji:'🎯', name:'精准' },
+];
+
+// ==================== 发动机 ====================
+const ENGINE_MODELS = [
+  { id:'rb211-535', name:'RB211-535E4', maker:'罗尔斯·罗伊斯', year:1984, thrust:40100, fuelBurn:0.58, price:80000, compatible:['b757-200','b757-300'], icon:'🔵' },
+  { id:'trent700', name:'Trent 700', maker:'罗尔斯·罗伊斯', year:1995, thrust:72000, fuelBurn:0.55, price:180000, compatible:['a330-300'], icon:'🔵' },
+  { id:'trent800', name:'Trent 800', maker:'罗尔斯·罗伊斯', year:1996, thrust:95000, fuelBurn:0.56, price:250000, compatible:['b777-200','b777-300er'], icon:'🔵' },
+  { id:'trent900', name:'Trent 900', maker:'罗尔斯·罗伊斯', year:2007, thrust:80000, fuelBurn:0.54, price:280000, compatible:['a380'], icon:'🔵' },
+  { id:'trent1000', name:'Trent 1000', maker:'罗尔斯·罗伊斯', year:2011, thrust:74000, fuelBurn:0.50, price:260000, compatible:['b787-8','b787-9','b787-10'], icon:'🔵' },
+  { id:'trentxwb', name:'Trent XWB-84', maker:'罗尔斯·罗伊斯', year:2014, thrust:84000, fuelBurn:0.48, price:300000, compatible:['a350-900'], icon:'🔵' },
+  { id:'cf6-80c2', name:'CF6-80C2', maker:'通用电气 GE', year:1985, thrust:62000, fuelBurn:0.60, price:150000, compatible:['b747-400','b767-200','b767-300','b767-400','a300','dc10-30','md11'], icon:'🔴' },
+  { id:'ge90-115b', name:'GE90-115B', maker:'通用电气 GE', year:2003, thrust:115000, fuelBurn:0.52, price:320000, compatible:['b777-200lr','b777-300er','b777-9'], icon:'🔴' },
+  { id:'genx', name:'GEnx-1B', maker:'通用电气 GE', year:2011, thrust:76000, fuelBurn:0.49, price:270000, compatible:['b787-8','b787-9','b787-10','b747-8'], icon:'🔴' },
+  { id:'pw4000', name:'PW4000-112', maker:'普惠', year:1987, thrust:90000, fuelBurn:0.59, price:200000, compatible:['b747-400','b777-200','b777-300er','a300','dc10-30'], icon:'🟠' },
+  { id:'pw1500g', name:'PW1500G GTF', maker:'普惠', year:2016, thrust:23000, fuelBurn:0.42, price:120000, compatible:['a220-300'], icon:'🟠' },
+  { id:'pw1100g', name:'PW1100G GTF', maker:'普惠', year:2015, thrust:33000, fuelBurn:0.44, price:150000, compatible:['a320','a321neo'], icon:'🟠' },
+  { id:'cfm56-7b', name:'CFM56-7B', maker:'CFM国际', year:1997, thrust:27300, fuelBurn:0.50, price:100000, compatible:['b737-300','b737-700','b737-800','b737-900'], icon:'🟢' },
+  { id:'cfm56-5b', name:'CFM56-5B', maker:'CFM国际', year:1993, thrust:32000, fuelBurn:0.52, price:110000, compatible:['a320'], icon:'🟢' },
+  { id:'leap1a', name:'LEAP-1A', maker:'CFM国际', year:2016, thrust:32000, fuelBurn:0.43, price:180000, compatible:['a321neo'], icon:'🟢' },
+  { id:'jt3d', name:'JT3D-7', maker:'普惠', year:1960, thrust:19000, fuelBurn:0.78, price:30000, compatible:['b707','b707-120','dc8','b747-100','b747-200'], icon:'🟠' },
+  { id:'jt8d', name:'JT8D-17', maker:'普惠', year:1967, thrust:16000, fuelBurn:0.72, price:35000, compatible:['b727-100','b727-200','b737-100','b737-200','dc8'], icon:'🟠' },
+  { id:'conway', name:'Conway RC.10', maker:'罗尔斯·罗伊斯', year:1958, thrust:21000, fuelBurn:0.80, price:25000, compatible:['b707','dc8','comet4'], icon:'🔵' },
+  { id:'olympus593', name:'Olympus 593', maker:'罗·罗/斯奈克玛', year:1976, thrust:38000, fuelBurn:1.20, price:150000, compatible:['concorde'], icon:'⚡' },
+  { id:'d30ku', name:'D-30KU', maker:'索洛维约夫', year:1975, thrust:24000, fuelBurn:0.68, price:25000, compatible:['il62','tu154'], icon:'⚪' },
+  { id:'nk86', name:'NK-86', maker:'库兹涅佐夫', year:1980, thrust:28000, fuelBurn:0.70, price:28000, compatible:['il62'], icon:'⚪' },
+  { id:'al502', name:'ALF 502R-5', maker:'霍尼韦尔', year:1981, thrust:7000, fuelBurn:0.62, price:30000, compatible:['bae146'], icon:'🟡' },
+  { id:'tay650', name:'Tay 650-15', maker:'罗尔斯·罗伊斯', year:1986, thrust:15000, fuelBurn:0.56, price:45000, compatible:['fokker100','bae146','b717'], icon:'🔵' },
+  { id:'br715', name:'BR715', maker:'宝马罗·罗', year:1997, thrust:18500, fuelBurn:0.48, price:60000, compatible:['b717'], icon:'🔵' },
+  { id:'pw1900g', name:'PW1900G GTF', maker:'普惠', year:2019, thrust:22000, fuelBurn:0.41, price:130000, compatible:['erj195'], icon:'🟠' },
+];
+
+// ==================== 座椅型号 ====================
+const SEAT_MODELS = {
+  economy: [
+    { id:'recaro-sl3710', name:'Recaro SL3710', maker:'Recaro', weight:11, comfort:65, price:200 },
+    { id:'recaro-bl3530', name:'Recaro BL3530', maker:'Recaro', weight:12, comfort:70, price:250 },
+    { id:'safran-z110i', name:'Safran Z110i', maker:'Safran赛峰', weight:10, comfort:62, price:180 },
+    { id:'collins-pinnacle', name:'Collins Pinnacle', maker:'Collins', weight:13, comfort:72, price:280 },
+    { id:'acacia-aero', name:'Acacia Aero', maker:'Acacia', weight:9, comfort:58, price:150 },
+    { id:'geven-comoda', name:'Geven Comoda', maker:'Geven', weight:11, comfort:68, price:220 },
+  ],
+  business: [
+    { id:'recaro-cl6720', name:'Recaro CL6720', maker:'Recaro', weight:55, comfort:85, price:1500 },
+    { id:'safran-optima', name:'Safran Optima', maker:'Safran赛峰', weight:50, comfort:88, price:1800 },
+    { id:'collins-diamond', name:'Collins Diamond', maker:'Collins', weight:58, comfort:90, price:2200 },
+    { id:'thompson-vantage', name:'Thompson Vantage', maker:'Thompson', weight:48, comfort:82, price:1400 },
+    { id:'stelia-opal', name:'Stelia Opal', maker:'Stelia', weight:52, comfort:86, price:1600 },
+  ],
+  first: [
+    { id:'safran-la-premiere', name:'Safran La Première', maker:'Safran赛峰', weight:120, comfort:98, price:5000 },
+    { id:'collins-suite', name:'Collins First Suite', maker:'Collins', weight:130, comfort:96, price:5500 },
+    { id:'etihad-residence', name:'The Residence', maker:'Etihad定制', weight:200, comfort:100, price:8000 },
+    { id:'jal-suite', name:'JAL Suite', maker:'JAL定制', weight:110, comfort:94, price:4200 },
+    { id:'singapore-suite', name:'Singapore Suite', maker:'新航定制', weight:125, comfort:97, price:6000 },
+  ]
+};
+
+// ==================== 飞机数据（含巡航速度 km/h） ====================
+const PLANE_MODELS = [
+  { id:'dc3', name:'DC-3', maker:'道格拉斯', era:'vintage', year:1935, icon:'✈️', baseSeats:28, maxSeats:32, fuelPerKm:1.8, range:2400, price:8000, speed:60000, seatConfig:{economy:28,business:0,first:0}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:7} },
+  { id:'constellation', name:'L-1049 超级星座', maker:'洛克希德', era:'vintage', year:1951, icon:'🛩️', baseSeats:80, maxSeats:106, fuelPerKm:4.5, range:8300, price:25000, speed:65000, seatConfig:{economy:60,business:15,first:5}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:14} },
+  { id:'l049', name:'L-049 星座', maker:'洛克希德', era:'vintage', year:1946, icon:'🛩️', baseSeats:44, maxSeats:64, fuelPerKm:3.5, range:4800, price:18000, speed:60000, seatConfig:{economy:34,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:11} },
+  { id:'l749', name:'L-749 星座', maker:'洛克希德', era:'vintage', year:1949, icon:'🛩️', baseSeats:64, maxSeats:84, fuelPerKm:3.8, range:5800, price:21000, speed:62000, seatConfig:{economy:50,business:11,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:13} },
+  { id:'l1649', name:'L-1649A 星航', maker:'洛克希德', era:'vintage', year:1957, icon:'🛩️', baseSeats:65, maxSeats:95, fuelPerKm:4.2, range:9500, price:24000, speed:64000, seatConfig:{economy:50,business:12,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:13} },
+  { id:'b707', name:'波音 707-320', maker:'波音', era:'vintage', year:1958, icon:'💺', baseSeats:140, maxSeats:189, fuelPerKm:6.2, range:9300, price:45000, speed:80000, seatConfig:{economy:120,business:16,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt3d', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:24} },
+  { id:'b707-120', name:'波音 707-120', maker:'波音', era:'vintage', year:1957, icon:'💺', baseSeats:110, maxSeats:140, fuelPerKm:5.5, range:5600, price:38000, speed:78000, seatConfig:{economy:96,business:11,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt3d', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:19} },
+  { id:'comet4', name:'DH.106 彗星4', maker:'德·哈维兰', era:'vintage', year:1958, icon:'💫', baseSeats:81, maxSeats:99, fuelPerKm:4.2, range:5200, price:35000, speed:75000, seatConfig:{economy:70,business:8,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'conway', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:17} },
+  { id:'dc8', name:'DC-8-63', maker:'道格拉斯', era:'vintage', year:1959, icon:'🚀', baseSeats:180, maxSeats:259, fuelPerKm:7.0, range:9600, price:52000, speed:82000, seatConfig:{economy:160,business:16,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt3d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:36} },
+  { id:'caravelle', name:'SE-210 快帆', maker:'法国宇航', era:'vintage', year:1959, icon:'🕊️', baseSeats:80, maxSeats:99, fuelPerKm:3.8, range:2300, price:20000, speed:68000, seatConfig:{economy:70,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:16} },
+  { id:'caravelle3', name:'SE-210 快帆3', maker:'法国宇航', era:'vintage', year:1965, icon:'🕊️', baseSeats:80, maxSeats:99, fuelPerKm:3.7, range:2500, price:22000, speed:69000, seatConfig:{economy:70,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:16} },
+  { id:'b727-100', name:'波音 727-100', maker:'波音', era:'vintage', year:1963, icon:'✈️', baseSeats:106, maxSeats:129, fuelPerKm:4.3, range:4000, price:55000, speed:82000, seatConfig:{economy:94,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:18} },
+  { id:'b727-200', name:'波音 727-200', maker:'波音', era:'narrow', year:1963, icon:'✈️', baseSeats:155, maxSeats:189, fuelPerKm:5.0, range:4400, price:70000, speed:84000, seatConfig:{economy:135,business:16,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:26} },
+  { id:'il62', name:'伊尔-62M', maker:'伊留申', era:'vintage', year:1963, icon:'🛩️', baseSeats:168, maxSeats:195, fuelPerKm:7.8, range:10000, price:50000, speed:83000, seatConfig:{economy:150,business:14,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'d30ku', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:28} },
+  { id:'il86', name:'伊尔-86', maker:'伊留申', era:'jumbo', year:1980, icon:'🛫', baseSeats:320, maxSeats:350, fuelPerKm:9.0, range:4000, price:150000, speed:100000, seatConfig:{economy:270,business:40,first:10}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'nk86', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:40} },
+  { id:'b737-100', name:'波音 737-100', maker:'波音', era:'narrow', year:1967, icon:'✈️', baseSeats:90, maxSeats:110, fuelPerKm:3.2, range:3400, price:50000, speed:90000, seatConfig:{economy:80,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:15} },
+  { id:'b737-200', name:'波音 737-200', maker:'波音', era:'narrow', year:1967, icon:'✈️', baseSeats:115, maxSeats:130, fuelPerKm:3.5, range:4200, price:60000, speed:92000, seatConfig:{economy:100,business:12,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:20} },
+  { id:'tu134', name:'图-134', maker:'图波列夫', era:'vintage', year:1967, icon:'✈️', baseSeats:72, maxSeats:84, fuelPerKm:2.8, range:2400, price:28000, speed:82000, seatConfig:{economy:64,business:6,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'d30ku', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:15} },
+  { id:'tu154', name:'图-154M', maker:'图波列夫', era:'narrow', year:1968, icon:'🛩️', baseSeats:158, maxSeats:180, fuelPerKm:5.0, range:5200, price:55000, speed:85000, seatConfig:{economy:140,business:14,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'d30ku', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:27} },
+  { id:'tu144', name:'图-144 超音速', maker:'图波列夫', era:'vintage', year:1968, icon:'⚡', baseSeats:140, maxSeats:160, fuelPerKm:22.0, range:6500, price:450000, speed:175000, seatConfig:{economy:0,business:0,first:140}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'d30ku', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:35} },
+  { id:'l1011', name:'L-1011 三星', maker:'洛克希德', era:'jumbo', year:1970, icon:'🌟', baseSeats:256, maxSeats:400, fuelPerKm:9.8, range:9700, price:150000, speed:110000, seatConfig:{economy:210,business:36,first:10}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:32} },
+  { id:'dc9-30', name:'DC-9-30', maker:'道格拉斯', era:'vintage', year:1967, icon:'🛫', baseSeats:85, maxSeats:115, fuelPerKm:2.6, range:2400, price:35000, speed:81000, seatConfig:{economy:76,business:7,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:17} },
+  { id:'dc9-50', name:'DC-9-50', maker:'道格拉斯', era:'vintage', year:1975, icon:'🛫', baseSeats:100, maxSeats:139, fuelPerKm:2.8, range:3000, price:42000, speed:82000, seatConfig:{economy:90,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:20} },
+  { id:'dc10-30', name:'DC-10-30', maker:'麦道', era:'wide', year:1970, icon:'🛫', baseSeats:270, maxSeats:380, fuelPerKm:9.2, range:10600, price:160000, speed:112000, seatConfig:{economy:220,business:38,first:12}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:30} },
+  { id:'a300', name:'空客 A300B4', maker:'空客', era:'wide', year:1974, icon:'🛫', baseSeats:266, maxSeats:345, fuelPerKm:7.5, range:6700, price:180000, speed:116000, seatConfig:{economy:220,business:36,first:10}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:34} },
+  { id:'a300-600', name:'空客 A300-600', maker:'空客', era:'wide', year:1983, icon:'🛫', baseSeats:290, maxSeats:375, fuelPerKm:7.2, range:7500, price:190000, speed:117000, seatConfig:{economy:240,business:40,first:10}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:37} },
+  { id:'a310', name:'空客 A310', maker:'空客', era:'wide', year:1982, icon:'🛫', baseSeats:218, maxSeats:280, fuelPerKm:6.2, range:8000, price:175000, speed:115000, seatConfig:{economy:180,business:30,first:8}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:28} },
+  { id:'concorde', name:'协和号', maker:'法国宇航', era:'vintage', year:1976, icon:'⚡', baseSeats:100, maxSeats:128, fuelPerKm:25.0, range:7200, price:500000, speed:180000, seatConfig:{economy:0,business:0,first:100}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'olympus593', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:25} },
+  { id:'bae146', name:'BAe 146-300', maker:'英国宇航', era:'narrow', year:1981, icon:'🛩️', baseSeats:100, maxSeats:122, fuelPerKm:3.2, range:2800, price:45000, speed:78000, seatConfig:{economy:88,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'al502', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:20} },
+  { id:'hs748', name:'HS 748', maker:'英国宇航', era:'vintage', year:1961, icon:'🛩️', baseSeats:40, maxSeats:58, fuelPerKm:2.0, range:1700, price:18000, speed:56000, seatConfig:{economy:36,business:4,first:0}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:10} },
+  { id:'concorde-uk', name:'协和号(英)', maker:'英国宇航', era:'vintage', year:1976, icon:'⚡', baseSeats:100, maxSeats:128, fuelPerKm:25.0, range:7200, price:500000, speed:180000, seatConfig:{economy:0,business:0,first:100}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'olympus593', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:25} },
+  { id:'b757-200', name:'波音 757-200', maker:'波音', era:'narrow', year:1982, icon:'🛫', baseSeats:200, maxSeats:239, fuelPerKm:4.2, range:7200, price:130000, speed:108000, seatConfig:{economy:170,business:24,first:6}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'rb211-535', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:34} },
+  { id:'b757-300', name:'波音 757-300', maker:'波音', era:'narrow', year:1998, icon:'🛫', baseSeats:240, maxSeats:290, fuelPerKm:4.5, range:6400, price:145000, speed:110000, seatConfig:{economy:204,business:28,first:8}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'rb211-535', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:40} },
+  { id:'b767-200', name:'波音 767-200', maker:'波音', era:'wide', year:1982, icon:'🛫', baseSeats:210, maxSeats:290, fuelPerKm:6.2, range:9400, price:160000, speed:118000, seatConfig:{economy:170,business:32,first:8}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:7,aisleAfter:4,rows:30} },
+  { id:'b767-300', name:'波音 767-300ER', maker:'波音', era:'wide', year:1986, icon:'🛫', baseSeats:261, maxSeats:350, fuelPerKm:6.8, range:11000, price:200000, speed:120000, seatConfig:{economy:210,business:40,first:11}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:7,aisleAfter:4,rows:38} },
+  { id:'b767-400', name:'波音 767-400ER', maker:'波音', era:'wide', year:2000, icon:'🛫', baseSeats:243, maxSeats:375, fuelPerKm:7.0, range:10400, price:210000, speed:122000, seatConfig:{economy:195,business:38,first:10}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:7,aisleAfter:4,rows:35} },
+  { id:'fokker100', name:'福克 100', maker:'福克', era:'narrow', year:1986, icon:'✈️', baseSeats:107, maxSeats:122, fuelPerKm:2.8, range:3100, price:50000, speed:90000, seatConfig:{economy:95,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'tay650', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:22} },
+  { id:'a320', name:'空中客车 A320', maker:'空客', era:'narrow', year:1987, icon:'✈️', baseSeats:165, maxSeats:186, fuelPerKm:3.1, range:6100, price:110000, speed:100000, seatConfig:{economy:140,business:20,first:5}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-5b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:28} },
+  { id:'a318', name:'空客 A318', maker:'空客', era:'narrow', year:2003, icon:'✈️', baseSeats:107, maxSeats:132, fuelPerKm:2.8, range:5700, price:90000, speed:98000, seatConfig:{economy:94,business:10,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-5b', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:22} },
+  { id:'a319', name:'空客 A319', maker:'空客', era:'narrow', year:1996, icon:'✈️', baseSeats:124, maxSeats:160, fuelPerKm:2.9, range:6800, price:100000, speed:99000, seatConfig:{economy:106,business:14,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-5b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:21} },
+  { id:'a320neo', name:'空客 A320neo', maker:'空客', era:'narrow', year:2016, icon:'✈️', baseSeats:165, maxSeats:195, fuelPerKm:2.8, range:6900, price:130000, speed:103000, seatConfig:{economy:140,business:20,first:5}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1100g', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:28} },
+  { id:'a321', name:'空客 A321', maker:'空客', era:'narrow', year:1994, icon:'✈️', baseSeats:185, maxSeats:220, fuelPerKm:3.2, range:5600, price:125000, speed:102000, seatConfig:{economy:156,business:24,first:5}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-5b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:31} },
+  { id:'b747-100', name:'波音 747-100', maker:'波音', era:'jumbo', year:1970, icon:'👑', baseSeats:366, maxSeats:550, fuelPerKm:14.0, range:9800, price:350000, speed:155000, seatConfig:{economy:300,business:50,first:16}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt3d', isDoubleDeck:true, layout:{seatsPerRow:10,aisleAfter:5,rows:37}, upperDeck:{seatsPerRow:6,aisleAfter:3,rows:8} },
+  { id:'b747-200', name:'波音 747-200', maker:'波音', era:'jumbo', year:1971, icon:'👑', baseSeats:374, maxSeats:560, fuelPerKm:14.2, range:11000, price:380000, speed:155000, seatConfig:{economy:305,business:52,first:17}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt3d', isDoubleDeck:true, layout:{seatsPerRow:10,aisleAfter:5,rows:38}, upperDeck:{seatsPerRow:6,aisleAfter:3,rows:8} },
+  { id:'b747-400', name:'波音 747-400', maker:'波音', era:'jumbo', year:1988, icon:'👑', baseSeats:416, maxSeats:660, fuelPerKm:13.5, range:13400, price:500000, speed:160000, seatConfig:{economy:340,business:60,first:16}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:true, layout:{seatsPerRow:10,aisleAfter:5,rows:42}, upperDeck:{seatsPerRow:6,aisleAfter:3,rows:10} },
+  { id:'b747-8', name:'波音 747-8', maker:'波音', era:'jumbo', year:2011, icon:'👑', baseSeats:410, maxSeats:605, fuelPerKm:12.5, range:14300, price:650000, speed:165000, seatConfig:{economy:330,business:62,first:18}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'genx', isDoubleDeck:true, layout:{seatsPerRow:10,aisleAfter:5,rows:41}, upperDeck:{seatsPerRow:6,aisleAfter:3,rows:10} },
+  { id:'md11', name:'MD-11', maker:'麦道', era:'wide', year:1990, icon:'🛫', baseSeats:293, maxSeats:410, fuelPerKm:9.5, range:12600, price:170000, speed:114000, seatConfig:{economy:240,business:40,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cf6-80c2', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:33} },
+  { id:'md80', name:'MD-80', maker:'麦道', era:'narrow', year:1980, icon:'✈️', baseSeats:130, maxSeats:172, fuelPerKm:3.0, range:3800, price:70000, speed:90000, seatConfig:{economy:114,business:13,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:26} },
+  { id:'md90', name:'MD-90', maker:'麦道', era:'narrow', year:1995, icon:'✈️', baseSeats:140, maxSeats:172, fuelPerKm:2.9, range:3900, price:80000, speed:92000, seatConfig:{economy:122,business:15,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'tay650', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:28} },
+  { id:'md83', name:'MD-83', maker:'麦道', era:'narrow', year:1985, icon:'✈️', baseSeats:140, maxSeats:172, fuelPerKm:3.1, range:4800, price:75000, speed:90000, seatConfig:{economy:122,business:15,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:28} },
+  { id:'md87', name:'MD-87', maker:'麦道', era:'narrow', year:1987, icon:'✈️', baseSeats:109, maxSeats:139, fuelPerKm:2.7, range:4500, price:68000, speed:89000, seatConfig:{economy:96,business:11,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'jt8d', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:22} },
+  { id:'a330-200', name:'空客 A330-200', maker:'空客', era:'wide', year:1998, icon:'🛫', baseSeats:250, maxSeats:380, fuelPerKm:7.2, range:13400, price:270000, speed:128000, seatConfig:{economy:205,business:36,first:9}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent700', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:32} },
+  { id:'a330-300', name:'空客 A330-300', maker:'空客', era:'wide', year:1993, icon:'🛫', baseSeats:295, maxSeats:440, fuelPerKm:7.8, range:11700, price:280000, speed:130000, seatConfig:{economy:240,business:42,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent700', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:37} },
+  { id:'a330-900', name:'空客 A330-900neo', maker:'空客', era:'wide', year:2018, icon:'🛫', baseSeats:287, maxSeats:440, fuelPerKm:7.0, range:13300, price:300000, speed:132000, seatConfig:{economy:230,business:44,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent700', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:36} },
+  { id:'b737-300', name:'波音 737-300', maker:'波音', era:'narrow', year:1984, icon:'✈️', baseSeats:128, maxSeats:149, fuelPerKm:3.0, range:5000, price:85000, speed:95000, seatConfig:{economy:112,business:13,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-7b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:21} },
+  { id:'b737-700', name:'波音 737-700', maker:'波音', era:'narrow', year:1997, icon:'✈️', baseSeats:126, maxSeats:149, fuelPerKm:3.0, range:6000, price:100000, speed:103000, seatConfig:{economy:110,business:13,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-7b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:21} },
+  { id:'b737-800', name:'波音 737-800', maker:'波音', era:'narrow', year:1997, icon:'✈️', baseSeats:175, maxSeats:189, fuelPerKm:3.2, range:5400, price:120000, speed:105000, seatConfig:{economy:150,business:20,first:5}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-7b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:30} },
+  { id:'b737-900', name:'波音 737-900ER', maker:'波音', era:'narrow', year:2001, icon:'✈️', baseSeats:178, maxSeats:215, fuelPerKm:3.4, range:5900, price:135000, speed:108000, seatConfig:{economy:152,business:20,first:6}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'cfm56-7b', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:30} },
+  { id:'b717', name:'波音 717-200', maker:'波音', era:'narrow', year:1999, icon:'✈️', baseSeats:106, maxSeats:125, fuelPerKm:2.5, range:4000, price:85000, speed:96000, seatConfig:{economy:94,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'br715', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:21} },
+  { id:'a340-300', name:'空客 A340-300', maker:'空客', era:'jumbo', year:1993, icon:'🛫', baseSeats:295, maxSeats:440, fuelPerKm:10.5, range:12400, price:320000, speed:130000, seatConfig:{economy:240,business:42,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:37} },
+  { id:'a340-500', name:'空客 A340-500', maker:'空客', era:'jumbo', year:2002, icon:'🛫', baseSeats:313, maxSeats:440, fuelPerKm:11.0, range:16000, price:340000, speed:132000, seatConfig:{economy:255,business:45,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:40} },
+  { id:'a340-600', name:'空客 A340-600', maker:'空客', era:'jumbo', year:2001, icon:'🛫', baseSeats:380, maxSeats:520, fuelPerKm:11.5, range:14300, price:350000, speed:135000, seatConfig:{economy:310,business:56,first:14}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:48} },
+  { id:'b777-200', name:'波音 777-200', maker:'波音', era:'wide', year:1995, icon:'💪', baseSeats:305, maxSeats:440, fuelPerKm:9.5, range:9700, price:350000, speed:145000, seatConfig:{economy:245,business:48,first:12}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent800', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:34} },
+  { id:'b777-200lr', name:'波音 777-200LR', maker:'波音', era:'wide', year:2006, icon:'💪', baseSeats:301, maxSeats:440, fuelPerKm:9.8, range:17500, price:390000, speed:148000, seatConfig:{economy:240,business:48,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'ge90-115b', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:34} },
+  { id:'b777-300er', name:'波音 777-300ER', maker:'波音', era:'jumbo', year:2003, icon:'💪', baseSeats:365, maxSeats:550, fuelPerKm:10.5, range:13650, price:420000, speed:150000, seatConfig:{economy:290,business:58,first:17}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'ge90-115b', isDoubleDeck:false, layout:{seatsPerRow:10,aisleAfter:5,rows:37} },
+  { id:'b777-9', name:'波音 777-9', maker:'波音', era:'jumbo', year:2020, icon:'💪', baseSeats:400, maxSeats:475, fuelPerKm:10.2, range:13900, price:500000, speed:152000, seatConfig:{economy:320,business:62,first:18}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'ge90-115b', isDoubleDeck:false, layout:{seatsPerRow:10,aisleAfter:5,rows:40} },
+  { id:'a380', name:'空客 A380', maker:'空客', era:'jumbo', year:2007, icon:'🏰', baseSeats:525, maxSeats:853, fuelPerKm:16.5, range:14800, price:800000, speed:170000, seatConfig:{economy:420,business:80,first:25}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent900', isDoubleDeck:true, layout:{seatsPerRow:10,aisleAfter:5,rows:42}, upperDeck:{seatsPerRow:8,aisleAfter:4,rows:35} },
+  { id:'b787-8', name:'波音 787-8 梦想客机', maker:'波音', era:'wide', year:2011, icon:'✨', baseSeats:210, maxSeats:290, fuelPerKm:5.8, range:13600, price:330000, speed:138000, seatConfig:{economy:170,business:32,first:8}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent1000', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:27} },
+  { id:'b787-9', name:'波音 787-9 梦想客机', maker:'波音', era:'wide', year:2013, icon:'✨', baseSeats:280, maxSeats:420, fuelPerKm:6.2, range:14100, price:350000, speed:140000, seatConfig:{economy:226,business:42,first:12}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent1000', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:32} },
+  { id:'b787-10', name:'波音 787-10 梦想客机', maker:'波音', era:'wide', year:2018, icon:'✨', baseSeats:310, maxSeats:440, fuelPerKm:6.5, range:11900, price:380000, speed:142000, seatConfig:{economy:250,business:46,first:14}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trent1000', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:35} },
+  { id:'a350-900', name:'空客 A350-900', maker:'空客', era:'wide', year:2014, icon:'✨', baseSeats:315, maxSeats:440, fuelPerKm:6.5, range:15000, price:370000, speed:145000, seatConfig:{economy:250,business:50,first:15}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trentxwb', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:35} },
+  { id:'a350-1000', name:'空客 A350-1000', maker:'空客', era:'wide', year:2018, icon:'✨', baseSeats:350, maxSeats:480, fuelPerKm:6.8, range:15200, price:400000, speed:146000, seatConfig:{economy:280,business:55,first:15}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trentxwb', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:39} },
+  { id:'a350-900ulr', name:'空客 A350-900ULR', maker:'空客', era:'wide', year:2019, icon:'✨', baseSeats:270, maxSeats:380, fuelPerKm:6.6, range:18000, price:390000, speed:144000, seatConfig:{economy:215,business:42,first:13}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'trentxwb', isDoubleDeck:false, layout:{seatsPerRow:9,aisleAfter:5,rows:30} },
+  { id:'a220-100', name:'空客 A220-100', maker:'空客', era:'narrow', year:2016, icon:'✨', baseSeats:108, maxSeats:130, fuelPerKm:1.9, range:5400, price:80000, speed:93000, seatConfig:{economy:96,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1500g', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:27} },
+  { id:'a220-300', name:'空客 A220-300', maker:'空客', era:'narrow', year:2016, icon:'✨', baseSeats:140, maxSeats:160, fuelPerKm:2.3, range:6100, price:95000, speed:97000, seatConfig:{economy:125,business:12,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1500g', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:28} },
+  { id:'a321neo', name:'空客 A321neo', maker:'空客', era:'narrow', year:2017, icon:'✈️', baseSeats:206, maxSeats:244, fuelPerKm:3.0, range:7400, price:160000, speed:118000, seatConfig:{economy:180,business:22,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1100g', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:35} },
+  { id:'erj195', name:'ERJ-195-E2', maker:'巴西航空工业', era:'narrow', year:2019, icon:'✈️', baseSeats:120, maxSeats:146, fuelPerKm:2.0, range:4800, price:75000, speed:95000, seatConfig:{economy:108,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1900g', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:30} },
+  // ---- 新增机型 ----
+  { id:'l188', name:'L-188 伊莱克特拉', maker:'洛克希德', era:'vintage', year:1959, icon:'🛩️', baseSeats:98, maxSeats:116, fuelPerKm:3.2, range:4400, price:30000, speed:72000, seatConfig:{economy:85,business:10,first:3}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:20} },
+  { id:'c130', name:'L-100 大力神', maker:'洛克希德', era:'vintage', year:1965, icon:'🚛', baseSeats:92, maxSeats:128, fuelPerKm:4.0, range:5200, price:35000, speed:65000, seatConfig:{economy:80,business:10,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:16} },
+  { id:'dh106', name:'DH.106 彗星1', maker:'德·哈维兰', era:'vintage', year:1952, icon:'💫', baseSeats:36, maxSeats:44, fuelPerKm:3.5, range:2400, price:18000, speed:70000, seatConfig:{economy:30,business:5,first:1}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'conway', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:9} },
+  { id:'comet4b', name:'DH.106 彗星4B', maker:'德·哈维兰', era:'vintage', year:1960, icon:'💫', baseSeats:70, maxSeats:101, fuelPerKm:3.8, range:4000, price:30000, speed:76000, seatConfig:{economy:60,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'conway', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:14} },
+  { id:'bac111', name:'BAC 1-11', maker:'英国宇航', era:'vintage', year:1965, icon:'🛩️', baseSeats:79, maxSeats:119, fuelPerKm:2.8, range:2300, price:25000, speed:74000, seatConfig:{economy:70,business:7,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:16} },
+  { id:'fokker28', name:'福克 F28', maker:'福克', era:'vintage', year:1969, icon:'✈️', baseSeats:65, maxSeats:85, fuelPerKm:2.2, range:2000, price:20000, speed:80000, seatConfig:{economy:58,business:6,first:1}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:5,aisleAfter:3,rows:13} },
+  { id:'f27', name:'福克 F27 友谊', maker:'福克', era:'vintage', year:1958, icon:'✈️', baseSeats:44, maxSeats:56, fuelPerKm:1.8, range:2000, price:15000, speed:60000, seatConfig:{economy:40,business:4,first:0}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:11} },
+  { id:'fokker70', name:'福克 70', maker:'福克', era:'narrow', year:1994, icon:'✈️', baseSeats:70, maxSeats:80, fuelPerKm:2.0, range:3000, price:45000, speed:89000, seatConfig:{economy:62,business:6,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'tay650', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:18} },
+  { id:'erj175', name:'ERJ-175-E2', maker:'巴西航空工业', era:'narrow', year:2016, icon:'✈️', baseSeats:80, maxSeats:90, fuelPerKm:1.8, range:4000, price:55000, speed:90000, seatConfig:{economy:72,business:6,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1900g', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:20} },
+  { id:'erj170', name:'ERJ-170', maker:'巴西航空工业', era:'narrow', year:2004, icon:'✈️', baseSeats:70, maxSeats:78, fuelPerKm:1.7, range:3800, price:48000, speed:88000, seatConfig:{economy:63,business:5,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1900g', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:18} },
+  { id:'erj190', name:'ERJ-190', maker:'巴西航空工业', era:'narrow', year:2004, icon:'✈️', baseSeats:98, maxSeats:114, fuelPerKm:1.9, range:4500, price:60000, speed:91000, seatConfig:{economy:88,business:8,first:2}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'pw1900g', isDoubleDeck:false, layout:{seatsPerRow:4,aisleAfter:2,rows:25} },
+  { id:'il96', name:'伊尔-96-300', maker:'伊留申', era:'jumbo', year:1992, icon:'🛫', baseSeats:262, maxSeats:350, fuelPerKm:8.5, range:11000, price:180000, speed:110000, seatConfig:{economy:220,business:32,first:10}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:8,aisleAfter:4,rows:33} },
+  { id:'tu204', name:'图-204-100', maker:'图波列夫', era:'narrow', year:1995, icon:'✈️', baseSeats:190, maxSeats:210, fuelPerKm:3.5, range:5800, price:90000, speed:95000, seatConfig:{economy:170,business:16,first:4}, seatModelIds:{economy:'recaro-sl3710',business:'recaro-cl6720',first:'safran-la-premiere'}, defaultEngine:'none', isDoubleDeck:false, layout:{seatsPerRow:6,aisleAfter:3,rows:32} },
+];
+
+// ==================== 制造商分组 ====================
+const MAKER_GROUPS = {
+  '波音':'波音','空客':'空客','空客(庞巴迪)':'空客',
+  '道格拉斯':'道格拉斯/麦道','麦道':'道格拉斯/麦道',
+  '洛克希德':'洛克希德','德·哈维兰':'德·哈维兰',
+  '法国宇航':'法国宇航','伊留申':'伊留申','图波列夫':'图波列夫',
+  '英国宇航':'英国宇航','福克':'福克','巴西航空工业':'巴西航空工业',
+};
+const MAKER_INFO = {
+  '波音':{icon:'🏢',desc:'美国航空巨头，全球最大飞机制造商'},
+  '空客':{icon:'🏰',desc:'欧洲航空集团，波音最强竞争对手'},
+  '道格拉斯/麦道':{icon:'🦅',desc:'美国传奇制造商，DC/MD系列经典永存'},
+  '洛克希德':{icon:'⭐',desc:'美国军工航空巨擘，L-1011为经典之作'},
+  '德·哈维兰':{icon:'💫',desc:'英国先驱，全球首款喷气客机制造商'},
+  '法国宇航':{icon:'🥖',desc:'法国航空工业骄傲，超音速传奇协和号'},
+  '伊留申':{icon:'🔴',desc:'苏联/俄罗斯主力客机设计局'},
+  '图波列夫':{icon:'🔶',desc:'俄罗斯老牌飞机设计局，图-154为经典'},
+  '英国宇航':{icon:'👑',desc:'英国航空制造代表，BAe与BAC系列'},
+  '福克':{icon:'🌷',desc:'荷兰航空制造传奇，F系列支线客机'},
+  '巴西航空工业':{icon:'🌴',desc:'巴西支线飞机制造商，E系列畅销全球'},
+};
+
+const ALL_ROUTES = [
+  { id:'pek-sha', from:'北京', to:'上海', fromCode:'PEK', toCode:'SHA', distance:1170, baseFare:350, demand:95, unlocked:true },
+  { id:'pek-can', from:'北京', to:'广州', fromCode:'PEK', toCode:'CAN', distance:1960, baseFare:500, demand:85, unlocked:true },
+  { id:'pek-hnd', from:'北京', to:'东京', fromCode:'PEK', toCode:'HND', distance:2100, baseFare:550, demand:90, unlocked:true },
+  { id:'sha-can', from:'上海', to:'广州', fromCode:'SHA', toCode:'CAN', distance:1300, baseFare:380, demand:88, unlocked:true },
+  { id:'sha-hkg', from:'上海', to:'香港', fromCode:'SHA', toCode:'HKG', distance:1250, baseFare:400, demand:92, unlocked:true },
+  { id:'can-bkk', from:'广州', to:'曼谷', fromCode:'CAN', toCode:'BKK', distance:1700, baseFare:450, demand:82, unlocked:true },
+  { id:'pek-szx', from:'北京', to:'深圳', fromCode:'PEK', toCode:'SZX', distance:2070, baseFare:520, demand:80, unlocked:false },
+  { id:'pek-ctu', from:'北京', to:'成都', fromCode:'PEK', toCode:'CTU', distance:1690, baseFare:430, demand:83, unlocked:false },
+  { id:'pek-kmg', from:'北京', to:'昆明', fromCode:'PEK', toCode:'KMG', distance:2260, baseFare:560, demand:75, unlocked:false },
+  { id:'sha-ctu', from:'上海', to:'成都', fromCode:'SHA', toCode:'CTU', distance:1660, baseFare:420, demand:85, unlocked:false },
+  { id:'sha-syx', from:'上海', to:'三亚', fromCode:'SHA', toCode:'SYX', distance:1850, baseFare:480, demand:78, unlocked:false },
+  { id:'pek-icn', from:'北京', to:'首尔', fromCode:'PEK', toCode:'ICN', distance:950, baseFare:320, demand:88, unlocked:false },
+  { id:'sha-kix', from:'上海', to:'大阪', fromCode:'SHA', toCode:'KIX', distance:1500, baseFare:420, demand:82, unlocked:false },
+  { id:'can-kix', from:'广州', to:'大阪', fromCode:'CAN', toCode:'KIX', distance:2500, baseFare:600, demand:75, unlocked:false },
+  { id:'hkg-tpe', from:'香港', to:'台北', fromCode:'HKG', toCode:'TPE', distance:800, baseFare:250, demand:95, unlocked:false },
+  { id:'szx-icn', from:'深圳', to:'首尔', fromCode:'SZX', toCode:'ICN', distance:2000, baseFare:520, demand:78, unlocked:false },
+  { id:'pek-mnl', from:'北京', to:'马尼拉', fromCode:'PEK', toCode:'MNL', distance:2850, baseFare:650, demand:65, unlocked:false },
+  { id:'pek-sin', from:'北京', to:'新加坡', fromCode:'PEK', toCode:'SIN', distance:4500, baseFare:1000, demand:75, unlocked:false },
+  { id:'pek-dxb', from:'北京', to:'迪拜', fromCode:'PEK', toCode:'DXB', distance:5850, baseFare:1300, demand:70, unlocked:false },
+  { id:'sha-del', from:'上海', to:'德里', fromCode:'SHA', toCode:'DEL', distance:4200, baseFare:950, demand:60, unlocked:false },
+  { id:'can-del', from:'广州', to:'德里', fromCode:'CAN', toCode:'DEL', distance:3650, baseFare:880, demand:55, unlocked:false },
+  { id:'pek-cdg', from:'北京', to:'巴黎', fromCode:'PEK', toCode:'CDG', distance:8200, baseFare:1800, demand:65, unlocked:false },
+  { id:'pek-lax', from:'北京', to:'洛杉矶', fromCode:'PEK', toCode:'LAX', distance:10000, baseFare:2200, demand:70, unlocked:false },
+  { id:'pek-jfk', from:'北京', to:'纽约', fromCode:'PEK', toCode:'JFK', distance:11000, baseFare:2400, demand:60, unlocked:false },
+  { id:'sha-lhr', from:'上海', to:'伦敦', fromCode:'SHA', toCode:'LHR', distance:9200, baseFare:2100, demand:60, unlocked:false },
+  { id:'sha-sfo', from:'上海', to:'旧金山', fromCode:'SHA', toCode:'SFO', distance:9500, baseFare:2150, demand:65, unlocked:false },
+  { id:'pek-syd', from:'北京', to:'悉尼', fromCode:'PEK', toCode:'SYD', distance:9000, baseFare:2000, demand:55, unlocked:false },
+  { id:'can-mel', from:'广州', to:'墨尔本', fromCode:'CAN', toCode:'MEL', distance:7500, baseFare:1700, demand:55, unlocked:false },
+  { id:'hkg-fra', from:'香港', to:'法兰克福', fromCode:'HKG', toCode:'FRA', distance:9200, baseFare:2000, demand:55, unlocked:false },
+  { id:'pek-yvr', from:'北京', to:'温哥华', fromCode:'PEK', toCode:'YVR', distance:8500, baseFare:1900, demand:58, unlocked:false },
+  { id:'sha-yyz', from:'上海', to:'多伦多', fromCode:'SHA', toCode:'YYZ', distance:11400, baseFare:2450, demand:50, unlocked:false },
+];
+
+const PAX_NAMES = ['张伟','王芳','李娜','刘洋','陈静','杨帆','赵敏','黄磊','周杰','吴鑫','郑爽','钱进','孙子涵','李雷','韩梅梅','马超','林黛玉','王小明','刘大壮','陈美嘉','Jack','Emma','Sophie','Lucas','Oliver','Mia','Noah','Ava'];
+const GOOD_REVIEWS = ['很舒适，服务一流！','准点到达，满意！','餐食不错，下次还选。','商务舱超棒！','性价比很高。','空姐很温暖！','非常准时！','空间比想象中大。'];
+const BAD_REVIEWS = ['座位太挤了...','延误了两小时！','餐食难吃。','行李被摔坏了。','飞机老旧噪音大。','空乘态度冷漠。'];
+const COMFORT_GOOD = ['座椅太舒服了！像在头等舱一样','空间宽敞，非常舒适','座位设计很棒，一路好眠'];
+const COMFORT_BAD = ['座位太硬了，腰酸背痛','空间太挤了，腿都伸不开','座椅很旧，该换了'];
+
+// ==================== 餐食数据库 ====================
+const MEAL_DATABASE = {
+  first: [
+    {id:'f_basic',name:'精选套餐',quality:'basic',satisfactionBonus:5,pricePerPax:80,desc:'三道式西餐，搭配红酒'},
+    {id:'f_standard',name:'主厨特选',quality:'standard',satisfactionBonus:10,pricePerPax:150,desc:'五道式法餐，侍酒师搭配'},
+    {id:'f_premium',name:'米其林体验',quality:'premium',satisfactionBonus:15,pricePerPax:300,desc:'七道式分子料理，香槟畅饮'},
+    {id:'f_luxury',name:'空中盛宴',quality:'luxury',satisfactionBonus:20,pricePerPax:500,desc:'私人厨师定制，鱼子酱+松露'},
+  ],
+  business: [
+    {id:'b_basic',name:'商务简餐',quality:'basic',satisfactionBonus:4,pricePerPax:40,desc:'两道式热食，软饮'},
+    {id:'b_standard',name:'精选商务餐',quality:'standard',satisfactionBonus:8,pricePerPax:80,desc:'三道式，精选葡萄酒'},
+    {id:'b_premium',name:'行政总厨',quality:'premium',satisfactionBonus:12,pricePerPax:150,desc:'四道式，侍酒师服务'},
+    {id:'b_luxury',name:'头等舱体验餐',quality:'luxury',satisfactionBonus:16,pricePerPax:250,desc:'五道式，顶级香槟'},
+  ],
+  economy: [
+    {id:'e_basic',name:'经济餐盒',quality:'basic',satisfactionBonus:3,pricePerPax:15,desc:'简餐+饮料'},
+    {id:'e_standard',name:'标准餐食',quality:'standard',satisfactionBonus:5,pricePerPax:30,desc:'热食主菜+沙拉+甜点'},
+    {id:'e_premium',name:'优享餐食',quality:'premium',satisfactionBonus:8,pricePerPax:55,desc:'两道热食可选+冰淇淋'},
+    {id:'e_luxury',name:'豪华经济餐',quality:'luxury',satisfactionBonus:10,pricePerPax:90,desc:'三道式+气泡酒+巧克力'},
+  ],
+};
+
+// ==================== 涂装预设 ====================
+const LIVERY_PRESETS = [
+  {id:'classic_white',name:'经典白',desc:'纯白机身配蓝条纹',bodyColor:'#f8fafc',stripeColor:'#3b82f6',tailColor:'#1e40af'},
+  {id:'japan_airlines',name:'日航鹤丸',desc:'白底红日',bodyColor:'#ffffff',stripeColor:'#ef4444',tailColor:'#dc2626'},
+  {id:'lufthansa',name:'汉莎经典',desc:'白底黄灰',bodyColor:'#ffffff',stripeColor:'#facc15',tailColor:'#1e293b'},
+  {id:'emirates',name:'阿联酋航空',desc:'白底绿红',bodyColor:'#f8fafc',stripeColor:'#22c55e',tailColor:'#ef4444'},
+  {id:'singapore',name:'新航蓝金',desc:'白底蓝金条纹',bodyColor:'#ffffff',stripeColor:'#1e40af',tailColor:'#f59e0b'},
+  {id:'air_france',name:'法航蓝白红',desc:'白底蓝尾红标',bodyColor:'#ffffff',stripeColor:'#1e40af',tailColor:'#ef4444'},
+  {id:'qantas',name:'澳洲航空',desc:'白底红袋鼠',bodyColor:'#ffffff',stripeColor:'#ef4444',tailColor:'#dc2626'},
+  {id:'cathay',name:'国泰航空',desc:'白底绿条纹',bodyColor:'#f8fafc',stripeColor:'#166534',tailColor:'#15803d'},
+  {id:'delta',name:'达美航空',desc:'白底蓝红三角',bodyColor:'#ffffff',stripeColor:'#1e40af',tailColor:'#ef4444'},
+  {id:'china_eastern',name:'东方航空',desc:'白底红蓝',bodyColor:'#ffffff',stripeColor:'#ef4444',tailColor:'#1e40af'},
+  {id:'china_southern',name:'南方航空',desc:'蓝底金木棉',bodyColor:'#1e40af',stripeColor:'#f59e0b',tailColor:'#f59e0b'},
+  {id:'air_china',name:'国航凤凰',desc:'白底红凤',bodyColor:'#ffffff',stripeColor:'#ef4444',tailColor:'#dc2626'},
+  {id:'all_black',name:'暗夜黑',desc:'全黑机身金条纹',bodyColor:'#1e293b',stripeColor:'#f59e0b',tailColor:'#f59e0b'},
+  {id:'retro_orange',name:'复古橙',desc:'白底橙色条纹',bodyColor:'#f8fafc',stripeColor:'#f97316',tailColor:'#ea580c'},
+  {id:'military_green',name:'军绿',desc:'军绿色迷彩风',bodyColor:'#4d7c0f',stripeColor:'#65a30d',tailColor:'#3f6212'},
+];
+const LIVERY_PALETTE = ['#ffffff','#e2e8f0','#94a3b8','#475569','#1e293b','#0f172a','#ef4444','#f97316','#f59e0b','#22c55e','#10b981','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#f43f5e','#84cc16','#06b6d4','#a855f7','#78716c','#d4a574','#93c5fd','#fca5a5'];
+
+// ==================== 游戏状态 ====================
+let gameState = {
+  airlineName: '一彻航空', airlineLogo: '✈️',
+  airlineDefaultLivery: { type: 'preset', presetId: 'classic_white', pixels: null },
+  gold: 200000, reputation: 50, day: 1,
+  planes: [], routes: ALL_ROUTES.filter(r => r.unlocked),
+  logs: [], totalIncome: 0, totalExpense: 0,
+  achievements: {}, totalPassengers: 0, totalFlights: 0,
+  reviews: [], marketSort: 'year',
+  history: [], gameStartTime: Date.now(), isNight: false, dayTimer: null,
+  pendingTimers: {}, lastAutoSaveDay: 0,
+};
+
+// ==================== 时间系统 ====================
+function startDayNightCycle() {
+  const totalDayMs = 10 * 60 * 1000, dayMs = 6 * 60 * 1000;
+  function check() {
+    const elapsed = (Date.now() - gameState.gameStartTime) % totalDayMs;
+    const night = elapsed >= dayMs;
+    if (night !== gameState.isNight) { gameState.isNight = night; updateTimeIndicator(); }
+  }
+  gameState.dayTimer = setInterval(check, 1000);
+  check();
+}
+function updateTimeIndicator() {
+  const el = document.getElementById('time-indicator');
+  el.textContent = gameState.isNight ? '🌙 夜晚' : '☀️ 白天';
+  el.className = 'time-indicator ' + (gameState.isNight ? 'time-night' : 'time-day');
+}
+
+// ==================== 工具函数 ====================
+function getPlaneModel(id) { return PLANE_MODELS.find(m => m.id === id); }
+function getTotalSeats(sc) { return sc.economy + sc.business + sc.first; }
+function getEngineModel(id) { return ENGINE_MODELS.find(e => e.id === id) || null; }
+function getSeatModel(type, id) { const l = SEAT_MODELS[type]; return l ? l.find(s => s.id === id) || l[0] : l[0]; }
+function getPlaneEngine(plane) { return getEngineModel(plane.engineId || getPlaneModel(plane.modelId).defaultEngine); }
+function formatGold(n) { if (Math.abs(n) >= 1e6) return (n/1e6).toFixed(1)+'M 🪙'; if (Math.abs(n) >= 1e3) return (n/1e3).toFixed(1)+'K 🪙'; return n+' 🪙'; }
+function formatDistance(km) { return km >= 1000 ? Math.floor(km/1000)+','+(km%1000)+'km' : km+'km'; }
+function getEraLabel(e) { const L={vintage:'🏛️经典古董',narrow:'✈️窄体客机',wide:'🛫宽体客机',jumbo:'🏰超大型'}; return L[e]||e; }
+function addLog(msg, type) { gameState.logs.push({msg,type,day:gameState.day}); }
+
+// ==================== 飞行时间：基于速度计算 ====================
+function getFlightDurationMs(plane, distance) {
+  const model = getPlaneModel(plane.modelId);
+  const speed = model.speed || 850; // km/h
+  const hours = distance / speed;
+  return hours * 60 * 60 * 1000; // 转为毫秒
+}
+function getFlightDurationString(plane, distance) {
+  const model = getPlaneModel(plane.modelId);
+  const speed = model.speed || 850;
+  const minutes = (distance / speed) * 60;
+  const m = Math.floor(minutes);
+  const s = Math.round((minutes - m) * 60);
+  return m > 0 ? m + '分' + (s > 0 ? s + '秒' : '') : s + '秒';
+}
+
+// ==================== 油耗 ====================
+function getEffectiveFuelBurn(plane) {
+  const engine = getPlaneEngine(plane);
+  return engine ? getPlaneModel(plane.modelId).fuelPerKm * engine.fuelBurn : getPlaneModel(plane.modelId).fuelPerKm;
+}
+function getPlaneFuelCost(plane, distance) { return Math.round(getEffectiveFuelBurn(plane) * distance); }
+function getRangePenalty(plane, route) { return route.distance <= getPlaneModel(plane.modelId).range ? 0 : 1; }
+function getMaintenanceCost(plane) { return Math.round(getPlaneModel(plane.modelId).price * 0.008); }
+
+// ==================== 舒适度 ====================
+function getAverageComfort(plane) {
+  const sc = plane.seatConfig, total = getTotalSeats(sc);
+  if (total === 0) return 60;
+  const es = getSeatModel('economy', plane.seatModelIds?.economy || 'recaro-sl3710');
+  const bs = getSeatModel('business', plane.seatModelIds?.business || 'recaro-cl6720');
+  const fs = getSeatModel('first', plane.seatModelIds?.first || 'safran-la-premiere');
+  return Math.round((es.comfort * sc.economy + bs.comfort * sc.business + fs.comfort * sc.first) / total);
+}
+
+// ==================== 维护状态 ====================
+function getMaintenanceStatus(plane) {
+  const ms = plane.maintenanceSchedule;
+  if (!ms) return 'good';
+  const daysOverdue = ms.daysSinceService - ms.serviceIntervalDays;
+  const flightsOverdue = ms.flightsSinceService - ms.serviceIntervalFlights;
+  if (daysOverdue > 0 || flightsOverdue > 0) return 'overdue';
+  if (daysOverdue > -2 || flightsOverdue > -3) return 'warning';
+  return 'good';
+}
+function getOverdueCrashMultiplier(plane) {
+  const ms = plane.maintenanceSchedule;
+  if (!ms) return 1;
+  const daysOverdue = Math.max(0, ms.daysSinceService - ms.serviceIntervalDays);
+  const flightsOverdue = Math.max(0, ms.flightsSinceService - ms.serviceIntervalFlights);
+  const totalOverdue = daysOverdue + flightsOverdue;
+  return 1 + Math.min(totalOverdue * 0.3, 4);
+}
+function scheduleMaintenance(planeId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane || plane.status !== 'idle') { showToast('飞机不可用！', 'error'); return; }
+  const cost = getMaintenanceCost(plane);
+  if (gameState.gold < cost) { showToast('金币不足！', 'error'); return; }
+  gameState.gold -= cost;
+  gameState.totalExpense += cost;
+  plane.status = 'maintenance';
+  plane.maintenanceDays = 1;
+  plane.maintenanceSchedule.flightsSinceService = 0;
+  plane.maintenanceSchedule.daysSinceService = 0;
+  plane.maintenanceSchedule.lastServiceDay = gameState.day;
+  plane.maintenanceSchedule.totalServices++;
+  addLog(`🔧 ${plane.name} 送入维护，花费 ${formatGold(cost)}`, 'expense');
+  addHistory('event', { msg: `${plane.name} 定期维护` });
+  updateAll();
+}
+
+// ==================== 餐食 ====================
+function getMealCost(plane, route) {
+  const sc = plane.seatConfig;
+  const loadFactor = getLoadFactor(route);
+  const meals = plane.meals || { first: 'f_basic', business: 'b_basic', economy: 'e_basic' };
+  let cost = 0;
+  ['first', 'business', 'economy'].forEach(cls => {
+    const mealId = meals[cls];
+    const mealList = MEAL_DATABASE[cls];
+    const meal = mealList.find(m => m.id === mealId) || mealList[0];
+    const actualPax = Math.round((sc[cls] || 0) * loadFactor);
+    cost += actualPax * meal.pricePerPax;
+  });
+  return cost;
+}
+function getMealSatisfactionBonus(plane) {
+  const sc = plane.seatConfig;
+  const meals = plane.meals || { first: 'f_basic', business: 'b_basic', economy: 'e_basic' };
+  const total = getTotalSeats(sc);
+  if (total === 0) return 0;
+  let bonus = 0;
+  ['first', 'business', 'economy'].forEach(cls => {
+    const mealId = meals[cls];
+    const mealList = MEAL_DATABASE[cls];
+    const meal = mealList.find(m => m.id === mealId) || mealList[0];
+    bonus += (sc[cls] || 0) * meal.satisfactionBonus;
+  });
+  return Math.round(bonus / total);
+}
+function setPlaneMeal(planeId, cabinClass, mealId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  const oldMealId = plane.meals[cabinClass];
+  if (oldMealId === mealId) { showToast('已使用该餐食！', 'info'); return; }
+  const mealList = MEAL_DATABASE[cabinClass];
+  const newMeal = mealList.find(m => m.id === mealId);
+  const oldMeal = mealList.find(m => m.id === oldMealId) || mealList[0];
+  const seatCount = plane.seatConfig[cabinClass] || 0;
+  // 一次性改造费：餐食差价 × 座位数 × 50次航班
+  const upgradeCost = Math.max(0, (newMeal.pricePerPax - oldMeal.pricePerPax) * seatCount * 50);
+  if (upgradeCost > 0 && gameState.gold < upgradeCost) {
+    showToast(`金币不足！需要${formatGold(upgradeCost)}`, 'error');
+    return;
+  }
+  if (upgradeCost > 0) {
+    gameState.gold -= upgradeCost;
+    gameState.totalExpense += upgradeCost;
+    addLog(`🍽️${plane.name} ${cabinClass==='first'?'头等':cabinClass==='business'?'商务':'经济'}舱餐食升级→${newMeal.name}|改造费-${formatGold(upgradeCost)}`,'expense');
+  }
+  plane.meals[cabinClass] = mealId;
+  renderUpgrade();
+  showToast(upgradeCost > 0 ? `餐食已升级！改造费${formatGold(upgradeCost)}` : '餐食已更新！', 'success');
+}
+
+// ==================== 厕所 ====================
+function getToiletStatus(plane) {
+  const totalSeats = getTotalSeats(plane.seatConfig);
+  const defaultToilets = Math.max(1, Math.round(totalSeats / 50));
+  const ratio = plane.toilets.count / defaultToilets;
+  if (ratio >= 1) return 'sufficient';
+  if (ratio >= 0.6) return 'borderline';
+  return 'insufficient';
+}
+function getToiletComfortModifier(plane) {
+  const totalSeats = getTotalSeats(plane.seatConfig);
+  const defaultToilets = Math.max(1, Math.round(totalSeats / 50));
+  const diff = plane.toilets.count - defaultToilets;
+  if (diff > 0) return diff * 1.5;
+  if (diff < 0) return diff * 2.5;
+  return 0;
+}
+function checkFoodPoisoning(plane, route) {
+  const meals = plane.meals || { first: 'f_basic', business: 'b_basic', economy: 'e_basic' };
+  let lowestQuality = 'luxury';
+  ['first', 'business', 'economy'].forEach(cls => {
+    const mealId = meals[cls];
+    const mealList = MEAL_DATABASE[cls];
+    const meal = mealList.find(m => m.id === mealId) || mealList[0];
+    const qOrder = ['basic', 'standard', 'premium', 'luxury'];
+    if (qOrder.indexOf(meal.quality) < qOrder.indexOf(lowestQuality)) {
+      lowestQuality = meal.quality;
+    }
+  });
+  const baseChance = { basic: 0.08, standard: 0.04, premium: 0.02, luxury: 0.01 };
+  const toiletFactor = { sufficient: 1, borderline: 1.5, insufficient: 2 };
+  const chance = baseChance[lowestQuality] * toiletFactor[getToiletStatus(plane)];
+  if (Math.random() < chance) {
+    const penaltyMap = { sufficient: -5, borderline: -15, insufficient: -30 };
+    const penalty = penaltyMap[getToiletStatus(plane)];
+    gameState.reputation = Math.max(0, gameState.reputation + penalty);
+    const affected = Math.floor(getTotalSeats(plane.seatConfig) * (0.1 + Math.random() * 0.3));
+    addLog(`🤢 食物中毒！${plane.name} ${route.from}→${route.to}，${affected}人不适，声誉${penalty}`, 'expense');
+    addHistory('event', { msg: `🤢 ${plane.name} 食物中毒，${affected}人受影响` });
+    for (let i = 0; i < 3; i++) {
+      const r = generateReview(plane, route, Math.max(10, getSatisfaction(plane, route) - 30));
+      r.text = '飞机餐不卫生！集体拉肚子！';
+      r.rating = 1;
+      gameState.reviews.unshift(r);
+      if (gameState.reviews.length > 100) gameState.reviews.pop();
+    }
+    showToast(`🤢 ${plane.name} 发生食物中毒！`, 'error');
+  }
+}
+function installToilet(planeId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  if (plane.toilets.count >= 20) { showToast('最多20个厕所！', 'error'); return; }
+  if (gameState.gold < 8000) { showToast('金币不足！', 'error'); return; }
+  gameState.gold -= 8000;
+  gameState.totalExpense += 8000;
+  plane.toilets.count++;
+  addLog(`🚻 ${plane.name} 增加1个厕所，现在${plane.toilets.count}个`, 'expense');
+  renderUpgrade();
+}
+function removeToilet(planeId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  if (plane.toilets.count <= 1) { showToast('至少1个厕所！', 'error'); return; }
+  gameState.gold += 3000;
+  plane.toilets.count--;
+  addLog(`🚻 ${plane.name} 拆除1个厕所，现在${plane.toilets.count}个`, 'info');
+  renderUpgrade();
+}
+// ==================== 收入 & 乘坐率 ====================
+function getLoadFactor(route) {
+  const repFactor = 0.7 + (gameState.reputation / 100) * 0.6;
+  return Math.min(1.0, (route.demand / 100) * repFactor);
+}
+
+function getFlightRevenue(plane, route) {
+  const sc = plane.seatConfig;
+  const loadFactor = getLoadFactor(route);
+  const ecoSeat = getSeatModel('economy', plane.seatModelIds?.economy || 'recaro-sl3710');
+  const bizSeat = getSeatModel('business', plane.seatModelIds?.business || 'recaro-cl6720');
+  const firstSeat = getSeatModel('first', plane.seatModelIds?.first || 'safran-la-premiere');
+  const ecoPrice = route.baseFare * (0.9 + Math.random() * 0.2) * (0.8 + ecoSeat.comfort / 250);
+  const bizPrice = route.baseFare * 2.5 * (0.9 + Math.random() * 0.2) * (0.8 + bizSeat.comfort / 250);
+  const firstPrice = route.baseFare * 5.0 * (0.9 + Math.random() * 0.2) * (0.8 + firstSeat.comfort / 250);
+  const ecoPax = Math.round(sc.economy * loadFactor);
+  const bizPax = Math.round(sc.business * loadFactor);
+  const firstPax = Math.round(sc.first * loadFactor);
+  let rev = Math.round(ecoPax * ecoPrice + bizPax * bizPrice + firstPax * firstPrice);
+  if (getRangePenalty(plane, route) > 0) rev = Math.round(rev * 0.75);
+  return rev;
+}
+
+function getActualPassengers(plane, route) {
+  const loadFactor = getLoadFactor(route);
+  const sc = plane.seatConfig;
+  return Math.round(sc.economy * loadFactor) + Math.round(sc.business * loadFactor) + Math.round(sc.first * loadFactor);
+}
+
+function getSatisfaction(plane, route) {
+  const model = getPlaneModel(plane.modelId), sc = plane.seatConfig, total = getTotalSeats(sc);
+  const loadFactor = getLoadFactor(route);
+  const pr = (sc.business + sc.first) / Math.max(1, total);
+  const af = Math.max(0, Math.min(1, (model.year - 1935) / 90));
+  const df = 1 - (total - model.baseSeats) / Math.max(1, model.maxSeats - model.baseSeats);
+  const es = getSeatModel('economy', plane.seatModelIds?.economy || 'recaro-sl3710');
+  const bs = getSeatModel('business', plane.seatModelIds?.business || 'recaro-cl6720');
+  const fs = getSeatModel('first', plane.seatModelIds?.first || 'safran-la-premiere');
+  const ac = (es.comfort * sc.economy + bs.comfort * sc.business + fs.comfort * sc.first) / Math.max(1, total);
+  const rp = getRangePenalty(plane, route) > 0 ? -15 : 0;
+  const comfortFromLoad = Math.round((1 - loadFactor) * 12);
+  const mealBonus = getMealSatisfactionBonus(plane);
+  const toiletMod = getToiletComfortModifier(plane);
+  return Math.round(Math.min(100, Math.max(10, 25 + pr * 20 + af * 12 + df * 15 + (gameState.reputation / 100) * 15 + ac / 4 + rp + comfortFromLoad + mealBonus + toiletMod)));
+}
+
+// ==================== 空难 ====================
+function checkCrash(plane, route) {
+  const model = getPlaneModel(plane.modelId);
+  const ageYears = gameState.day/365 + (2026-model.year);
+  const af = 1+Math.max(0,ageYears-15)*0.1;
+  const mf = plane.status==='maintenance'?3:1;
+  const overdueMultiplier = getOverdueCrashMultiplier(plane);
+  return Math.random() < 0.0003*af*mf*overdueMultiplier;
+}
+function triggerCrash(plane, route) {
+  const model = getPlaneModel(plane.modelId);
+  const totalPax = getTotalSeats(plane.seatConfig);
+  const fatalities = Math.floor(totalPax*(0.3+Math.random()*0.7));
+  const compensation = fatalities*5000+model.price*0.5;
+  gameState.gold -= compensation; gameState.totalExpense += compensation;
+  gameState.reputation = Math.max(0, gameState.reputation-30);
+  gameState.planes = gameState.planes.filter(p => p.id !== plane.id);
+  addHistory('crash',{planeName:plane.name,route:route.from+'→'+route.to,fatalities,totalPax,compensation});
+  addLog(`💀空难！${plane.name}坠毁！${fatalities}/${totalPax}人遇难，赔偿${formatGold(compensation)}，声誉-30`,'expense');
+  showToast(`💀 ${plane.name}发生空难！${fatalities}人遇难`,'error');
+  route.demand = Math.max(10, route.demand-20);
+}
+
+// ==================== 运营历史 ====================
+function addHistory(type, data) {
+  gameState.history.unshift({type,day:gameState.day,time:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}),data});
+  if (gameState.history.length>500) gameState.history.pop();
+}
+function renderHistory() {
+  document.getElementById('history-count').textContent = gameState.history.length+'条记录';
+  const c = document.getElementById('history-list');
+  if (gameState.history.length===0) { c.innerHTML='<div class="empty-state"><div class="empty-icon">📜</div><h3>暂无记录</h3></div>'; return; }
+  const im = {takeoff:'🛫',landing:'🛬',crash:'💀',event:'📌',purchase:'🛒',sale:'💰',upgrade:'🔧'};
+  c.innerHTML = gameState.history.slice(0,100).map(h => {
+    let d = '';
+    switch(h.type) {
+      case 'takeoff': d=`${h.data.planeName} 从${h.data.from}起飞→${h.data.to}`; break;
+      case 'landing': d=`${h.data.planeName} 抵达${h.data.to} | 收入${formatGold(h.data.revenue)} | 满意度${h.data.satisfaction}%`; break;
+      case 'crash': d=`💀${h.data.planeName}坠毁！${h.data.fatalities}/${h.data.totalPax}人遇难`; break;
+      case 'event': d=h.data.msg; break;
+      case 'purchase': d=`购入 ${h.data.planeName}`; break;
+      case 'sale': d=`出售 ${h.data.planeName}`; break;
+      case 'upgrade': d=`改造 ${h.data.planeName}`; break;
+    }
+    return `<div class="history-item ${h.type==='crash'?'history-crash':''}"><span>${im[h.type]||'📌'}</span><span class="history-time">第${h.day}天 ${h.time}</span><span>${d}</span></div>`;
+  }).join('');
+}
+
+// ==================== 评价 ====================
+function generateReview(plane, route, sat) {
+  const n = PAX_NAMES[Math.floor(Math.random()*PAX_NAMES.length)];
+  const cc = Math.random()<0.1?'头等舱':Math.random()<0.3?'商务舱':'经济舱';
+  const r = sat>=80?Math.floor(Math.random()*2)+4:sat>=50?Math.floor(Math.random()*2)+3:Math.floor(Math.random()*2)+1;
+  const avgComfort = getAverageComfort(plane);
+  let t;
+  if (avgComfort >= 85 && r >= 3) {
+    t = COMFORT_GOOD[Math.floor(Math.random()*COMFORT_GOOD.length)];
+  } else if (avgComfort < 65 && r <= 3) {
+    t = COMFORT_BAD[Math.floor(Math.random()*COMFORT_BAD.length)];
+  } else {
+    t = r>=4?GOOD_REVIEWS[Math.floor(Math.random()*GOOD_REVIEWS.length)]:BAD_REVIEWS[Math.floor(Math.random()*BAD_REVIEWS.length)];
+  }
+  return {name:n,cabinClass:cc,rating:r,text:t,route:route.from+'→'+route.to,day:gameState.day,planeName:plane.name};
+}
+function addReview(plane, route, sat) {
+  const r = generateReview(plane, route, sat);
+  gameState.reviews.unshift(r); if (gameState.reviews.length>100) gameState.reviews.pop();
+  if (r.rating>=4) route.demand = Math.min(99, route.demand+0.5);
+  else if (r.rating<=2) route.demand = Math.max(20, route.demand-0.5);
+}
+
+// ==================== 购买/出售 ====================
+function buyPlane(modelId) {
+  const model = getPlaneModel(modelId);
+  if (!model || gameState.gold < model.price) { showToast('金币不足！','error'); return; }
+  gameState.gold -= model.price;
+  gameState.planes.push({
+    id:'p_'+Date.now()+'_'+Math.random().toString(36).substr(2,5), modelId:model.id, name:model.name,
+    seatConfig:{...model.seatConfig}, seatModelIds:{...model.seatModelIds},
+    engineId:model.defaultEngine, assignedRoute:null, status:'idle',
+    maintenanceDays:0, flightsToday:0, flightEndTime:0, timerId:null,
+    livery: gameState.airlineDefaultLivery ? JSON.parse(JSON.stringify(gameState.airlineDefaultLivery)) : {type:'default',presetId:null,pixels:null},
+    meals:{first:'f_basic',business:'b_basic',economy:'e_basic'},
+    toilets:{count:Math.max(1,Math.round(getTotalSeats(model.seatConfig)/50)),defaultCount:Math.max(1,Math.round(getTotalSeats(model.seatConfig)/50))},
+    maintenanceSchedule:{flightsSinceService:0,daysSinceService:0,serviceIntervalFlights:10,serviceIntervalDays:7,lastServiceDay:0,totalServices:0},
+  });
+  gameState.reputation = Math.min(100, gameState.reputation+2);
+  addHistory('purchase',{planeName:model.name});
+  addLog(`购入 ${model.name}(${model.year}年)，花费${formatGold(model.price)}`,'expense');
+  showToast(`购入${model.name}！`,'success');
+  updateAll();
+}
+function sellPlane(planeId) {
+  const idx = gameState.planes.findIndex(p=>p.id===planeId);
+  if (idx===-1) return;
+  const plane = gameState.planes[idx];
+  if (plane.status==='flying') { showToast('飞机执飞中！','error'); return; }
+  // 清除可能存在的定时器
+  if (plane.timerId) { clearTimeout(plane.timerId); delete gameState.pendingTimers[plane.id]; }
+  const sellPrice = Math.round(getPlaneModel(plane.modelId).price*0.6);
+  gameState.gold += sellPrice;
+  addHistory('sale',{planeName:plane.name});
+  gameState.planes.splice(idx,1);
+  addLog(`出售${plane.name}，获得${formatGold(sellPrice)}`,'income');
+  updateAll();
+}
+
+// ==================== 执飞（核心 - 修复重复结算Bug） ====================
+function assignRoute(planeId, routeId) {
+  const plane = gameState.planes.find(p=>p.id===planeId);
+  const route = gameState.routes.find(r=>r.id===routeId);
+  if (!plane||!route) return;
+  if (plane.status!=='idle') { showToast('飞机不可用！('+(plane.status==='flying'?'执飞中':'维护中')+')','error'); return; }
+  
+  const model = getPlaneModel(plane.modelId);
+  const outOfRange = route.distance > model.range;
+  if (outOfRange) {
+    if (!confirm(`⚠️航程不足\n\n${model.name}最大航程：${formatDistance(model.range)}\n${route.from}→${route.to}：${formatDistance(route.distance)}\n\n需要经停加油：\n•额外油耗\n•收入-25%\n•满意度下降\n\n确定执飞？`)) return;
+  }
+  
+  const durationMs = getFlightDurationMs(plane, route.distance);
+  plane.status = 'flying';
+  plane.assignedRoute = route.id;
+  plane.flightEndTime = Date.now() + durationMs;
+  
+  // 清除旧的定时器（如果有）
+  if (plane.timerId) { clearTimeout(plane.timerId); delete gameState.pendingTimers[plane.id]; }
+  
+  // 设置新的定时器
+  const tid = setTimeout(() => completeFlight(plane.id), durationMs);
+  plane.timerId = tid;
+  gameState.pendingTimers[plane.id] = tid;
+  
+  addHistory('takeoff',{planeName:plane.name,from:route.from,to:route.to});
+  addLog(`🛫${plane.name}从${route.from}起飞→${route.to}|预计${getFlightDurationString(plane,route.distance)}|速度${model.speed}km/h`,'info');
+  showToast(`${plane.name}起飞！${getFlightDurationString(plane,route.distance)}后到达`,'info');
+  updateAll();
+}
+
+// 【关键修复】completeFlight 增加防重复结算
+function completeFlight(planeId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  
+  // === 防重复结算：飞机必须处于flying状态 ===
+  if (!plane || plane.status !== 'flying') return;
+  
+  // 清除定时器追踪
+  if (plane.timerId) { clearTimeout(plane.timerId); plane.timerId = null; }
+  delete gameState.pendingTimers[plane.id];
+  
+  const route = gameState.routes.find(r => r.id === plane.assignedRoute);
+  if (!route) { plane.status = 'idle'; plane.assignedRoute = null; updateAll(); return; }
+  
+  // 空难检查
+  if (checkCrash(plane, route)) {
+    plane.status = 'idle'; plane.assignedRoute = null;
+    triggerCrash(plane, route);
+    updateAll(); return;
+  }
+  
+  // === 一次性结算（只加一次） ===
+  const revenue = getFlightRevenue(plane, route);
+  const fuelCost = getPlaneFuelCost(plane, route.distance);
+  const maintCost = getMaintenanceCost(plane);
+  const satisfaction = getSatisfaction(plane, route);
+  const outOfRange = route.distance > getPlaneModel(plane.modelId).range;
+  const netProfit = revenue - fuelCost - maintCost;
+  
+  gameState.gold += netProfit;
+  gameState.totalIncome += revenue;
+  gameState.totalExpense += fuelCost + maintCost;
+  gameState.totalFlights++;
+  gameState.totalPassengers += getActualPassengers(plane, route);
+  addReview(plane, route, satisfaction);
+  
+  // 维护计数
+  if (plane.maintenanceSchedule) {
+    plane.maintenanceSchedule.flightsSinceService++;
+  }
+  // 餐食费用
+  const mealCost = getMealCost(plane, route);
+  gameState.gold -= mealCost;
+  gameState.totalExpense += mealCost;
+  // 食物中毒检查
+  checkFoodPoisoning(plane, route);
+  
+  let eventMsg = '';
+  const rand = Math.random();
+  if (rand < 0.08) {
+    const bonus = Math.round(revenue * 0.2);
+    gameState.gold += bonus;
+    gameState.reputation = Math.min(100, gameState.reputation + 3);
+    eventMsg = '🎉好评如潮！';
+    addHistory('event',{msg:`${plane.name}获乘客好评，声誉+3`});
+  } else if (rand < 0.13) {
+    const penalty = Math.round(revenue * 0.15);
+    gameState.gold -= penalty;
+    gameState.reputation = Math.max(0, gameState.reputation - 2);
+    eventMsg = '⚠️航班延误';
+    addHistory('event',{msg:`${plane.name}航班延误，声誉-2`});
+  } else if (rand < 0.16) {
+    plane.status = 'maintenance';
+    plane.maintenanceDays = Math.floor(Math.random() * 3) + 1;
+    eventMsg = '🔧需维护';
+    addHistory('event',{msg:`${plane.name}机械故障，需维护${plane.maintenanceDays}天`});
+  }
+  
+  const actualNet = netProfit - mealCost;
+  addHistory('landing',{planeName:plane.name,to:route.to,revenue,satisfaction});
+  addLog(`🛬${plane.name}抵达${route.to}！收入${formatGold(revenue)}|油耗-${formatGold(fuelCost)}|餐食-${formatGold(mealCost)}|满意度${satisfaction}%${outOfRange?'|⚠️超航程':''}${eventMsg?'|'+eventMsg:''}`, actualNet>=0?'income':'expense');
+  
+  if (plane.status !== 'maintenance') plane.status = 'idle';
+  plane.assignedRoute = null;
+  plane.flightEndTime = 0;
+  
+  updateAll();
+  showToast(`🛬${plane.name}抵达${route.to}！净收入${formatGold(actualNet)}`,'success');
+}
+
+// ==================== 清除所有pending定时器 ====================
+function clearAllPendingTimers() {
+  Object.keys(gameState.pendingTimers).forEach(pid => {
+    clearTimeout(gameState.pendingTimers[pid]);
+  });
+  gameState.pendingTimers = {};
+  gameState.planes.forEach(p => { p.timerId = null; });
+}
+
+// ==================== 推进时间（修复Bug） ====================
+function advanceDay() {
+  const flying = gameState.planes.filter(p => p.status === 'flying');
+  if (flying.length > 0) {
+    if (!confirm(`还有${flying.length}架飞机执飞中。推进将立即完成所有航班。确定？`)) return;
+    clearAllPendingTimers();
+    flying.forEach(p => completeFlight(p.id));
+  }
+  
+  gameState.day++;
+  gameState.planes.forEach(p => {
+    if (p.status==='maintenance') { p.maintenanceDays--; if (p.maintenanceDays<=0) { p.status='idle'; if (p.maintenanceSchedule) { p.maintenanceSchedule.flightsSinceService=0; p.maintenanceSchedule.daysSinceService=0; p.maintenanceSchedule.lastServiceDay=gameState.day; } addLog(`${p.name}维护完成`,'info'); } }
+    if (p.maintenanceSchedule) p.maintenanceSchedule.daysSinceService++;
+    p.flightsToday = 0;
+  });
+  
+  const overhead = gameState.planes.length*200;
+  gameState.gold -= overhead; gameState.totalExpense += overhead;
+  if (overhead>0) addLog(`每日固定开销：-${formatGold(overhead)}`,'expense');
+  if (gameState.planes.length===0) gameState.reputation = Math.max(0, gameState.reputation-1);
+  addLog(`---第${gameState.day}天---`,'info');
+  autoSave();
+  checkBankruptcy();
+  updateAll();
+}
+
+function advanceDays(n) {
+  clearAllPendingTimers();
+  for (let i = 0; i < n; i++) {
+    gameState.planes.filter(p => p.status==='flying').forEach(p => completeFlight(p.id));
+    gameState.planes.filter(p => p.status==='idle').forEach(plane => {
+      const model = getPlaneModel(plane.modelId);
+      const routes = gameState.routes.filter(r => r.distance <= model.range*1.3)
+        .sort((a,b) => (b.baseFare*b.demand-getEffectiveFuelBurn(plane)*b.distance)-(a.baseFare*a.demand-getEffectiveFuelBurn(plane)*a.distance));
+      if (routes.length > 0) {
+        const route = routes[0];
+        if (checkCrash(plane, route)) { triggerCrash(plane, route); return; }
+        const rev = getFlightRevenue(plane, route);
+        const fc = getPlaneFuelCost(plane, route.distance);
+        const mc = getMaintenanceCost(plane);
+        const mealC = getMealCost(plane, route);
+        gameState.gold += rev - fc - mc - mealC;
+        gameState.totalIncome += rev; gameState.totalExpense += fc + mc + mealC;
+        gameState.totalFlights++; gameState.totalPassengers += getActualPassengers(plane, route);
+        if (plane.maintenanceSchedule) plane.maintenanceSchedule.flightsSinceService++;
+        addReview(plane, route, getSatisfaction(plane, route));
+        addHistory('landing',{planeName:plane.name,to:route.to,revenue:rev,satisfaction:getSatisfaction(plane,route)});
+        const rand = Math.random();
+        if (rand<0.08) { gameState.gold+=Math.round(rev*0.2); gameState.reputation=Math.min(100,gameState.reputation+2); }
+        else if (rand<0.12) { gameState.gold-=Math.round(rev*0.15); gameState.reputation=Math.max(0,gameState.reputation-1); }
+        else if (rand<0.15) { plane.status='maintenance'; plane.maintenanceDays=Math.floor(Math.random()*3)+1; }
+      }
+    });
+    gameState.day++;
+    gameState.planes.forEach(p => { if (p.status==='maintenance') { p.maintenanceDays--; if (p.maintenanceDays<=0) { p.status='idle'; if (p.maintenanceSchedule) { p.maintenanceSchedule.flightsSinceService=0; p.maintenanceSchedule.daysSinceService=0; } } } if (p.maintenanceSchedule) p.maintenanceSchedule.daysSinceService++; p.flightsToday=0; });
+    if (gameState.planes.length===0) gameState.reputation = Math.max(0, gameState.reputation-1);
+    if (checkBankruptcyQuick()) { updateAll(); return; }
+  }
+  autoSave();
+  updateAll();
+  showToast(`已快进${n}天`,'info');
+}
+
+function autoOperate() {
+  const idle = gameState.planes.filter(p => p.status==='idle');
+  if (idle.length===0) { showToast('没有空闲飞机！','info'); return; }
+  let count = 0;
+  idle.forEach(plane => {
+    const model = getPlaneModel(plane.modelId);
+    const routes = gameState.routes.filter(r => r.distance <= model.range*1.3)
+      .sort((a,b) => (b.baseFare*b.demand-getEffectiveFuelBurn(plane)*b.distance)-(a.baseFare*a.demand-getEffectiveFuelBurn(plane)*a.distance));
+    if (routes.length > 0) {
+      const route = routes[0];
+      const dur = getFlightDurationMs(plane, route.distance);
+      if (plane.timerId) { clearTimeout(plane.timerId); delete gameState.pendingTimers[plane.id]; }
+      plane.status = 'flying'; plane.assignedRoute = route.id; plane.flightEndTime = Date.now() + dur;
+      const tid = setTimeout(() => completeFlight(plane.id), dur);
+      plane.timerId = tid; gameState.pendingTimers[plane.id] = tid;
+      addHistory('takeoff',{planeName:plane.name,from:route.from,to:route.to});
+      count++;
+    }
+  });
+  if (count>0) { addLog(`⚡自动运营：${count}架起飞`,'info'); showToast(`${count}架已起飞！`,'info'); }
+  updateAll();
+}
+
+// ==================== 航线解锁 ====================
+function unlockRandomRoute() {
+  if (gameState.gold<500) { showToast('金币不足！','error'); return; }
+  const locked = ALL_ROUTES.filter(r=>!gameState.routes.find(gr=>gr.id===r.id));
+  if (locked.length===0) { showToast('全部已解锁！','info'); return; }
+  gameState.gold-=500;
+  const route = locked[Math.floor(Math.random()*locked.length)];
+  route.unlocked=true; gameState.routes.push(route);
+  addLog(`解锁航线：${route.from}→${route.to}(${formatDistance(route.distance)})`,'info');
+  updateAll();
+}
+
+// ==================== 改造 ====================
+function upgradeSeats(planeId, newConfig, newSeatModelIds) {
+  const plane = gameState.planes.find(p=>p.id===planeId);
+  if (!plane) return;
+  const model = getPlaneModel(plane.modelId);
+  const totalNew = getTotalSeats(newConfig);
+  if (totalNew>model.maxSeats) { showToast(`不能超过${model.maxSeats}座！`,'error'); return; }
+  if (totalNew<Math.round(model.baseSeats*0.6)) { showToast(`不能少于${Math.round(model.baseSeats*0.6)}座！`,'error'); return; }
+  let cost = Math.max(500, Math.abs(totalNew-getTotalSeats(plane.seatConfig))*300);
+  if (newSeatModelIds) {
+    ['economy','business','first'].forEach(t => {
+      if (newSeatModelIds[t] && newSeatModelIds[t]!==plane.seatModelIds[t]) {
+        cost += Math.abs(getSeatModel(t,newSeatModelIds[t]).price-getSeatModel(t,plane.seatModelIds[t]).price)*(newConfig[t]||0);
+      }
+    });
+  }
+  if (gameState.gold<cost) { showToast(`需要${formatGold(cost)}！`,'error'); return; }
+  gameState.gold-=cost;
+  plane.seatConfig = {...newConfig};
+  if (newSeatModelIds) plane.seatModelIds = {...newSeatModelIds};
+  addHistory('upgrade',{planeName:plane.name});
+  addLog(`改造${plane.name}，花费${formatGold(cost)}`,'expense');
+  showToast(`${plane.name}改造完成！`,'success');
+  updateAll();
+}
+function installEngine(planeId, engineId) {
+  const plane = gameState.planes.find(p=>p.id===planeId);
+  if (!plane) return;
+  const engine = getEngineModel(engineId);
+  if (!engine || !engine.compatible.includes(getPlaneModel(plane.modelId).id)) { showToast('不兼容！','error'); return; }
+  if (gameState.gold<engine.price) { showToast('金币不足！','error'); return; }
+  gameState.gold-=engine.price;
+  plane.engineId = engineId;
+  addHistory('upgrade',{planeName:plane.name+'换装'+engine.name});
+  addLog(`为${plane.name}换装${engine.name}(${engine.maker})，花费${formatGold(engine.price)}`,'expense');
+  showToast(`${plane.name}已换装${engine.name}！`,'success');
+  updateAll();
+}
+function resetGame() {
+  clearAllPendingTimers();
+  if (gameState.dayTimer) clearInterval(gameState.dayTimer);
+  document.getElementById('bankrupt-overlay').style.display = 'none';
+  gameState = {
+    airlineName:gameState.airlineName,airlineLogo:gameState.airlineLogo,
+    airlineDefaultLivery:gameState.airlineDefaultLivery||{type:'preset',presetId:'classic_white',pixels:null},
+    gold:200000,reputation:50,day:1,planes:[],routes:ALL_ROUTES.filter(r=>r.unlocked),
+    logs:[],totalIncome:0,totalExpense:0,achievements:{},totalPassengers:0,totalFlights:0,
+    reviews:[],marketSort:'year',
+    history:[],gameStartTime:Date.now(),isNight:false,dayTimer:null,pendingTimers:{},lastAutoSaveDay:0,
+  };
+  activeSlot = null;
+  startDayNightCycle();
+  updateAll();
+}
+
+// ==================== 成就 ====================
+const ACHIEVEMENTS = [
+  { id:'first_plane',name:'初入云霄',desc:'购买第一架飞机',icon:'🛩️',check:()=>gameState.planes.length>=1 },
+  { id:'fleet_5',name:'机队初成',desc:'拥有5架飞机',icon:'🛫',check:()=>gameState.planes.length>=5 },
+  { id:'fleet_15',name:'航空帝国',desc:'拥有15架飞机',icon:'👑',check:()=>gameState.planes.length>=15 },
+  { id:'first_route',name:'首航',desc:'完成第一次飞行',icon:'🗺️',check:()=>gameState.totalFlights>=1 },
+  { id:'flights_50',name:'飞行达人',desc:'完成50次航班',icon:'✈️',check:()=>gameState.totalFlights>=50 },
+  { id:'flights_200',name:'航空巨头',desc:'完成200次航班',icon:'🚀',check:()=>gameState.totalFlights>=200 },
+  { id:'gold_100k',name:'百万富翁',desc:'金币达100,000',icon:'💰',check:()=>gameState.gold>=100000 },
+  { id:'gold_1m',name:'亿万富翁',desc:'金币达1,000,000',icon:'💎',check:()=>gameState.gold>=1000000 },
+  { id:'rep_80',name:'声誉卓著',desc:'声誉达80',icon:'⭐',check:()=>gameState.reputation>=80 },
+  { id:'rep_100',name:'完美声誉',desc:'声誉达100',icon:'🌟',check:()=>gameState.reputation>=100 },
+  { id:'all_eras',name:'航空收藏家',desc:'拥有所有时代飞机',icon:'🏛️',check:()=>{const es=new Set(gameState.planes.map(p=>getPlaneModel(p.modelId).era));return es.has('vintage')&&es.has('narrow')&&es.has('wide')&&es.has('jumbo');}},
+  { id:'concorde_owner',name:'超音速贵族',desc:'拥有一架协和号',icon:'⚡',check:()=>gameState.planes.some(p=>p.modelId==='concorde')},
+  { id:'a380_owner',name:'空中巨无霸',desc:'拥有一架A380',icon:'🏰',check:()=>gameState.planes.some(p=>p.modelId==='a380')},
+  { id:'all_routes',name:'全球通',desc:'解锁所有航线',icon:'🌍',check:()=>gameState.routes.length>=ALL_ROUTES.length},
+  { id:'day_100',name:'百年老店',desc:'经营100天',icon:'📅',check:()=>gameState.day>=100},
+  { id:'vintage_fleet',name:'复古情怀',desc:'拥有5架古董飞机',icon:'🏺',check:()=>gameState.planes.filter(p=>getPlaneModel(p.modelId).era==='vintage').length>=5},
+  { id:'passenger_10k',name:'客流如织',desc:'运送10,000名乘客',icon:'👥',check:()=>gameState.totalPassengers>=10000},
+  { id:'perfect_rating',name:'口碑爆棚',desc:'平均评价4.5+',icon:'💯',check:()=>{const rs=gameState.reviews.map(r=>r.rating);return rs.length>=10&&(rs.reduce((a,b)=>a+b,0)/rs.length)>=4.5;}},
+];
+function checkAchievements() {
+  ACHIEVEMENTS.forEach(ach => {
+    if (!gameState.achievements[ach.id] && ach.check()) {
+      gameState.achievements[ach.id]=gameState.day;
+      addHistory('event',{msg:`🏆解锁成就：${ach.name}`});
+      addLog(`🏆${ach.name}-${ach.desc}`,'income');
+      showToast(`🏆${ach.name}！`,'success');
+    }
+  });
+}
+
+// ==================== 座椅布局渲染（逐个座位） ====================
+function renderSeatLayout(model, config) {
+  const sc = config || model.seatConfig;
+  let html = '';
+  
+  const renderDeck = (label, layoutObj, fCount, bCount, eCount) => {
+    html += '<div class="seat-deck">';
+    html += `<div class="seat-deck-label">${label}</div>`;
+    html += `<div class="plane-body-deck" style="max-width:${layoutObj.seatsPerRow*24+32}px;">`;
+    html += '<div class="cockpit-nose"></div>';
+    
+    // 逐个座位渲染
+    const totalSeats = fCount + bCount + eCount;
+    const perRow = layoutObj.seatsPerRow;
+    const totalRows = Math.ceil(totalSeats / perRow);
+    
+    let seatNum = 0;
+    for (let r = 0; r < totalRows; r++) {
+      html += '<div class="seat-row">';
+      for (let s = 0; s < perRow; s++) {
+        if (s === layoutObj.aisleAfter) html += '<div class="aisle"></div>';
+        if (seatNum < totalSeats) {
+          let cls, letter;
+          if (seatNum < fCount) { cls = 'first'; letter = 'F'; }
+          else if (seatNum < fCount + bCount) { cls = 'business'; letter = 'C'; }
+          else { cls = 'economy'; letter = 'Y'; }
+          html += `<div class="seat seat-${cls}">${letter}</div>`;
+          seatNum++;
+        } else {
+          html += '<div style="width:16px;height:16px;"></div>';
+        }
+      }
+      html += '</div>';
+    }
+    
+    html += '<div class="tail-fin"></div></div></div>';
+  };
+  
+  if (model.isDoubleDeck && model.upperDeck) {
+    // 双层客机：上层头等+商务，下层经济+剩余商务
+    const upperMax = model.upperDeck.seatsPerRow * model.upperDeck.rows;
+    const upFirst = Math.min(sc.first, upperMax);
+    const upBiz = Math.min(sc.business, upperMax - upFirst);
+    const loBiz = sc.business - upBiz;
+    
+    renderDeck('🔼 上层甲板 (Upper Deck)', model.upperDeck, upFirst, upBiz, 0);
+    renderDeck('🔽 主甲板 (Main Deck)', model.layout, 0, loBiz, sc.economy);
+  } else {
+    renderDeck('客舱', model.layout, sc.first, sc.business, sc.economy);
+  }
+  
+  html += '<div style="display:flex;gap:12px;justify-content:center;margin-top:4px;font-size:0.65rem;">👑F 🛋️C 💺Y</div>';
+  return html;
+}
+
+// ==================== 渲染 ====================
+function updateAll() {
+  updateHeader(); renderDashboard(); renderMarket(); renderFleet(); renderRoutes();
+  renderUpgradeSelect(); renderReviews(); renderHistory();
+  renderLog(); renderAchievements(); renderSavePanel(); checkAchievements(); updateTimeIndicator();
+}
+function updateHeader() {
+  document.getElementById('header-logo').textContent = gameState.airlineLogo;
+  document.getElementById('header-gold').textContent = formatGold(gameState.gold);
+  document.getElementById('header-planes').textContent = gameState.planes.length;
+  document.getElementById('header-routes').textContent = gameState.routes.length;
+  document.getElementById('header-rep').textContent = gameState.reputation;
+  document.getElementById('header-day').textContent = gameState.day;
+  document.getElementById('header-title').textContent = gameState.airlineName;
+}
+function renderDashboard() {
+  document.getElementById('dash-company-name').textContent = gameState.airlineName+'概况';
+  document.getElementById('dash-gold').textContent = formatGold(gameState.gold);
+  document.getElementById('dash-planes').textContent = gameState.planes.length;
+  document.getElementById('dash-routes').textContent = gameState.routes.length;
+  document.getElementById('dash-rep').textContent = gameState.reputation;
+  document.getElementById('dash-pax').textContent = gameState.totalPassengers>=1000?(gameState.totalPassengers/1000).toFixed(1)+'K':gameState.totalPassengers;
+  document.getElementById('dash-income').textContent = formatGold(gameState.totalIncome);
+  document.getElementById('dash-fuel').textContent = '-'+formatGold(gameState.totalExpense);
+  const net = gameState.totalIncome - gameState.totalExpense;
+  document.getElementById('dash-net').textContent = formatGold(net);
+  document.getElementById('dash-net').style.color = net>=0?'var(--green)':'var(--red)';
+  
+  const maintNeeded = gameState.planes.filter(p => getMaintenanceStatus(p) === 'overdue');
+  document.getElementById('maint-alert').innerHTML = maintNeeded.length > 0 ? `<div style="padding:5px 8px;background:rgba(239,68,68,0.15);border-radius:5px;font-size:0.76rem;color:var(--red);">🔧 ${maintNeeded.length}架飞机维护已过期！空难风险增加！</div>` : '';
+  
+  const container = document.getElementById('active-flights');
+  const flying = gameState.planes.filter(p=>p.status==='flying');
+  if (flying.length===0) {
+    container.innerHTML='<div class="empty-state"><div class="empty-icon">🛫</div><h3>暂无航班</h3><p>去航线页面分配飞机</p></div>';
+  } else {
+    container.innerHTML = flying.map(p => {
+      const route = gameState.routes.find(r=>r.id===p.assignedRoute);
+      const remaining = p.flightEndTime?Math.max(0,Math.round((p.flightEndTime-Date.now())/1000)):0;
+      const rm = remaining>60?Math.floor(remaining/60)+'分'+(remaining%60)+'秒':remaining+'秒';
+      return `<div class="fleet-item"><span class="fleet-icon">${getPlaneModel(p.modelId).icon}</span>
+        <div class="fleet-info"><div class="fleet-name">${p.name}<span class="flight-timer active">⏱${rm}</span></div>
+          <div class="fleet-detail">${route?route.from+'→'+route.to:'?'}|${route?formatDistance(route.distance):''}|速度${getPlaneModel(p.modelId).speed}km/h</div></div>
+        <span class="fleet-status status-flying">执飞中</span></div>`;
+    }).join('');
+  }
+}
+setInterval(()=>{if(gameState.planes.some(p=>p.status==='flying'))renderDashboard();},15000);
+
+let currentMarketSort='year';
+let expandedMaker=null;
+function setSort(s){currentMarketSort=s;document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');renderMarket();}
+function groupPlanesByMaker(models){
+  const groups={};
+  models.forEach(m=>{
+    const gn=MAKER_GROUPS[m.maker]||m.maker;
+    if(!groups[gn])groups[gn]={name:gn,planes:[]};
+    groups[gn].planes.push(m);
+  });
+  return Object.values(groups);
+}
+function sortPlanesInGroup(planes){
+  if(currentMarketSort==='year')planes.sort((a,b)=>a.year-b.year);
+  else if(currentMarketSort==='price')planes.sort((a,b)=>a.price-b.price);
+  else if(currentMarketSort==='seats')planes.sort((a,b)=>a.maxSeats-b.maxSeats);
+  else if(currentMarketSort==='range')planes.sort((a,b)=>a.range-b.range);
+}
+function renderPlaneCard(model){
+  const owned=gameState.planes.filter(p=>p.modelId===model.id).length;
+  return `<div class="plane-card ${owned>0?'owned':''}" onclick="showPlaneDetail('${model.id}')">
+    <div class="plane-card-header"><div class="plane-icon">${model.icon}</div><div class="plane-info"><div class="plane-name">${model.name}${model.isDoubleDeck?'🏢':''}</div><div class="plane-maker">${model.maker}·${model.year}年·${model.speed}km/h</div><div class="plane-era">${getEraLabel(model.era)}</div></div></div>
+    <div class="plane-card-body"><div class="plane-stats"><div class="plane-stat">🪑<span>${model.baseSeats}-${model.maxSeats}</span></div><div class="plane-stat">⛽<span>${model.fuelPerKm}/km</span></div><div class="plane-stat">🗺️<span>${formatDistance(model.range)}</span></div><div class="plane-stat">🛩️<span>${owned}</span></div></div></div>
+    <div class="plane-card-footer"><div class="plane-price">${formatGold(model.price)}</div><button class="btn btn-gold btn-sm" ${gameState.gold<model.price?'disabled':''} onclick="event.stopPropagation();buyPlane('${model.id}')">${gameState.gold>=model.price?'购买':'金币不足'}</button></div></div>`;
+}
+function renderMakerCard(group){
+  const info=MAKER_INFO[group.name]||{icon:'🏭',desc:''};
+  const isExpanded=expandedMaker===group.name;
+  return `<div class="maker-card${isExpanded?' expanded':''}" data-maker="${group.name}">
+    <div class="maker-card-header" onclick="toggleMaker('${group.name}')">
+      <div class="maker-icon">${info.icon}</div>
+      <div class="maker-info"><div class="maker-name">${group.name}</div><div class="maker-desc">${info.desc}</div><div class="maker-count">🛩️ ${group.planes.length}款机型</div></div>
+      <div class="maker-expand-icon">▶</div>
+    </div>
+    <div class="maker-planes"><div class="maker-planes-grid">${group.planes.map(m=>renderPlaneCard(m)).join('')}</div></div></div>`;
+}
+function toggleMaker(name){
+  expandedMaker=expandedMaker===name?null:name;
+  renderMarket();
+  if(expandedMaker){
+    setTimeout(()=>{const c=document.querySelector('.maker-card[data-maker="'+name+'"]');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});},50);
+  }
+}
+function collapseAllMakers(){expandedMaker=null;renderMarket();}
+function renderMarket(){
+  const filter=document.getElementById('market-filter')?.value||'all';
+  let models=[...PLANE_MODELS];
+  if(filter!=='all')models=models.filter(m=>m.era===filter);
+  const groups=groupPlanesByMaker(models);
+  groups.forEach(g=>sortPlanesInGroup(g.planes));
+  groups.sort((a,b)=>{const aM=Math.max(...a.planes.map(p=>p.year));const bM=Math.max(...b.planes.map(p=>p.year));return aM-bM;});
+  document.getElementById('market-grid').innerHTML=groups.map(g=>renderMakerCard(g)).join('');
+  document.getElementById('market-collapse-all').style.display=expandedMaker?'inline-flex':'none';
+}
+function renderFleet(){
+  document.getElementById('fleet-count').textContent=gameState.planes.length+'架';
+  const c=document.getElementById('fleet-list');
+  if(gameState.planes.length===0){c.innerHTML='<div class="empty-state"><div class="empty-icon">🛩️</div><h3>暂无飞机</h3></div>';return;}
+  c.innerHTML=gameState.planes.map(plane=>{
+    const model=getPlaneModel(plane.modelId);
+    const route=plane.assignedRoute?gameState.routes.find(r=>r.id===plane.assignedRoute):null;
+    const sc=plane.seatConfig;const engine=getPlaneEngine(plane);
+    const st=plane.status==='flying'?'执飞中':plane.status==='maintenance'?'维护中('+plane.maintenanceDays+'天)':'空闲';
+    const scls=plane.status==='flying'?'status-flying':plane.status==='maintenance'?'status-maintenance':'status-idle';
+    const timer=plane.status==='flying'&&plane.flightEndTime?`<span class="flight-timer active">⏱${Math.max(0,Math.round((plane.flightEndTime-Date.now())/60000))}分</span>`:'';
+    const mStatus = getMaintenanceStatus(plane);
+    const mLabel = mStatus === 'good' ? '✅正常' : mStatus === 'warning' ? '⚠️即将到期' : '🔴已过期';
+    const mCls = 'maintenance-' + mStatus;
+    const maintBtn = plane.status==='idle' && mStatus!=='good' ? `<button class="btn btn-outline btn-sm" onclick="scheduleMaintenance('${plane.id}')">🔧维护</button>` : '';
+    return `<div class="fleet-item"><span class="fleet-icon">${model.icon}</span>
+      <div class="fleet-info"><div class="fleet-name">${plane.name}${model.isDoubleDeck?'🏢':''}${timer}</div>
+        <div class="fleet-detail">经济${sc.economy}/商务${sc.business}/头等${sc.first}|引擎:${engine?engine.name:'默认'}|速度${model.speed}km/h|航程${formatDistance(model.range)}|${route?route.from+'→'+route.to:'未分配'}|维护<span class="maintenance-badge ${mCls}">${mLabel}</span>(飞${plane.maintenanceSchedule?.flightsSinceService||0}/10次|过${plane.maintenanceSchedule?.daysSinceService||0}/7天)</div></div>
+      <span class="fleet-status ${scls}">${st}</span>${maintBtn}<button class="btn btn-red btn-sm" onclick="sellPlane('${plane.id}')" ${plane.status==='flying'?'disabled':''}>出售</button></div>`;
+  }).join('');
+}
+function renderRoutes(){
+  const grid=document.getElementById('route-grid');
+  const idle=gameState.planes.filter(p=>p.status==='idle');
+  grid.innerHTML=gameState.routes.map(route=>{
+    const compatible=idle.filter(p=>route.distance<=getPlaneModel(p.modelId).range);
+    const outOfRange=idle.filter(p=>route.distance>getPlaneModel(p.modelId).range&&route.distance<=getPlaneModel(p.modelId).range*1.5);
+    const options=idle.map(p=>{const m=getPlaneModel(p.modelId);const can=route.distance<=m.range;const barely=!can&&route.distance<=m.range*1.5;return`<option value="${p.id}">${can?'✅':barely?'⚠️':''}${p.name}(${formatDistance(m.range)})</option>`;}).join('');
+    return `<div class="route-card ${compatible.length===0&&idle.length>0?'out-of-range':''}">
+      <div class="route-header"><div class="route-cities">${route.from}→${route.to}</div><div class="route-distance">${formatDistance(route.distance)}</div></div>
+      <div class="route-rewards"><div class="route-reward">🎫<span style="color:var(--gold);">${formatGold(route.baseFare)}</span></div><div class="route-reward">📊${Math.round(route.demand)}%</div><div class="route-reward">🧑‍✈️${Math.round(getLoadFactor(route)*100)}%</div><div class="route-reward">⏱${idle.length>0?getFlightDurationString(idle[0],route.distance):'--'}</div>${compatible.length===0&&outOfRange.length>0?'<div class="route-reward" style="color:var(--orange);">⚠️可经停(-25%)</div>':''}</div>
+      ${idle.length>0?`<div class="route-assign"><select id="sel-${route.id}"><option value="">--选飞机--</option>${options}</select><button class="btn btn-green btn-sm" style="width:100%;" onclick="assignFromSelect('${route.id}')">🚀执飞</button></div>`:'<div style="font-size:0.74rem;color:var(--text-dim);">无空闲飞机</div>'}</div>`;
+  }).join('');
+}
+function assignFromSelect(rid){const s=document.getElementById('sel-'+rid);if(!s||!s.value){showToast('请选飞机','error');return;}assignRoute(s.value,rid);}
+
+// ==================== 改造面板 ====================
+function renderUpgradeSelect(){document.getElementById('upgrade-select').innerHTML='<option value="">--选择飞机--</option>'+gameState.planes.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');}
+let upgradeTab='seats';
+function switchUpgradeTab(t){upgradeTab=t;renderUpgrade();}
+function renderUpgrade(){
+  const sel=document.getElementById('upgrade-select');
+  const container=document.getElementById('upgrade-content');
+  if(!sel.value){container.innerHTML='<div class="empty-state"><h3>请选择飞机</h3></div>';return;}
+  const plane=gameState.planes.find(p=>p.id===sel.value);
+  if(!plane)return;
+  const model=getPlaneModel(plane.modelId);const config=plane.seatConfig;const engine=getPlaneEngine(plane);
+  
+  let tabContent = '';
+  if (upgradeTab === 'seats') {
+    tabContent = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div><h4 style="font-size:0.85rem;margin-bottom:4px;">📐布局${model.isDoubleDeck?'🏢双层':''}|速度${model.speed}km/h</h4><div class="seat-layout-preview">${renderSeatLayout(model,config)}</div></div>
+      <div><p style="font-size:0.72rem;color:var(--text-dim);">总座位：<span id="upg-total" style="color:var(--blue);font-weight:700;">${getTotalSeats(config)}</span>/${model.maxSeats} | 舒适度：<span style="color:var(--gold);">${getAverageComfort(plane)}</span></p>
+        <div class="seat-type-config"><div class="seat-type-label" style="color:#3b82f6;">💺经济</div><input type="number" class="seat-type-input" id="upg-eco" value="${config.economy}" min="0" max="${model.maxSeats}" onchange="previewLive()"><select class="seat-model-select" id="upg-eco-m" onchange="previewLive()">${SEAT_MODELS.economy.map(s=>`<option value="${s.id}" ${(plane.seatModelIds?.economy||model.seatModelIds.economy)===s.id?'selected':''}>${s.maker} ${s.name} [舒适${s.comfort}]</option>`).join('')}</select></div>
+        <div class="seat-type-config"><div class="seat-type-label" style="color:#f59e0b;">🛋️商务</div><input type="number" class="seat-type-input" id="upg-biz" value="${config.business}" min="0" max="${model.maxSeats}" onchange="previewLive()"><select class="seat-model-select" id="upg-biz-m" onchange="previewLive()">${SEAT_MODELS.business.map(s=>`<option value="${s.id}" ${(plane.seatModelIds?.business||model.seatModelIds.business)===s.id?'selected':''}>${s.maker} ${s.name} [舒适${s.comfort}]</option>`).join('')}</select></div>
+        <div class="seat-type-config"><div class="seat-type-label" style="color:#ef4444;">👑头等</div><input type="number" class="seat-type-input" id="upg-fst" value="${config.first}" min="0" max="${model.maxSeats}" onchange="previewLive()"><select class="seat-model-select" id="upg-fst-m" onchange="previewLive()">${SEAT_MODELS.first.map(s=>`<option value="${s.id}" ${(plane.seatModelIds?.first||model.seatModelIds.first)===s.id?'selected':''}>${s.maker} ${s.name} [舒适${s.comfort}]</option>`).join('')}</select></div>
+        <div id="upg-cost" style="margin:8px 0;font-size:0.82rem;"></div><button class="btn btn-gold btn-lg" style="width:100%;" onclick="applyUpgrade('${plane.id}')">🔧确认改造</button></div></div>`;
+  } else if (upgradeTab === 'engine') {
+    tabContent = `<p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:6px;">当前：${engine?engine.name+'('+engine.maker+')推力'+engine.thrust+'lbs油耗系数'+engine.fuelBurn:'默认'}</p>
+    ${ENGINE_MODELS.map(e=>{
+      const compatible = e.compatible.includes(model.id);
+      const equipped = plane.engineId === e.id;
+      const compatNames = e.compatible.map(cid=>{const m=PLANE_MODELS.find(pm=>pm.id===cid);return m?m.name:cid;}).join(', ');
+      return `<div class="engine-card ${equipped?'equipped':''}" style="opacity:${compatible?1:0.4};" ${compatible&&!equipped?`onclick="installEngine('${plane.id}','${e.id}')"`:''}>
+        <div class="engine-icon">${e.icon}</div><div class="engine-info">
+        <div class="engine-name">${e.name}${equipped?' ✅已安装':''}</div>
+        <div class="engine-specs">${e.maker}·${e.year}|推力${e.thrust}lbs|油耗系数<span style="color:${e.fuelBurn<0.5?'var(--green)':e.fuelBurn<0.65?'var(--gold)':'var(--red)'};">${e.fuelBurn}</span>|${formatGold(e.price)}</div>
+        <div style="font-size:0.68rem;color:var(--text-dim);">兼容: ${compatNames}</div></div>
+        ${compatible&&!equipped?'<button class="btn btn-blue btn-sm">安装</button>':(!compatible?'<span style="font-size:0.68rem;color:var(--red);">不兼容</span>':'')}
+      </div>`;
+    }).join('')}`;
+  } else if (upgradeTab === 'meals') {
+    let mealsHtml = '';
+    const clsLabels = {first:'👑头等舱',business:'🛋️商务舱',economy:'💺经济舱'};
+    ['first','business','economy'].forEach(cls => {
+      const currentMealId = plane.meals ? plane.meals[cls] : (cls==='first'?'f_basic':cls==='business'?'b_basic':'e_basic');
+      mealsHtml += `<h4 style="font-size:0.85rem;margin:8px 0 4px;">${clsLabels[cls]}</h4>`;
+      MEAL_DATABASE[cls].forEach(meal => {
+        const selected = currentMealId === meal.id;
+        mealsHtml += `<div class="meal-card ${selected?'selected':''}" onclick="setPlaneMeal('${plane.id}','${cls}','${meal.id}')">
+          <div style="flex:1;"><div style="font-weight:700;font-size:0.82rem;">${meal.name} <span class="meal-quality-badge meal-quality-${meal.quality}">${meal.quality==='basic'?'基础':meal.quality==='standard'?'标准':meal.quality==='premium'?'高级':'豪华'}</span></div>
+          <div style="font-size:0.72rem;color:var(--text-dim);">${meal.desc}</div>
+          <div style="font-size:0.7rem;margin-top:2px;">💰${meal.pricePerPax}🪙/人 | 😊+${meal.satisfactionBonus}满意度</div></div>
+          ${selected?'<span style="color:var(--green);">✅</span>':''}
+        </div>`;
+      });
+    });
+    tabContent = mealsHtml;
+  } else if (upgradeTab === 'toilets') {
+    const totalSeats = getTotalSeats(plane.seatConfig);
+    const defaultToilets = Math.max(1, Math.round(totalSeats / 50));
+    const tStatus = getToiletStatus(plane);
+    const tStatusLabel = tStatus === 'sufficient' ? '充足' : tStatus === 'borderline' ? '临界' : '不足';
+    const tStatusCls = tStatus === 'sufficient' ? 'toilet-good' : tStatus === 'borderline' ? 'toilet-warning' : 'toilet-bad';
+    const tComfortMod = getToiletComfortModifier(plane);
+    tabContent = `<div style="text-align:center;padding:10px;">
+      <p style="font-size:0.9rem;margin-bottom:6px;">🚻 当前厕所：<strong>${plane.toilets.count}</strong>个</p>
+      <p style="font-size:0.78rem;color:var(--text-dim);">建议：${defaultToilets}个（每50座位1个）</p>
+      <p style="font-size:0.78rem;">状态：<span class="toilet-indicator ${tStatusCls}">${tStatusLabel}</span></p>
+      <p style="font-size:0.78rem;color:${tComfortMod>=0?'var(--green)':'var(--red)'};">舒适度影响：${tComfortMod>=0?'+':''}${tComfortMod.toFixed(1)}</p>
+      <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;">
+        <button class="btn btn-green btn-sm" onclick="installToilet('${plane.id}')" ${plane.toilets.count>=20?'disabled':''}>+ 增加 (8000🪙)</button>
+        <button class="btn btn-red btn-sm" onclick="removeToilet('${plane.id}')" ${plane.toilets.count<=1?'disabled':''}>- 拆除 (退3000🪙)</button>
+      </div>
+      <p style="font-size:0.72rem;color:var(--orange);margin-top:8px;">⚠️ 厕所不足时，食物中毒风险大幅增加！</p>
+    </div>`;
+  } else if (upgradeTab === 'livery') {
+    let liveryHtml = '<div class="tabs" style="margin-bottom:8px;"><button class="tab-btn active" onclick="switchLiverySubTab(\'preset\')">🎨预设涂装</button><button class="tab-btn" onclick="switchLiverySubTab(\'custom\')">🖌️手绘涂装</button></div>';
+    liveryHtml += '<div id="livery-preset-panel"><div class="livery-grid">';
+    LIVERY_PRESETS.forEach(preset => {
+      const selected = plane.livery && plane.livery.type === 'preset' && plane.livery.presetId === preset.id;
+      liveryHtml += `<div class="livery-preset-card ${selected?'selected':''}" onclick="applyPresetLivery('${plane.id}','${preset.id}')">
+        <div class="livery-preview-bar"><div class="livery-color-stripe" style="background:${preset.bodyColor};flex:3;"></div><div class="livery-color-stripe" style="background:${preset.stripeColor};flex:1;"></div><div class="livery-color-stripe" style="background:${preset.tailColor};flex:1;"></div></div>
+        <div style="font-size:0.78rem;font-weight:600;">${preset.name}</div><div style="font-size:0.68rem;color:var(--text-dim);">${preset.desc}</div></div>`;
+    });
+    liveryHtml += '</div></div>';
+    liveryHtml += `<div id="livery-custom-panel" style="display:none;"><div class="pixel-editor"><div class="pixel-canvas" id="pixel-canvas-${plane.id}"></div><div class="palette-bar" id="palette-bar-${plane.id}"></div><button class="btn btn-gold btn-sm" style="margin-top:8px;" onclick="saveCustomLiveryFromEditor('${plane.id}')">💾保存涂装</button><button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="resetCustomLivery('${plane.id}')">🔄重置</button></div></div>`;
+    tabContent = liveryHtml;
+  }
+  
+  container.innerHTML = `<div class="tabs">
+    <button class="tab-btn ${upgradeTab==='seats'?'active':''}" onclick="switchUpgradeTab('seats')">💺座椅</button>
+    <button class="tab-btn ${upgradeTab==='engine'?'active':''}" onclick="switchUpgradeTab('engine')">🔩发动机</button>
+    <button class="tab-btn ${upgradeTab==='livery'?'active':''}" onclick="switchUpgradeTab('livery')">🎨涂装</button>
+    <button class="tab-btn ${upgradeTab==='meals'?'active':''}" onclick="switchUpgradeTab('meals')">🍽️餐食</button>
+    <button class="tab-btn ${upgradeTab==='toilets'?'active':''}" onclick="switchUpgradeTab('toilets')">🚻厕所</button>
+  </div>${tabContent}`;
+  if(upgradeTab==='seats')previewLive();
+  if(upgradeTab==='livery')setTimeout(()=>switchLiverySubTab('preset'),50);
+}
+function previewLive(){
+  const eco=parseInt(document.getElementById('upg-eco')?.value||0);
+  const biz=parseInt(document.getElementById('upg-biz')?.value||0);
+  const fst=parseInt(document.getElementById('upg-fst')?.value||0);
+  const total=eco+biz+fst;
+  const pid=document.getElementById('upgrade-select')?.value;
+  const plane=gameState.planes.find(p=>p.id===pid);
+  if(!plane)return;
+  const model=getPlaneModel(plane.modelId);
+  const tel=document.getElementById('upg-total');
+  if(tel){tel.textContent=total;tel.style.color=total>model.maxSeats||total<Math.round(model.baseSeats*0.6)?'var(--red)':'var(--blue)';}
+  const cost=Math.max(500,Math.abs(total-getTotalSeats(plane.seatConfig))*300);
+  document.getElementById('upg-cost').innerHTML=`费用：<span style="color:var(--gold);font-weight:700;">${formatGold(cost)}</span>`;
+  const layoutEl=document.querySelector('#upgrade-content .seat-layout-preview');
+  if(layoutEl)layoutEl.innerHTML=renderSeatLayout(model,{economy:eco,business:biz,first:fst});
+}
+function applyUpgrade(pid){
+  upgradeSeats(pid,{
+    economy:parseInt(document.getElementById('upg-eco')?.value||0),
+    business:parseInt(document.getElementById('upg-biz')?.value||0),
+    first:parseInt(document.getElementById('upg-fst')?.value||0)
+  },{
+    economy:document.getElementById('upg-eco-m')?.value||'recaro-sl3710',
+    business:document.getElementById('upg-biz-m')?.value||'recaro-cl6720',
+    first:document.getElementById('upg-fst-m')?.value||'safran-la-premiere',
+  });
+}
+
+// ==================== 其他面板 ====================
+function renderReviews(){
+  const ratings=gameState.reviews.map(r=>r.rating);
+  const avg=ratings.length>0?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1):'--';
+  document.getElementById('review-stats').innerHTML=`<div class="review-stat-card"><div class="review-stat-val" style="color:var(--gold);">${avg}</div><div class="review-stat-lbl">⭐均分</div></div><div class="review-stat-card"><div class="review-stat-val" style="color:var(--green);">${ratings.filter(r=>r>=4).length}</div><div class="review-stat-lbl">👍好评</div></div><div class="review-stat-card"><div class="review-stat-val" style="color:var(--red);">${ratings.filter(r=>r<=2).length}</div><div class="review-stat-lbl">👎差评</div></div>`;
+  const c=document.getElementById('reviews-list');
+  if(gameState.reviews.length===0){c.innerHTML='<div class="empty-state"><div class="empty-icon">💬</div><h3>暂无评价</h3></div>';return;}
+  c.innerHTML=gameState.reviews.slice(0,30).map(r=>`<div class="review-item"><div class="review-avatar">${r.cabinClass==='头等舱'?'👑':r.cabinClass==='商务舱'?'🛋️':'💺'}</div><div class="review-content"><div class="review-name">${r.name}·${r.cabinClass}·${r.planeName}</div><div class="review-text">"${r.text}"</div><div class="review-rating">${'⭐'.repeat(r.rating)}·${r.route}·第${r.day}天</div></div></div>`).join('');
+}
+function renderEmployees(){
+  const e=gameState.employees;const req=getRequiredStaff();const daysUntil=7-((gameState.day-gameState.lastPayday)%7);
+  document.getElementById('employee-content').innerHTML=`<div class="review-stats" style="margin-bottom:10px;"><div class="review-stat-card"><div class="review-stat-val">${getEmployeeCount()}</div><div class="review-stat-lbl">总员工</div></div><div class="review-stat-card"><div class="review-stat-val" style="color:var(--gold);">${formatGold(getDailySalary())}</div><div class="review-stat-lbl">日薪</div></div><div class="review-stat-card"><div class="review-stat-val" style="color:var(--red);">${formatGold(getWeeklySalary())}</div><div class="review-stat-lbl">周薪<span class="payday-badge">${daysUntil}天</span></div></div></div>
+    <p style="font-size:0.72rem;color:var(--text-dim);margin-bottom:6px;">📐编制需求：每架飞机=2飞行员+4空乘|当前${gameState.planes.length}架</p>
+    ${['pilots','attendants','ground','mechanics'].map(t=>{const sh=e[t]<req[t];return`<div class="employee-bar"><span style="font-size:1.6rem;">${getEmployeeIcon(t)}</span><div class="employee-info"><div class="employee-count">${getEmployeeTitle(t)}×${e[t]}${sh?`<span style="color:var(--red);font-size:0.7rem;">需${req[t]}</span>`:''}</div><div class="employee-cost">周薪：${formatGold(e[t]*(t==='pilots'?350:t==='attendants'?210:t==='ground'?175:280))}</div></div><button class="btn btn-green btn-sm" onclick="hireEmployee('${t}')">+</button><button class="btn btn-red btn-sm" onclick="fireEmployee('${t}')">-</button></div>`;}).join('')}`;
+}
+function renderAchievements(){document.getElementById('achievements-list').innerHTML=ACHIEVEMENTS.map(ach=>{const u=gameState.achievements[ach.id];return`<div class="fleet-item" style="opacity:${u?1:0.4};"><span style="font-size:1.4rem;">${ach.icon}</span><div class="fleet-info"><div class="fleet-name">${ach.name}</div><div class="fleet-detail">${ach.desc}${u?'·第'+u+'天':''}</div></div><span>${u?'✅':'🔒'}</span></div>`;}).join('');}
+function renderLog(){const c=document.getElementById('log-list');const logs=gameState.logs.slice().reverse().slice(0,50);if(logs.length===0){c.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><h3>暂无日志</h3></div>';return;}c.innerHTML=logs.map(l=>`<div class="log-item"><span class="log-time">第${l.day}天</span><span class="${l.type==='income'?'log-income':l.type==='expense'?'log-expense':''}">${l.msg}</span></div>`).join('');}
+function clearLog(){gameState.logs=[];updateAll();}
+function showPlaneDetail(modelId){
+  const model=getPlaneModel(modelId);
+  if(!model)return;
+  document.getElementById('modal-container').innerHTML=`<div class="modal-overlay" onclick="closeModal()"><div class="modal" onclick="event.stopPropagation()"><button class="modal-close" onclick="closeModal()">✕</button><h3>${model.icon}${model.name}${model.isDoubleDeck?'🏢双层':''}</h3><p style="color:var(--text-dim);margin-bottom:8px;">${model.maker}·${model.year}年·${getEraLabel(model.era)}·速度${model.speed}km/h</p><p style="margin-bottom:8px;font-size:0.82rem;">${model.description||''}</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;"><div class="card" style="text-align:center;padding:8px;"><div style="font-size:0.68rem;color:var(--text-dim);">座位</div><div style="font-size:1rem;font-weight:700;">${model.baseSeats}-${model.maxSeats}</div></div><div class="card" style="text-align:center;padding:8px;"><div style="font-size:0.68rem;color:var(--text-dim);">航程</div><div style="font-size:1rem;font-weight:700;">${formatDistance(model.range)}</div></div><div class="card" style="text-align:center;padding:8px;"><div style="font-size:0.68rem;color:var(--text-dim);">油耗</div><div style="font-size:1rem;font-weight:700;">${model.fuelPerKm}/km</div></div><div class="card" style="text-align:center;padding:8px;"><div style="font-size:0.68rem;color:var(--text-dim);">速度</div><div style="font-size:1rem;font-weight:700;">${model.speed}km/h</div></div></div><div class="seat-layout-preview"><div style="font-size:0.76rem;color:var(--text-dim);margin-bottom:4px;">📐默认布局</div>${renderSeatLayout(model,model.seatConfig)}</div><button class="btn btn-gold btn-lg" style="width:100%;margin-top:10px;" onclick="buyPlane('${model.id}');closeModal();" ${gameState.gold<model.price?'disabled':''}>${gameState.gold>=model.price?'🛒购买'+formatGold(model.price):'金币不足'}</button></div></div>`;
+}
+function closeModal(){document.getElementById('modal-container').innerHTML='';}
+function showToast(msg,type){const c=document.getElementById('toast-container');const t=document.createElement('div');t.className='toast '+type;t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3000);}
+
+// ==================== 导航 ====================
+document.querySelectorAll('.nav-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');document.querySelectorAll('.panel-view').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+btn.dataset.panel).classList.add('active');updateAll();});});
+
+// ==================== 设置 ====================
+function renderLogoGrid(){document.getElementById('logo-grid').innerHTML=AIRLINE_LOGOS.map((l,i)=>`<div class="logo-option ${gameState.airlineLogo===l.emoji?'selected':''}" onclick="selectLogo('${l.emoji}',this)" title="${l.name}">${l.emoji}</div>`).join('');}
+function selectLogo(emoji,el){gameState.airlineLogo=emoji;document.querySelectorAll('.logo-option').forEach(o=>o.classList.remove('selected'));el.classList.add('selected');document.getElementById('header-logo').textContent=emoji;}
+function confirmSetup(){const name=document.getElementById('airline-name-input').value.trim();if(!name){showToast('请输入名称！','error');return;}gameState.airlineName=name;document.getElementById('name-setup').style.display='none';document.getElementById('header-title').textContent=name;document.getElementById('header-logo').textContent=gameState.airlineLogo;document.getElementById('dash-company-name').textContent=name+'概况';addLog('🎉'+name+'正式成立！初始资金：200,000🪙','info');startDayNightCycle();updateAll();}
+// ==================== 设置阶段涂装选择 ====================
+let setupLiveryTab = 'preset';
+let setupSelectedPreset = 'classic_white';
+let setupCustomPixels = new Array(128).fill('#e2e8f0');
+function switchSetupLiveryTab(t) {
+  setupLiveryTab = t;
+  renderSetupLivery();
+}
+function selectSetupLivery(presetId) {
+  setupSelectedPreset = presetId;
+  gameState.airlineDefaultLivery = { type: 'preset', presetId, pixels: null };
+  renderSetupLivery();
+}
+function renderSetupLivery() {
+  const container = document.getElementById('setup-livery-content');
+  if (!container) return;
+  if (setupLiveryTab === 'preset') {
+    let html = '<div class="setup-livery-grid">';
+    LIVERY_PRESETS.forEach(preset => {
+      const sel = setupSelectedPreset === preset.id ? ' selected' : '';
+      html += `<div class="setup-livery-card${sel}" onclick="selectSetupLivery('${preset.id}')">
+        <div class="setup-livery-bar"><div class="livery-color-stripe" style="background:${preset.bodyColor};flex:3;"></div><div class="livery-color-stripe" style="background:${preset.stripeColor};flex:1;"></div><div class="livery-color-stripe" style="background:${preset.tailColor};flex:1;"></div></div>
+        <div style="font-size:0.74rem;font-weight:600;">${preset.name}</div><div style="font-size:0.66rem;color:var(--text-dim);">${preset.desc}</div></div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } else {
+    let html = '<div class="setup-pixel-canvas" id="setup-pixel-canvas">';
+    for (let r = 0; r < 8; r++) {
+      html += '<div class="setup-pixel-row">';
+      for (let c = 0; c < 16; c++) {
+        const idx = r * 16 + c;
+        html += `<div class="setup-pixel-cell" style="background:${setupCustomPixels[idx]};" data-row="${r}" data-col="${c}" onmousedown="setupPaintPixel(${r},${c})" onmousemove="setupDragPaint(event,${r},${c})" oncontextmenu="setupErasePixel(${r},${c});return false;"></div>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '<div class="palette-bar" style="margin-top:4px;">';
+    LIVERY_PALETTE.forEach(color => {
+      html += `<div class="palette-color ${setupSelectedColor===color?'selected':''}" style="background:${color};" onclick="setupSelectColor('${color}')"></div>`;
+    });
+    html += '<div class="palette-color eraser" onclick="setupSelectColor(\'eraser\')">🧹</div>';
+    html += '</div>';
+    html += '<button class="btn btn-outline btn-sm" style="margin-top:4px;" onclick="setupSaveCustom()">💾保存手绘涂装</button>';
+    html += '<button class="btn btn-outline btn-sm" style="margin-top:4px;" onclick="setupResetCustom()">🔄重置</button>';
+    container.innerHTML = html;
+  }
+  // 更新tab样式
+  const tabs = document.querySelectorAll('#name-setup .tab-btn');
+  tabs.forEach(b => {
+    b.classList.toggle('active', (b.textContent.includes('预设') && setupLiveryTab === 'preset') || (b.textContent.includes('手绘') && setupLiveryTab === 'custom'));
+  });
+}
+let setupSelectedColor = '#3b82f6';
+function setupSelectColor(color) {
+  setupSelectedColor = color;
+  renderSetupLivery();
+}
+function setupPaintPixel(row, col) {
+  const idx = row * 16 + col;
+  setupCustomPixels[idx] = setupSelectedColor === 'eraser' ? '#e2e8f0' : setupSelectedColor;
+  const cell = document.querySelector(`#setup-pixel-canvas [data-row="${row}"][data-col="${col}"]`);
+  if (cell) cell.style.background = setupCustomPixels[idx];
+}
+function setupDragPaint(event, row, col) {
+  if (event.buttons === 1) setupPaintPixel(row, col);
+}
+function setupErasePixel(row, col) {
+  setupCustomPixels[row * 16 + col] = '#e2e8f0';
+  const cell = document.querySelector(`#setup-pixel-canvas [data-row="${row}"][data-col="${col}"]`);
+  if (cell) cell.style.background = '#e2e8f0';
+}
+function setupSaveCustom() {
+  gameState.airlineDefaultLivery = { type: 'custom', presetId: null, pixels: [...setupCustomPixels] };
+  showToast('手绘涂装已保存为默认外观！', 'success');
+}
+function setupResetCustom() {
+  setupCustomPixels = new Array(128).fill('#e2e8f0');
+  renderSetupLivery();
+}
+function showRenameModal(){const n=prompt('修改航司名称：',gameState.airlineName);if(n&&n.trim()){gameState.airlineName=n.trim();document.getElementById('header-title').textContent=gameState.airlineName;document.getElementById('dash-company-name').textContent=gameState.airlineName+'概况';addLog('更名为：'+gameState.airlineName,'info');}}
+
+// ==================== 涂装系统 ====================
+let liverySubTab = 'preset';
+function switchLiverySubTab(t) {
+  liverySubTab = t;
+  const presetPanel = document.getElementById('livery-preset-panel');
+  const customPanel = document.getElementById('livery-custom-panel');
+  if (presetPanel) presetPanel.style.display = t === 'preset' ? 'block' : 'none';
+  if (customPanel) { customPanel.style.display = t === 'custom' ? 'block' : 'none'; if (t === 'custom') initPixelEditor(); }
+}
+function initPixelEditor() {
+  const planeId = document.getElementById('upgrade-select')?.value;
+  if (!planeId) return;
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  const canvas = document.getElementById('pixel-canvas-' + planeId);
+  const paletteBar = document.getElementById('palette-bar-' + planeId);
+  if (!canvas || !paletteBar) return;
+  const pixels = (plane.livery && plane.livery.type === 'custom' && plane.livery.pixels) ? [...plane.livery.pixels] : new Array(128).fill('#e2e8f0');
+  canvas._pixels = pixels;
+  canvas._selectedColor = canvas._selectedColor || '#3b82f6';
+  let html = '';
+  for (let r = 0; r < 8; r++) {
+    html += '<div class="pixel-row">';
+    for (let c = 0; c < 16; c++) {
+      const idx = r * 16 + c;
+      html += `<div class="pixel-cell" style="background:${pixels[idx]};" data-row="${r}" data-col="${c}" onmousedown="paintPixel('${planeId}',${r},${c})" onmousemove="dragPaint(event,'${planeId}',${r},${c})" oncontextmenu="erasePixel('${planeId}',${r},${c});return false;"></div>`;
+    }
+    html += '</div>';
+  }
+  canvas.innerHTML = html;
+  let palHtml = '';
+  LIVERY_PALETTE.forEach(color => {
+    palHtml += `<div class="palette-color ${canvas._selectedColor === color ? 'selected' : ''}" style="background:${color};" onclick="selectPixelColor('${planeId}','${color}')"></div>`;
+  });
+  palHtml += `<div class="palette-color eraser" onclick="selectPixelColor('${planeId}','eraser')">🧹</div>`;
+  paletteBar.innerHTML = palHtml;
+}
+function selectPixelColor(planeId, color) {
+  const canvas = document.getElementById('pixel-canvas-' + planeId);
+  if (!canvas) return;
+  canvas._selectedColor = color;
+  initPixelEditor();
+}
+function paintPixel(planeId, row, col) {
+  const canvas = document.getElementById('pixel-canvas-' + planeId);
+  if (!canvas || !canvas._pixels) return;
+  const color = canvas._selectedColor === 'eraser' ? '#e2e8f0' : canvas._selectedColor;
+  const idx = row * 16 + col;
+  canvas._pixels[idx] = color;
+  const cell = canvas.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  if (cell) cell.style.background = color;
+}
+function dragPaint(event, planeId, row, col) {
+  if (event.buttons === 1) paintPixel(planeId, row, col);
+}
+function erasePixel(planeId, row, col) {
+  const canvas = document.getElementById('pixel-canvas-' + planeId);
+  if (!canvas || !canvas._pixels) return;
+  canvas._pixels[row * 16 + col] = '#e2e8f0';
+  const cell = canvas.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  if (cell) cell.style.background = '#e2e8f0';
+}
+function saveCustomLiveryFromEditor(planeId) {
+  const canvas = document.getElementById('pixel-canvas-' + planeId);
+  if (!canvas || !canvas._pixels) return;
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  plane.livery = { type: 'custom', presetId: null, pixels: [...canvas._pixels] };
+  addLog(`🎨 ${plane.name} 自定义涂装已保存`, 'info');
+  showToast('涂装已保存！', 'success');
+  updateAll();
+}
+function applyPresetLivery(planeId, presetId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  plane.livery = { type: 'preset', presetId, pixels: null };
+  addLog(`🎨 ${plane.name} 应用新涂装`, 'info');
+  showToast('涂装已应用！', 'success');
+  updateAll();
+}
+function resetCustomLivery(planeId) {
+  const plane = gameState.planes.find(p => p.id === planeId);
+  if (!plane) return;
+  plane.livery = { type: 'default', presetId: null, pixels: null };
+  showToast('涂装已重置', 'info');
+  updateAll();
+}
+
+// ==================== 存档系统 ====================
+const SAVE_PREFIX = 'airline_tycoon_save_';
+const META_PREFIX = 'airline_tycoon_save_meta_';
+let activeSlot = null; // 当前进度关联的存档槽位
+
+function prepareSaveData() {
+  const clean = JSON.parse(JSON.stringify(gameState));
+  clean.pendingTimers = {};
+  clean.planes.forEach(p => { p.timerId = null; p.flightEndTime = 0; if (p.status === 'flying') { p.status = 'idle'; p.assignedRoute = null; } });
+  clean.dayTimer = null; clean.isNight = false; clean.gameStartTime = Date.now();
+  return clean;
+}
+function saveGame(slot) {
+  const data = prepareSaveData();
+  localStorage.setItem(SAVE_PREFIX + slot, JSON.stringify(data));
+  const meta = { slot, timestamp: Date.now(), airlineName: gameState.airlineName, gold: gameState.gold, planesCount: gameState.planes.length, day: gameState.day, version: 1 };
+  localStorage.setItem(META_PREFIX + slot, JSON.stringify(meta));
+  activeSlot = slot;
+  showToast(`💾 存档${slot}已保存！`, 'success');
+  renderSavePanel();
+}
+function loadGame(slot) {
+  const raw = localStorage.getItem(SAVE_PREFIX + slot);
+  if (!raw) { showToast('存档不存在！', 'error'); return; }
+  if (!confirm('加载存档将覆盖当前进度，确定？')) return;
+  // 加载前自动保存当前进度到当前槽位
+  const oldSlot = activeSlot;
+  if (oldSlot && oldSlot !== slot) {
+    const currentData = prepareSaveData();
+    localStorage.setItem(SAVE_PREFIX + oldSlot, JSON.stringify(currentData));
+    const currentMeta = { slot: oldSlot, timestamp: Date.now(), airlineName: gameState.airlineName, gold: gameState.gold, planesCount: gameState.planes.length, day: gameState.day, version: 1 };
+    localStorage.setItem(META_PREFIX + oldSlot, JSON.stringify(currentMeta));
+  }
+  clearAllPendingTimers();
+  if (gameState.dayTimer) clearInterval(gameState.dayTimer);
+  const data = JSON.parse(raw);
+  data.pendingTimers = {}; data.dayTimer = null; data.gameStartTime = Date.now();
+  data.planes.forEach(p => { p.timerId = null; p.flightEndTime = 0; if (p.status === 'flying') { p.status = 'idle'; p.assignedRoute = null; } });
+  gameState = data;
+  activeSlot = slot;
+  startDayNightCycle();
+  updateAll();
+  const msg = oldSlot && oldSlot !== slot ? `📂 存档${slot}已加载！（原进度已自动保存到槽位${oldSlot}）` : `📂 存档${slot}已加载！`;
+  showToast(msg, 'success');
+  renderSavePanel();
+}
+function deleteSave(slot) {
+  if (!confirm('确定删除存档' + slot + '？此操作不可恢复！')) return;
+  localStorage.removeItem(SAVE_PREFIX + slot);
+  localStorage.removeItem(META_PREFIX + slot);
+  if (activeSlot === slot) activeSlot = null;
+  renderSavePanel();
+  showToast('存档已删除', 'info');
+}
+function getSaveMeta(slot) {
+  const raw = localStorage.getItem(META_PREFIX + slot);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+function exportSave(slot) {
+  const raw = localStorage.getItem(SAVE_PREFIX + slot);
+  if (!raw) { showToast('存档不存在！', 'error'); return; }
+  const meta = getSaveMeta(slot);
+  const blob = new Blob([raw], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `airline_tycoon_save${slot}_${meta ? meta.airlineName : 'unknown'}_day${meta ? meta.day : 0}.json`;
+  a.click();
+  showToast('存档已导出！', 'success');
+}
+function importSavePrompt() { document.getElementById('import-file-input').click(); }
+function handleImportFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.airlineName || data.gold === undefined || !data.planes) { showToast('无效的存档文件！', 'error'); return; }
+      let slot = 1;
+      for (; slot <= 3; slot++) { if (!localStorage.getItem(SAVE_PREFIX + slot)) break; }
+      if (slot > 3) slot = 1;
+      if (!confirm(`导入到存档槽位${slot}（将覆盖该槽位），确定？`)) return;
+      data.pendingTimers = {}; data.dayTimer = null; data.gameStartTime = Date.now();
+      data.planes.forEach(p => { p.timerId = null; p.flightEndTime = 0; if (p.status === 'flying') { p.status = 'idle'; p.assignedRoute = null; } });
+      localStorage.setItem(SAVE_PREFIX + slot, JSON.stringify(data));
+      const meta = { slot, timestamp: Date.now(), airlineName: data.airlineName, gold: data.gold, planesCount: data.planes.length, day: data.day, version: 1 };
+      localStorage.setItem(META_PREFIX + slot, JSON.stringify(meta));
+      showToast(`📥 存档已导入到槽位${slot}！`, 'success');
+      renderSavePanel();
+    } catch(err) { showToast('文件格式错误！', 'error'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+function autoSave() {
+  if (gameState.day - gameState.lastAutoSaveDay >= 5) {
+    gameState.lastAutoSaveDay = gameState.day;
+    saveGame(1);
+    addLog('💾 自动存档（槽位1）', 'info');
+  }
+}
+function checkBankruptcy() {
+  const cheapestPlane = Math.min(...PLANE_MODELS.map(m => m.price));
+  if (gameState.gold < cheapestPlane && gameState.planes.length === 0) {
+    for (let i = 1; i <= 3; i++) {
+      localStorage.removeItem(SAVE_PREFIX + i);
+      localStorage.removeItem(META_PREFIX + i);
+    }
+    document.getElementById('bankrupt-overlay').style.display = 'flex';
+  }
+}
+function checkBankruptcyQuick() {
+  const cheapestPlane = Math.min(...PLANE_MODELS.map(m => m.price));
+  if (gameState.gold < cheapestPlane && gameState.planes.length === 0) {
+    for (let i = 1; i <= 3; i++) {
+      localStorage.removeItem(SAVE_PREFIX + i);
+      localStorage.removeItem(META_PREFIX + i);
+    }
+    document.getElementById('bankrupt-overlay').style.display = 'flex';
+    return true;
+  }
+  return false;
+}
+function renderSavePanel() {
+  const grid = document.getElementById('save-grid');
+  if (!grid) return;
+  let html = '';
+  for (let i = 1; i <= 3; i++) {
+    const meta = getSaveMeta(i);
+    const isActive = activeSlot === i;
+    if (meta) {
+      const d = new Date(meta.timestamp);
+      const timeStr = d.toLocaleString('zh-CN');
+      html += `<div class="save-slot filled${isActive?' active-slot':''}"><div class="save-slot-num">槽位 ${i}${isActive?' 🔵':''}</div><div class="save-slot-time">${timeStr}</div><div class="save-slot-name">${meta.airlineName}</div><div class="save-slot-info">🪙 ${formatGold(meta.gold)} | 🛩️ ${meta.planesCount}架 | 📅 第${meta.day}天</div><div class="save-slot-actions"><button class="btn btn-blue btn-sm" onclick="loadGame(${i})">📂加载</button><button class="btn btn-outline btn-sm" onclick="saveGame(${i})">💾覆盖</button><button class="btn btn-outline btn-sm" onclick="exportSave(${i})">📤导出</button><button class="btn btn-red btn-sm" onclick="deleteSave(${i})">🗑删除</button></div></div>`;
+    } else {
+      html += `<div class="save-slot${isActive?' active-slot':''}"><div class="save-slot-num">槽位 ${i}</div><div class="save-slot-empty">空存档</div><button class="btn btn-gold btn-sm" onclick="saveGame(${i})">💾保存</button></div>`;
+    }
+  }
+  grid.innerHTML = html;
+}
+
+function init(){document.getElementById('name-setup').style.display='flex';document.getElementById('airline-name-input').focus();document.getElementById('airline-name-input').addEventListener('keydown',e=>{if(e.key==='Enter')confirmSetup();});renderLogoGrid();renderSetupLivery();updateAll();}
+init();
+</script>
+</body>
+</html>

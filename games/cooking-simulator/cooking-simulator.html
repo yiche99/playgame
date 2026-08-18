@@ -1,0 +1,2215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>做饭模拟器 · Cooking Simulator</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍳</text></svg>">
+<style>
+:root{
+  --gold:#ffd166; --gold2:#ffb703; --wood:#8b5a2b; --wood2:#6f4518;
+  --panel:#2b1d0e; --panel2:#3a2a14; --text:#f5e6c8; --muted:#b9a58a;
+  --green:#6db33f; --red:#e63946; --blue:#3a86ff; --teal:#20b2aa;
+  --shadow:0 8px 30px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;background:#1a120b;color:var(--text);}
+#game-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab;}
+#game-canvas.grabbing{cursor:grabbing;}
+
+/* ===== HUD ===== */
+#hud{position:fixed;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:20;}
+.hud-group{display:flex;gap:10px;flex-wrap:wrap;pointer-events:auto;}
+.hud-card{background:linear-gradient(180deg,rgba(43,29,14,.92),rgba(30,20,8,.92));border:1px solid rgba(255,209,102,.35);border-radius:12px;padding:8px 14px;box-shadow:var(--shadow);backdrop-filter:blur(4px);}
+.hud-card .label{font-size:11px;color:var(--muted);letter-spacing:1px;}
+.hud-card .value{font-size:20px;font-weight:800;color:var(--gold);text-shadow:0 2px 4px rgba(0,0,0,.5);}
+.hud-card .value.red{color:#ff6b6b;}
+
+/* ===== 通用按钮 ===== */
+.btn{background:linear-gradient(180deg,#ffd166,#f0a500);color:#3a2a00;border:none;border-radius:10px;padding:10px 18px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #a87000,0 6px 14px rgba(0,0,0,.35);transition:all .08s;pointer-events:auto;font-family:inherit;}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #a87000;}
+.btn.ghost{background:linear-gradient(180deg,#5a4630,#4a3722);color:var(--text);box-shadow:0 4px 0 #2f2316;}
+.btn.ghost:hover{filter:brightness(1.12);}
+.btn.blue{background:linear-gradient(180deg,#6db3ff,#3a86ff);color:#001b3a;box-shadow:0 4px 0 #1d5ec0;}
+.btn.green{background:linear-gradient(180deg,#8fe37a,#4caf50);color:#0c2d00;box-shadow:0 4px 0 #2e7d32;}
+.btn.red{background:linear-gradient(180deg,#ff7b7b,#e63946);color:#2a0000;box-shadow:0 4px 0 #a4121f;}
+.btn:disabled{filter:grayscale(.7) brightness(.6);cursor:not-allowed;transform:none;}
+
+/* ===== 顶部按钮栏 ===== */
+#top-buttons{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:25;flex-wrap:wrap;justify-content:center;max-width:92vw;}
+#top-buttons .btn{font-size:13px;padding:8px 12px;border-radius:9px;}
+.pulse{animation:pulse 1.6s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 4px 0 #a87000,0 0 0 0 rgba(255,209,102,.6);}50%{box-shadow:0 4px 0 #a87000,0 0 0 12px rgba(255,209,102,0);}}
+
+/* ===== 模式徽标 ===== */
+#mode-badge{position:fixed;bottom:14px;left:14px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:6px 12px;font-size:12px;color:var(--muted);z-index:20;pointer-events:none;backdrop-filter:blur(3px);}
+#mode-badge b{color:var(--gold);}
+
+/* ===== 操作提示 ===== */
+#controls-hint{position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,.5);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--muted);z-index:20;pointer-events:none;backdrop-filter:blur(3px);line-height:1.7;}
+#controls-hint kbd{background:#3a2a14;border:1px solid #5a4630;border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--gold);font-size:11px;}
+
+/* ===== Toast 提示 ===== */
+#toast-wrap{position:fixed;top:70px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:60;pointer-events:none;align-items:center;}
+.toast{background:rgba(20,12,4,.94);border:1px solid var(--gold2);border-left:5px solid var(--gold2);color:var(--text);padding:10px 18px;border-radius:10px;font-size:14px;box-shadow:var(--shadow);animation:toastIn .3s ease;max-width:70vw;}
+.toast.good{border-left-color:var(--green);}
+.toast.bad{border-left-color:var(--red);}
+.toast.info{border-left-color:var(--blue);}
+@keyframes toastIn{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
+
+/* ===== 面板通用 ===== */
+.panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:40;backdrop-filter:blur(2px);}
+.panel-overlay.show{display:flex;}
+.panel{background:linear-gradient(180deg,#34230f,#24180a);border:1px solid rgba(255,209,102,.4);border-radius:18px;padding:22px;box-shadow:var(--shadow);max-width:660px;width:92%;max-height:88vh;overflow-y:auto;position:relative;animation:panelUp .25s ease;}
+@keyframes panelUp{from{opacity:0;transform:translateY(20px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+.panel h2{font-size:22px;color:var(--gold);margin-bottom:4px;display:flex;align-items:center;gap:10px;}
+.panel .sub{color:var(--muted);font-size:13px;margin-bottom:16px;}
+.panel .close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;line-height:1;pointer-events:auto;}
+.panel .close:hover{color:#fff;}
+
+/* 金币显示 */
+.gold-amt{color:var(--gold);font-weight:800;}
+.notice{background:rgba(255,209,102,.12);border:1px dashed rgba(255,209,102,.4);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);margin-bottom:12px;}
+
+/* ===== 商品卡片 ===== */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px;}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;text-align:center;position:relative;transition:all .15s;cursor:pointer;}
+.card:hover{background:rgba(255,209,102,.12);border-color:var(--gold2);transform:translateY(-2px);}
+.card .icon{font-size:34px;line-height:1.2;margin-bottom:4px;}
+.card .name{font-size:14px;font-weight:700;margin-bottom:2px;}
+.card .desc{font-size:11px;color:var(--muted);min-height:28px;margin-bottom:8px;}
+.card .price{font-size:13px;color:var(--gold);font-weight:700;}
+.card .price small{color:var(--muted);font-weight:400;}
+.card .owned-badge{position:absolute;top:6px;right:8px;background:var(--green);color:#fff;font-size:10px;border-radius:20px;padding:1px 7px;font-weight:700;}
+
+/* ===== 背包格子 ===== */
+#inventory-grid .card{min-height:110px;}
+#inventory-grid .card .count{font-size:18px;color:var(--gold);font-weight:800;}
+
+/* ===== 菜单 / 菜谱卡片 ===== */
+.dish-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;}
+.dish-card .head{display:flex;justify-content:space-between;align-items:center;}
+.dish-card .dname{font-weight:800;font-size:15px;color:var(--text);}
+.dish-card .tag{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;}
+.tag.normal{background:rgba(109,179,63,.25);color:#a5e07c;border:1px solid var(--green);}
+.tag.dark{background:rgba(230,57,70,.25);color:#ff8a8a;border:1px solid var(--red);}
+.dish-card .meta{font-size:11px;color:var(--muted);}
+.price-row{display:flex;align-items:center;gap:8px;}
+.price-row input{background:#1a120b;border:1px solid rgba(255,255,255,.2);color:var(--gold);border-radius:8px;padding:6px 8px;font-size:15px;width:90px;font-weight:700;font-family:inherit;text-align:center;}
+.price-row input:focus{outline:none;border-color:var(--gold2);}
+.revenue{font-size:12px;color:var(--muted);}
+.revenue .pos{color:#7dd87d;}
+.revenue .neg{color:#ff6b6b;}
+
+/* ===== 员工卡片 ===== */
+.staff-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;display:flex;gap:12px;align-items:center;}
+.staff-card .sicon{font-size:36px;}
+.staff-card .sinfo{flex:1;}
+.staff-card .sname{font-weight:800;font-size:15px;}
+.staff-card .sdesc{font-size:11px;color:var(--muted);margin-top:2px;}
+.staff-card .status{font-size:11px;color:#7dd87d;margin-top:3px;}
+
+/* ===== 装饰 ===== */
+.deco-card{display:flex;flex-direction:column;gap:6px;text-align:center;}
+.deco-card .dicon{font-size:34px;}
+.deco-card .dname{font-weight:700;font-size:14px;}
+.deco-card .ddesc{font-size:11px;color:var(--muted);min-height:24px;}
+.levels{display:flex;gap:4px;justify-content:center;margin-top:2px;}
+.level-dot{width:8px;height:8px;border-radius:50%;background:#4a3722;}
+.level-dot.filled{background:var(--gold2);}
+
+/* ===== 烹饪面板 ===== */
+.cook-slots{display:flex;gap:10px;justify-content:center;margin:14px 0;flex-wrap:wrap;}
+.slot{width:78px;height:90px;background:#1a120b;border:2px dashed rgba(255,255,255,.2);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative;cursor:pointer;transition:all .15s;}
+.slot.has{border-style:solid;border-color:var(--gold2);background:rgba(255,209,102,.1);}
+.slot:hover{border-color:var(--gold);}
+.slot .s-icon{font-size:28px;}
+.slot .s-name{font-size:10px;color:var(--muted);text-align:center;padding:0 4px;line-height:1.2;}
+.slot .s-rm{position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;width:20px;height:20px;border-radius:50%;border:none;font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;}
+.slot.has .s-rm{display:flex;}
+.ingr-pick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:10px;}
+.ingr-pick button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px;transition:all .12s;font-family:inherit;}
+.ingr-pick button:hover{border-color:var(--gold);background:rgba(255,209,102,.15);}
+.ingr-pick button:disabled{opacity:.35;cursor:not-allowed;}
+.recipe-result{margin-top:14px;text-align:center;padding:14px;background:rgba(255,255,255,.04);border-radius:12px;border:1px dashed rgba(255,255,255,.15);}
+.recipe-result .pred{font-size:16px;margin-bottom:8px;}
+.recipe-result .pred b{font-size:18px;}
+.recipe-name-input{background:#1a120b;border:1px solid rgba(255,255,255,.2);color:var(--gold);border-radius:8px;padding:8px;font-size:16px;width:100%;max-width:320px;text-align:center;font-weight:700;font-family:inherit;margin-top:8px;}
+.recipe-name-input:focus{outline:none;border-color:var(--gold2);}
+
+/* 进度条 */
+.bar{height:8px;background:#1a120b;border-radius:20px;overflow:hidden;margin:6px 0;}
+.bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width .1s linear;}
+
+/* 结账日志 */
+#log-box{position:fixed;left:14px;bottom:60px;width:300px;max-height:220px;overflow:hidden;display:flex;flex-direction:column;gap:4px;z-index:18;pointer-events:none;}
+.log-item{background:rgba(20,12,4,.75);border-left:3px solid var(--gold2);padding:5px 10px;border-radius:6px;font-size:12px;color:var(--text);animation:logIn .3s ease;backdrop-filter:blur(2px);}
+.log-item .plus{color:#7dd87d;font-weight:800;}
+.log-item .minus{color:#ff6b6b;font-weight:800;}
+.log-item.small{font-size:11px;color:var(--muted);}
+@keyframes logIn{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:translateX(0);}}
+
+/* 交互提示 */
+#interact-hint{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:rgba(0,0,0,.72);border:1px solid var(--gold2);color:var(--gold);border-radius:12px;padding:10px 20px;font-size:15px;font-weight:700;z-index:30;display:none;text-align:center;pointer-events:none;animation:toastIn .2s ease;}
+
+/* 分段控制 */
+.tabs{display:flex;gap:6px;margin:12px 0;}
+.tab{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;transition:all .12s;font-family:inherit;}
+.tab.active{background:var(--gold2);color:#3a2a00;border-color:var(--gold2);font-weight:800;}
+
+/* 欢迎屏 */
+#welcome{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#3a2a14,#1a120b 70%);}
+#welcome .inner{text-align:center;max-width:520px;padding:40px;}
+#welcome h1{font-size:52px;color:var(--gold);text-shadow:0 4px 20px rgba(255,183,3,.4);margin-bottom:6px;letter-spacing:2px;}
+#welcome .subtitle{font-size:17px;color:var(--text);margin-bottom:24px;}
+#welcome .rule-list{text-align:left;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:18px 22px;margin-bottom:28px;font-size:14px;line-height:2;color:var(--muted);}
+#welcome .rule-list b{color:var(--gold);}
+
+/* 滚轮设置条 */
+.setting-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13px;color:var(--muted);}
+.setting-row input[type=range]{flex:1;accent-color:var(--gold2);}
+.setting-row output{color:var(--gold);font-weight:700;min-width:32px;text-align:right;}
+
+/* 手机适配 */
+@media(max-width:640px){
+  .hud-card .value{font-size:15px;}
+  .hud-card .label{font-size:10px;}
+  #top-buttons{top:8px;}
+  #top-buttons .btn{font-size:11px;padding:6px 9px;}
+  #controls-hint{display:none;}
+  .panel{padding:16px;max-width:96vw;}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(108px,1fr));}
+  #log-box{width:210px;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-group">
+    <div class="hud-card"><div class="label">金币</div><div class="value" id="hud-gold">🪙 1000</div></div>
+    <div class="hud-card"><div class="label">声望</div><div class="value" id="hud-rep">⭐ 0</div></div>
+    <div class="hud-card"><div class="label">营业日</div><div class="value" id="hud-day">📅 第1天</div></div>
+  </div>
+  <div class="hud-group">
+    <div class="hud-card"><div class="label">员工</div><div class="value" id="hud-staff">👨‍🍳0 / 🧑‍💼0</div></div>
+    <div class="hud-card"><div class="label">本日净利</div><div class="value" id="hud-profit" style="font-size:15px;">+0</div></div>
+  </div>
+</div>
+
+<div id="top-buttons">
+  <button class="btn" id="btn-shop">🏪 商店</button>
+  <button class="btn" id="btn-menu">📋 菜单定价</button>
+  <button class="btn" id="btn-cook">🍳 做饭</button>
+  <button class="btn" id="btn-staff">👥 招募员工</button>
+  <button class="btn" id="btn-deco">🛋️ 装饰</button>
+  <button class="btn green" id="btn-close">🌙 打烊结算</button>
+  <button class="btn ghost" id="btn-music" title="背景音乐开关">🔊</button>
+  <button class="btn ghost" id="btn-help">❓</button>
+</div>
+
+<div id="interact-hint"></div>
+<div id="log-box"></div>
+<div id="toast-wrap"></div>
+<div id="mode-badge">👤 角色模式 · <b>WASD</b> 移动 · 鼠标拖拽转视角</div>
+<div id="controls-hint">
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动 &nbsp;·&nbsp; 拖拽 转视角 &nbsp;·&nbsp; 滚轮 缩放<br>
+  <kbd>F</kbd> 交互 &nbsp;·&nbsp; <kbd>Tab</kbd> 视角 &nbsp;·&nbsp; <kbd>E</kbd> 背包 &nbsp;·&nbsp; <kbd>1-9</kbd> 快捷做菜
+</div>
+
+<!-- 商店面板 -->
+<div class="panel-overlay" id="shop-panel">
+  <div class="panel">
+    <button class="close" data-close="shop-panel">✕</button>
+    <h2>🏪 食材商店</h2>
+    <div class="sub">购买食材，会从你的金币中扣除。</div>
+    <div class="notice">💰 当前金币：<span class="gold-amt" id="shop-gold">0</span></div>
+    <div class="tabs" id="shop-tabs">
+      <button class="tab active" data-shop-tab="all">全部</button>
+      <button class="tab" data-shop-tab="normal">🥘 正常食材</button>
+      <button class="tab" data-shop-tab="dark">💀 黑暗食材</button>
+    </div>
+    <div class="grid" id="shop-grid"></div>
+  </div>
+</div>
+
+<!-- 菜单定价面板 -->
+<div class="panel-overlay" id="menu-panel">
+  <div class="panel">
+    <button class="close" data-close="menu-panel">✕</button>
+    <h2>📋 菜单与定价</h2>
+    <div class="sub">设定每道菜的售价。定价影响客流：太贵没人来，太便宜亏本且客人嫌弃。</div>
+    <div id="menu-list"></div>
+    <div style="text-align:center;margin-top:14px;"><button class="btn blue" data-close="menu-panel">完成</button></div>
+  </div>
+</div>
+
+<!-- 烹饪面板 -->
+<div class="panel-overlay" id="cook-panel">
+  <div class="panel" style="max-width:560px;">
+    <button class="close" data-close="cook-panel">✕</button>
+    <h2>🍳 灶台 · 做菜</h2>
+    <div class="sub">从背包取食材放进锅（最多3种），自动生成菜品。黑暗组合会做出黑暗料理。</div>
+    <div class="cook-slots" id="cook-slots">
+      <div class="slot" data-slot="0"><div class="s-icon">🍳</div><div class="s-name">锅位1</div></div>
+      <div class="slot" data-slot="1"><div class="s-icon">🍳</div><div class="s-name">锅位2</div></div>
+      <div class="slot" data-slot="2"><div class="s-icon">🍳</div><div class="s-name">锅位3</div></div>
+    </div>
+    <div class="ingr-pick" id="ingr-pick"></div>
+    <div class="recipe-result" id="recipe-result" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- 背包面板 -->
+<div class="panel-overlay" id="inv-panel">
+  <div class="panel">
+    <button class="close" data-close="inv-panel">✕</button>
+    <h2>🎒 背包</h2>
+    <div class="sub">已购食材库存，右键食材可从锅中取下。</div>
+    <div class="grid" id="inventory-grid"></div>
+  </div>
+</div>
+
+<!-- 员工面板 -->
+<div class="panel-overlay" id="staff-panel">
+  <div class="panel">
+    <button class="close" data-close="staff-panel">✕</button>
+    <h2>👥 招募员工</h2>
+    <div class="sub">员工帮你分担工作，解放双手。厨师自动做菜，服务员自动上菜收银。</div>
+    <div class="notice">💰 当前金币：<span class="gold-amt" id="staff-gold">0</span> &nbsp;·&nbsp; 👨‍🍳厨师 <span id="staff-chef-n">0</span> &nbsp;·&nbsp; 🧑‍💼服务员 <span id="staff-waiter-n">0</span></div>
+    <div id="staff-list"></div>
+  </div>
+</div>
+
+<!-- 装饰面板 -->
+<div class="panel-overlay" id="deco-panel">
+  <div class="panel">
+    <button class="close" data-close="deco-panel">✕</button>
+    <h2>🛋️ 饭店装饰</h2>
+    <div class="sub">升级内饰，吸引更多客人、提升口味评价。装饰会实时出现在店里。</div>
+    <div class="notice">💰 当前金币：<span class="gold-amt" id="deco-gold">0</span></div>
+    <div class="grid" id="deco-grid"></div>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div class="panel-overlay" id="help-panel">
+  <div class="panel" style="max-width:520px;">
+    <button class="close" data-close="help-panel">✕</button>
+    <h2>❓ 游戏说明</h2>
+    <div class="sub">操作与玩法</div>
+    <div style="line-height:2;font-size:14px;color:var(--muted);">
+      <b style="color:var(--gold);">操作：</b><br>
+      · <b>WASD/方向键</b> 移动角色，<b>鼠标拖拽</b>旋转视角，<b>滚轮</b>缩放<br>
+      · <b>F</b> 与场景交互（灶台做饭、商店购买、招募站、装饰）<br>
+      · <b>Tab</b> 切换跟随/俯视视角 · <b>E</b> 打开背包<br>
+      · <b>数字键1-9</b> 快捷做菜（直接消耗食材做菜单上对应菜品）<br>
+      · <b>🔊按钮</b> 开关背景音乐<br>
+      <b style="color:var(--gold);">玩法：</b><br>
+      · 去 <b>商店</b> 买食材 → 回店 <b>灶台</b> 做菜 → 定价上菜单<br>
+      · 客人按价格与口味进店消费，定价太高客人少，太低会亏本或被嫌弃<br>
+      · 用金币 <b>招募厨师/服务员</b> 自动运作，<b>装饰</b> 提升店格<br>
+      · 目标是赚更多钱、扩大店面、让饭店门庭若市！<br>
+    </div>
+    <div style="text-align:center;margin-top:14px;"><button class="btn" data-close="help-panel">知道了</button></div>
+  </div>
+</div>
+
+<!-- 欢迎屏 -->
+<div id="welcome">
+  <div class="inner">
+    <div style="font-size:64px;margin-bottom:8px;">🍳</div>
+    <h1>做饭模拟器</h1>
+    <div class="subtitle">从一间小餐馆，做到水晶宫灯下的美食殿堂</div>
+    <div class="rule-list">
+      <div>🏪 去 <b>商店</b> 采购食材（番茄、鸡蛋、辣椒…甚至炸弹）</div>
+      <div>🍳 在 <b>灶台</b> 烹饪并给菜品命名，普通菜或黑暗料理皆可</div>
+      <div>💰 亲手 <b>定价</b>，太贵没人来，太便宜亏本还被嫌弃</div>
+      <div>👥 <b>招募厨师/服务员</b>，🛋️ <b>装饰</b> 从吊灯升级到水晶宫灯</div>
+      <div>🎯 目标：把饭店做成最赚钱、最火爆的传奇餐馆！</div>
+    </div>
+    <button class="btn" id="btn-start" style="font-size:18px;padding:14px 40px;">🍽️ 开始营业</button>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+// ============================================================
+// 核心逻辑开始
+// ============================================================
+
+// ============================================================
+// 背景音乐系统（Web Audio API 合成轻快循环BGM）
+// ============================================================
+const BGM = {
+  ctx: null,
+  master: null,
+  playing: false,
+  timer: null,
+  noteIdx: 0,
+  // 轻快的C大调旋律（频率Hz），0=休止
+  // C4=261.63 D4=293.66 E4=329.63 F4=349.23 G4=392.00 A4=440.00 B4=493.88 C5=523.25
+  melody: [
+    523.25, 0, 440.00, 392.00, 349.23, 392.00, 440.00, 0,
+    523.25, 0, 587.33, 523.25, 440.00, 392.00, 349.23, 0,
+    329.63, 0, 392.00, 440.00, 523.25, 0, 440.00, 392.00,
+    349.23, 0, 329.63, 293.66, 329.63, 0, 261.63, 0,
+  ],
+  // 低音和弦根音
+  bass: [
+    130.81, 130.81, 174.61, 174.61, 196.00, 196.00, 130.81, 130.81,
+  ],
+  tempo: 200,  // 毫秒/拍
+  init(){
+    if(this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext||window.webkitAudioContext)();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.15;
+      this.master.connect(this.ctx.destination);
+    } catch(e){ console.warn('音频不可用', e); }
+  },
+  playNote(freq, duration, type='sine', vol=0.3){
+    if(!this.ctx || freq===0) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    const now = this.ctx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(vol, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.connect(gain);
+    gain.connect(this.master);
+    osc.start(now);
+    osc.stop(now + duration);
+  },
+  tick(){
+    if(!this.playing) return;
+    const mel = this.melody[this.noteIdx % this.melody.length];
+    const bassNote = this.bass[Math.floor(this.noteIdx/4) % this.bass.length];
+    // 旋律：三角波，清脆
+    this.playNote(mel, this.tempo/1000 * 0.9, 'triangle', 0.25);
+    // 低音：每4拍换一次
+    if(this.noteIdx % 4 === 0){
+      this.playNote(bassNote, this.tempo/1000 * 3.5, 'sine', 0.2);
+    }
+    // 偶尔加一个高八度装饰音
+    if(this.noteIdx % 8 === 6 && mel > 0){
+      this.playNote(mel * 2, this.tempo/1000 * 0.4, 'sine', 0.1);
+    }
+    this.noteIdx++;
+  },
+  start(){
+    this.init();
+    if(!this.ctx) return;
+    if(this.ctx.state === 'suspended') this.ctx.resume();
+    this.playing = true;
+    this.noteIdx = 0;
+    if(this.timer) clearInterval(this.timer);
+    this.timer = setInterval(()=>this.tick(), this.tempo);
+  },
+  stop(){
+    this.playing = false;
+    if(this.timer){ clearInterval(this.timer); this.timer = null; }
+  },
+  toggle(){
+    if(this.playing){ this.stop(); }
+    else { this.start(); }
+    return this.playing;
+  }
+};
+
+// ---------- 食材数据 ----------
+// dark:true 表示黑暗食材
+const INGREDIENTS = {
+  // === 基础蔬菜（正常） ===
+  tomato:    { id:'tomato',    icon:'🍅', name:'番茄',   cost:4,  desc:'经典配菜，酸甜可口' },
+  egg:       { id:'egg',       icon:'🥚', name:'鸡蛋',   cost:3,  desc:'百搭的蛋白质' },
+  chili:     { id:'chili',     icon:'🌶️', name:'辣椒',   cost:3,  desc:'火辣，重口味' },
+  noodle:    { id:'noodle',    icon:'🍜', name:'面条',   cost:5,  desc:'主食面条' },
+  rice:      { id:'rice',      icon:'🍚', name:'米饭',   cost:4,  desc:'主食米饭' },
+  pork:      { id:'pork',      icon:'🥩', name:'猪肉',   cost:8,  desc:'肉，增香提味' },
+  fish:      { id:'fish',      icon:'🐟', name:'鱼',     cost:9,  desc:'鲜美水产品' },
+  garlic:    { id:'garlic',    icon:'🧄', name:'大蒜',   cost:2,  desc:'去腥增香' },
+  onion:     { id:'onion',     icon:'🧅', name:'洋葱',   cost:3,  desc:'辛辣提味' },
+  oil:       { id:'oil',       icon:'🫗', name:'食用油', cost:2,  desc:'炒菜必备' },
+  salt:      { id:'salt',      icon:'🧂', name:'盐',     cost:1,  desc:'基础调味' },
+  sugar:     { id:'sugar',     icon:'🍬', name:'糖',     cost:2,  desc:'甜味' },
+  sauce:     { id:'sauce',     icon:'🥫', name:'酱油',   cost:3,  desc:'咸鲜酱料' },
+  wine:      { id:'wine',      icon:'🍷', name:'料酒',   cost:4,  desc:'去腥增香' },
+  cheese:    { id:'cheese',    icon:'🧀', name:'芝士',   cost:7,  desc:'浓郁乳香' },
+  chocolate: { id:'chocolate', icon:'🍫', name:'巧克力', cost:6,  desc:'甜点原料' },
+  mushroom:  { id:'mushroom',  icon:'🍄', name:'蘑菇',   cost:5,  desc:'鲜味' },
+  tofu:      { id:'tofu',      icon:'⬜', name:'豆腐',   cost:4,  desc:'清淡蛋白' },
+  // === 新增正常食材 ===
+  potato:    { id:'potato',    icon:'🥔', name:'土豆',   cost:3,  desc:'淀粉满满，百搭主食' },
+  carrot:    { id:'carrot',    icon:'🥕', name:'胡萝卜', cost:3,  desc:'脆甜，配色好看' },
+  corn:      { id:'corn',      icon:'🌽', name:'玉米',   cost:4,  desc:'甜甜的粗粮' },
+  shrimp:    { id:'shrimp',    icon:'🦐', name:'虾',     cost:12, desc:'鲜美海鲜' },
+  chicken:   { id:'chicken',   icon:'🍗', name:'鸡肉',   cost:9,  desc:'低脂高蛋白' },
+  beef:      { id:'beef',      icon:'🥩', name:'牛肉',   cost:14, desc:'扎实肉感', extra:'🐂' },
+  bread:     { id:'bread',     icon:'🍞', name:'面包',   cost:5,  desc:'西式主食' },
+  milk:      { id:'milk',      icon:'🥛', name:'牛奶',   cost:5,  desc:'顺滑奶香' },
+  butter:    { id:'butter',    icon:'🧈', name:'黄油',   cost:6,  desc:'奶香浓郁' },
+  lemon:     { id:'lemon',     icon:'🍋', name:'柠檬',   cost:4,  desc:'酸爽清新' },
+  honey:     { id:'honey',     icon:'🍯', name:'蜂蜜',   cost:7,  desc:'天然甜味剂' },
+  vinegar:   { id:'vinegar',   icon:'🍶', name:'醋',     cost:3,  desc:'酸味调料' },
+  pepper:    { id:'pepper',    icon:'🫑', name:'青椒',   cost:4,  desc:'清爽微辣' },
+  bean:      { id:'bean',      icon:'🫘', name:'豆子',   cost:3,  desc:'高蛋白豆类' },
+  seaweed:   { id:'seaweed',   icon:'🌿', name:'海带',   cost:5,  desc:'海鲜风味', extra:'🌊' },
+  lotus:     { id:'lotus',     icon:'🪷', name:'莲藕',   cost:6,  desc:'脆嫩爽口' },
+  pumpkin:   { id:'pumpkin',   icon:'🎃', name:'南瓜',   cost:5,  desc:'甜甜的粗粮' },
+  cucumber:  { id:'cucumber',  icon:'🥒', name:'黄瓜',   cost:3,  desc:'清爽脆口' },
+  // === 黑暗食材 ===
+  bomb:      { id:'bomb',      icon:'💣', name:'炸弹',   cost:12, desc:'危险物品…确定要下锅？', dark:true },
+  coal:      { id:'coal',      icon:'🪨', name:'煤块',   cost:2,  desc:'厨师看了想报警', dark:true },
+  mint:      { id:'mint',      icon:'🌿', name:'薄荷',   cost:2,  desc:'清凉，可能翻车', dark:true },
+  // 新增黑暗食材
+  durian:    { id:'durian',    icon:'🥥', name:'榴莲',   cost:15, desc:'爱的人爱死，恨的人想跑', dark:true, extra:'臭' },
+  stinky:    { id:'stinky',    icon:'🧀', name:'臭豆腐', cost:6,  desc:'闻着臭吃着香？不一定', dark:true, extra:'臭' },
+  eyeball:   { id:'eyeball',   icon:'👁️', name:'眼球',   cost:20, desc:'盯着你看的食材', dark:true },
+  slime:     { id:'slime',     icon:'🟢', name:'史莱姆', cost:10, desc:'弹弹的绿色不明物', dark:true },
+  bat:       { id:'bat',       icon:'🦇', name:'蝙蝠',   cost:18, desc:'夜行性食材', dark:true },
+  spider:    { id:'spider',    icon:'🕷️', name:'蜘蛛',   cost:16, desc:'高蛋白，但…', dark:true },
+  snail:     { id:'snail',     icon:'🐌', name:'蜗牛',   cost:8,  desc:'法式？不，是黑暗', dark:true },
+  worm:      { id:'worm',      icon:'🐛', name:'虫子',   cost:5,  desc:'蛋白质来源…也许', dark:true },
+  frog:      { id:'frog',      icon:'🐸', name:'青蛙',   cost:10, desc:'呱呱呱', dark:true },
+  ghost:     { id:'ghost',     icon:'👻', name:'幽灵',   cost:25, desc:'透明的灵体食材', dark:true },
+  skull:     { id:'skull',     icon:'💀', name:'骷髅头', cost:22, desc:'有点吓人', dark:true },
+  poop:      { id:'poop',      icon:'💩', name:'便便',   cost:3,  desc:'……不解释', dark:true },
+  radioactive:{id:'radioactive',icon:'☢️', name:'放射性废料',cost:30,desc:'发光的绿色液体', dark:true },
+  alien:     { id:'alien',     icon:'👽', name:'外星生物',cost:28, desc:'来自外太空的食材', dark:true },
+  zombie:    { id:'zombie',    icon:'🧟', name:'僵尸肉', cost:15, desc:'会动的肉', dark:true },
+  poison:    { id:'poison',    icon:'🧪', name:'毒药',   cost:18, desc:'一小滴就够了', dark:true },
+  battery:   { id:'battery',   icon:'🔋', name:'电池',   cost:14, desc:'电量满满', dark:true },
+  sock:      { id:'sock',      icon:'🧦', name:'旧袜子', cost:1,  desc:'有脚丫味的布料', dark:true },
+  brick:     { id:'brick',     icon:'🧱', name:'砖头',   cost:4,  desc:'建材，能吃？', dark:true },
+  plastic:   { id:'plastic',   icon:'♻️', name:'塑料袋', cost:2,  desc:'白色污染', dark:true },
+  sawdust:   { id:'sawdust',   icon:'🪵', name:'木屑',   cost:1,  desc:'木头磨碎的粉末', dark:true },
+  ink:       { id:'ink',       icon:'🖤', name:'墨汁',   cost:8,  desc:'黑乎乎的液体', dark:true },
+};
+
+// ---------- 配方（食材组合 → 菜品） ----------
+// keys 排序后的食材id组合
+const RECIPES = {  // === 双食材：家常菜 ===
+  'egg,tomato': { name:'西红柿炒鸡蛋', icon:'🍅🥚', type:'normal', basePrice:18, cost:7,  rating:75, desc:'国民家常菜，酸甜嫩滑' },
+  'egg,oil': { name:'摊鸡蛋',       icon:'🥚',  type:'normal', basePrice:12, cost:5,  rating:65, desc:'简单又香' },
+  'chili,pork': { name:'辣椒炒肉',     icon:'🌶️🥩',type:'normal', basePrice:22, cost:11, rating:80, desc:'湘味下饭神器' },
+  'egg,rice': { name:'蛋炒饭',       icon:'🍚🥚',type:'normal', basePrice:16, cost:7,  rating:72, desc:'粒粒分明的蛋炒饭' },
+  'egg,noodle': { name:'鸡蛋面',       icon:'🍜🥚',type:'normal', basePrice:15, cost:8,  rating:68, desc:'暖胃好面' },
+  'fish,garlic': { name:'蒜香鱼',       icon:'🐟🧄',type:'normal', basePrice:24, cost:11, rating:82, desc:'外酥里嫩' },
+  'fish,rice': { name:'鱼肉饭',       icon:'🐟🍚',type:'normal', basePrice:22, cost:13, rating:78, desc:'鲜香饱腹' },
+  'noodle,pork': { name:'红烧肉面',     icon:'🥩🍜',type:'normal', basePrice:24, cost:13, rating:80, desc:'肥而不腻' },
+  'cheese,rice': { name:'芝士焗饭',     icon:'🧀🍚',type:'normal', basePrice:26, cost:11, rating:84, desc:'拉丝芝士饭' },
+  'chili,fish': { name:'麻辣鱼',       icon:'🐟🌶️',type:'normal',basePrice:28, cost:12, rating:85, desc:'麻辣鲜香，招牌' },
+  'egg,salt': { name:'白煮蛋',       icon:'🥚',  type:'normal', basePrice:9,  cost:4,  rating:55, desc:'简单营养' },
+  'onion,pork': { name:'洋葱炒肉',     icon:'🧅🥩',type:'normal',basePrice:20, cost:11, rating:74, desc:'家常下饭' },
+  'sauce,tofu': { name:'酱烧豆腐',     icon:'⬜🥫',type:'normal',basePrice:18, cost:7,  rating:72, desc:'咸鲜入味' },
+  'mushroom,rice': { name:'蘑菇饭',     icon:'🍄🍚',type:'normal',basePrice:18, cost:9,  rating:70, desc:'鲜香米饭' },
+  'egg,wine': { name:'酒酿蛋',       icon:'🥚🍷',type:'normal',basePrice:14, cost:7,  rating:60, desc:'微微酒香' },
+  'garlic,pork': { name:'蒜泥白肉',     icon:'🧄🥩',type:'normal',basePrice:23, cost:10, rating:78, desc:'蒜香四溢' },
+  'garlic,tofu': { name:'蒜蓉豆腐',     icon:'🧄⬜',type:'normal',basePrice:16, cost:6,  rating:70, desc:'清爽鲜嫩' },
+  'mushroom,tofu': {name:'蘑菇炖豆腐',  icon:'🍄⬜',type:'normal',basePrice:19, cost:9,  rating:75, desc:'鲜美养生' },
+  'mushroom,pork': {name:'小炒肉蘑菇',  icon:'🍄🥩',type:'normal',basePrice:25, cost:13, rating:80, desc:'鲜香下饭' },
+  'fish,mushroom': {name:'蘑菇鱼汤',    icon:'🍄🐟',type:'normal',basePrice:27, cost:14, rating:82, desc:'汤鲜味美' },
+  'egg,onion': { name:'洋葱炒蛋',     icon:'🧅🥚',type:'normal',basePrice:15, cost:6,  rating:68, desc:'香甜嫩滑' },
+  'egg,tofu': { name:'鸡蛋豆腐',     icon:'🥚⬜',type:'normal',basePrice:16, cost:7,  rating:72, desc:'滑嫩双蛋白' },
+  'egg,fish': { name:'鸡蛋鱼羹',     icon:'🥚🐟',type:'normal',basePrice:22, cost:12, rating:78, desc:'浓稠鲜美' },
+  'egg,mushroom': {name:'蘑菇炒蛋',     icon:'🍄🥚',type:'normal',basePrice:17, cost:8,  rating:73, desc:'山珍鲜味' },
+  'egg,pork': { name:'木须肉',       icon:'🥚🥩',type:'normal',basePrice:21, cost:11, rating:77, desc:'蛋肉搭配' },
+  'cheese,egg': { name:'芝士烘蛋',     icon:'🧀🥚',type:'normal',basePrice:20, cost:10, rating:76, desc:'拉丝嫩蛋' },
+  'chili,egg': { name:'辣椒炒蛋',     icon:'🌶️🥚',type:'normal',basePrice:16, cost:6,  rating:70, desc:'香辣下饭' },
+  'tofu,tomato': { name:'番茄烧豆腐',   icon:'🍅⬜',type:'normal',basePrice:17, cost:8,  rating:71, desc:'酸甜嫩滑' },
+  'fish,tofu': { name:'鱼头豆腐汤',   icon:'🐟⬜',type:'normal',basePrice:26, cost:13, rating:83, desc:'奶白浓汤' },
+  'chili,tofu': { name:'麻婆豆腐',     icon:'🌶️⬜',type:'normal',basePrice:20, cost:7,  rating:82, desc:'麻辣鲜香经典' },
+  'pork,tofu': { name:'肉沫豆腐',     icon:'🥩⬜',type:'normal',basePrice:19, cost:12, rating:75, desc:'肉香满溢' },
+  'onion,tofu': { name:'洋葱豆腐',     icon:'🧅⬜',type:'normal',basePrice:14, cost:7,  rating:65, desc:'清淡爽口' },
+  'pork,rice': { name:'卤肉饭',       icon:'🥩🍚',type:'normal',basePrice:22, cost:12, rating:80, desc:'卤香四溢' },
+  'pork,sugar': { name:'焦糖红烧肉',   icon:'🥩🍬',type:'normal',basePrice:26, cost:10, rating:79, desc:'甜香软糯' },
+  'pork,sauce': { name:'酱爆肉',       icon:'🥩🥫',type:'normal',basePrice:23, cost:11, rating:76, desc:'酱香浓郁' },
+  'fish,salt': { name:'清蒸鱼',       icon:'🐟🧂',type:'normal',basePrice:25, cost:10, rating:80, desc:'原汁原味' },
+  'fish,sauce': { name:'红烧鱼',       icon:'🐟🥫',type:'normal',basePrice:27, cost:12, rating:82, desc:'浓油赤酱' },
+  'fish,wine': { name:'醉鱼',         icon:'🐟🍷',type:'normal',basePrice:26, cost:13, rating:79, desc:'酒香醉人' },
+  'fish,onion': { name:'洋葱鱼排',     icon:'🐟🧅',type:'normal',basePrice:24, cost:12, rating:75, desc:'外酥里嫩' },
+  'cheese,fish': { name:'芝士焗鱼',     icon:'🐟🧀',type:'normal',basePrice:32, cost:16, rating:85, desc:'奶香海鲜' },
+  'chili,noodle': {name:'油泼面',       icon:'🍜🌶️',type:'normal',basePrice:17, cost:8,  rating:74, desc:'香辣劲道' },
+  'mushroom,noodle': {name:'蘑菇面',    icon:'🍜🍄',type:'normal',basePrice:18, cost:10, rating:72, desc:'鲜汤面' },
+  'noodle,tofu': { name:'豆腐面',       icon:'🍜⬜',type:'normal',basePrice:15, cost:9,  rating:66, desc:'清淡养胃' },
+  'fish,noodle': { name:'鱼汤面',       icon:'🍜🐟',type:'normal',basePrice:22, cost:14, rating:78, desc:'鲜香浓汤' },
+  'noodle,onion': {name:'洋葱拌面',     icon:'🍜🧅',type:'normal',basePrice:14, cost:8,  rating:64, desc:'简单清香' },
+  'rice,salt': { name:'盐味饭团',     icon:'🍚🧂',type:'normal',basePrice:10, cost:5,  rating:58, desc:'朴素饭团' },
+  'rice,sugar': { name:'甜米饭',       icon:'🍚🍬',type:'normal',basePrice:12, cost:6,  rating:60, desc:'甜甜的' },
+  'rice,sauce': { name:'酱油拌饭',     icon:'🍚🥫',type:'normal',basePrice:13, cost:7,  rating:66, desc:'童年回忆' },
+  'garlic,rice': { name:'蒜香饭',       icon:'🍚🧄',type:'normal',basePrice:14, cost:6,  rating:65, desc:'蒜香扑鼻' },
+  'onion,rice': { name:'洋葱饭',       icon:'🍚🧅',type:'normal',basePrice:13, cost:7,  rating:62, desc:'清香米饭' },
+  'chili,garlic': {name:'蒜辣椒酱',     icon:'🧄🌶️',type:'normal',basePrice:15, cost:5,  rating:68, desc:'百搭辣酱' },
+  'egg,garlic': { name:'蒜苗炒蛋',     icon:'🧄🥚',type:'normal',basePrice:14, cost:5,  rating:66, desc:'蒜香嫩蛋' },
+  'chili,onion': { name:'洋葱辣椒',     icon:'🧅🌶️',type:'normal',basePrice:13, cost:6,  rating:62, desc:'辛辣开胃' },
+  'chili,salt': { name:'辣椒盐',       icon:'🌶️🧂',type:'normal',basePrice:11, cost:4,  rating:55, desc:'调味蘸料' },
+  'cheese,chili': {name:'辣味芝士',     icon:'🌶️🧀',type:'normal',basePrice:22, cost:10, rating:72, desc:'芝士辣酱' },
+  'cheese,tofu': { name:'芝士豆腐',     icon:'🧀⬜',type:'normal',basePrice:19, cost:11, rating:71, desc:'中西合璧' },
+  'cheese,mushroom': {name:'芝士蘑菇',  icon:'🧀🍄',type:'normal',basePrice:23, cost:12, rating:78, desc:'奶香鲜味' },
+  'pork,wine': { name:'黄酒焖肉',     icon:'🍷🥩',type:'normal',basePrice:24, cost:12, rating:78, desc:'酒香入味' },
+  'tofu,wine': { name:'酒酿豆腐',     icon:'🍷⬜',type:'normal',basePrice:16, cost:8,  rating:66, desc:'微甜嫩滑' },
+  'egg,sauce': { name:'卤蛋',         icon:'🥫🥚',type:'normal',basePrice:11, cost:6,  rating:62, desc:'酱香入味' },
+  'egg,sugar': { name:'糖水蛋',       icon:'🍬🥚',type:'normal',basePrice:13, cost:5,  rating:60, desc:'甜蜜滋补' },
+  'sugar,tofu': { name:'甜味豆腐',     icon:'🍬⬜',type:'normal',basePrice:14, cost:6,  rating:58, desc:'甜品豆花' },
+  'fish,sugar': { name:'糖醋鱼',       icon:'🍬🐟',type:'normal',basePrice:28, cost:11, rating:83, desc:'酸甜酥脆' },
+  'garlic,oil': { name:'蒜油',         icon:'🫗🧄',type:'normal',basePrice:10, cost:4,  rating:55, desc:'提香基底' },
+  'chili,oil': { name:'辣椒油',       icon:'🫗🌶️',type:'normal',basePrice:12, cost:5,  rating:58, desc:'红亮辣油' },
+  'oil,onion': { name:'葱油',         icon:'🫗🧅',type:'normal',basePrice:10, cost:5,  rating:56, desc:'喷香葱油' },
+  'salt,sugar': { name:'糖盐调味',     icon:'🧂🍬',type:'normal',basePrice:8,  cost:3,  rating:48, desc:'甜咸调料' },
+  'egg,mint': { name:'薄荷蛋',       icon:'🌿🥚',type:'dark',  basePrice:18, cost:5,  rating:35, desc:'牙膏味炒蛋' },
+  'fish,mint': { name:'薄荷鱼',       icon:'🌿🐟',type:'dark',  basePrice:22, cost:11, rating:30, desc:'清凉鱼腥味' },
+  'mint,tofu': { name:'薄荷豆腐',     icon:'🌿⬜',type:'dark',  basePrice:16, cost:6,  rating:32, desc:'清凉豆花' },
+  'mint,pork': { name:'薄荷肉',       icon:'🌿🥩',type:'dark',  basePrice:20, cost:10, rating:28, desc:'牙膏味红烧肉' },
+  'chocolate,mint': {name:'薄荷巧克力', icon:'🌿🍫',type:'dark',  basePrice:24, cost:8,  rating:35, desc:'清凉甜腻' },
+  'coal,egg': { name:'煤球炒蛋',     icon:'🪨🥚',type:'dark',  basePrice:16, cost:5,  rating:12, desc:'黑乎乎的蛋' },
+  'coal,fish': { name:'煤球鱼',       icon:'🪨🐟',type:'dark',  basePrice:20, cost:11, rating:10, desc:'黑炭鱼' },
+  'coal,pork': { name:'煤球肉',       icon:'🪨🥩',type:'dark',  basePrice:18, cost:10, rating:8,  desc:'黑炭肉' },
+  'coal,tofu': { name:'煤球豆腐',     icon:'🪨⬜',type:'dark',  basePrice:14, cost:6,  rating:10, desc:'黑色豆腐' },
+  'chili,coal': { name:'煤球炒辣椒',   icon:'🪨🌶️',type:'dark',  basePrice:17, cost:5,  rating:8,  desc:'黑炭辣椒' },
+  'chocolate,coal': {name:'煤球巧克力', icon:'🪨🍫',type:'dark',  basePrice:22, cost:8,  rating:15, desc:'黑色甜砖' },
+  'bomb,egg': { name:'炸弹炒蛋',     icon:'💣🥚',type:'dark',  basePrice:35, cost:15, rating:6,  desc:'爆炸蛋花' },
+  'bomb,fish': { name:'炸弹鱼',       icon:'💣🐟',type:'dark',  basePrice:42, cost:21, rating:4,  desc:'鱼雷级别' },
+  'bomb,pork': { name:'炸弹肉',       icon:'💣🥩',type:'dark',  basePrice:38, cost:20, rating:5,  desc:'肉质核弹' },
+  'bomb,tofu': { name:'炸弹豆腐',     icon:'💣⬜',type:'dark',  basePrice:33, cost:16, rating:7,  desc:'爆裂豆腐' },
+  'bomb,noodle': { name:'炸弹面',       icon:'💣🍜',type:'dark',  basePrice:40, cost:17, rating:5,  desc:'爆炸面条' },
+  'bomb,cheese': { name:'炸弹芝士',     icon:'💣🧀',type:'dark',  basePrice:44, cost:19, rating:6,  desc:'熔岩芝士弹' },
+  'bomb,chili': { name:'炸弹炒辣椒',   icon:'💣🌶️',type:'dark',  basePrice:40, cost:15, rating:5,  desc:'会爆炸的黑暗料理！' },
+  'bomb,chocolate': {name:'炸弹巧克力', icon:'💣🍫',type:'dark',  basePrice:46, cost:18, rating:4,  desc:'甜心炸弹' },
+  'bomb,coal': { name:'煤球炒炸弹',   icon:'🪨💣',type:'dark',  basePrice:50, cost:14, rating:2,  desc:'终极黑暗，厨师已报警' },
+  'bomb,mint': { name:'炸弹薄荷',     icon:'💣🌿',type:'dark',  basePrice:38, cost:14, rating:3,  desc:'冰火两重天' },
+  'bomb,salt': { name:'炸弹盐',       icon:'💣🧂',type:'dark',  basePrice:35, cost:13, rating:8,  desc:'盐焗炸弹' },
+  'bomb,onion': { name:'炸弹洋葱',     icon:'💣🧅',type:'dark',  basePrice:37, cost:15, rating:5,  desc:'催泪炸弹' },
+  'bomb,garlic': { name:'炸弹大蒜',     icon:'💣🧄',type:'dark',  basePrice:36, cost:14, rating:5,  desc:'毒气弹级别' },
+  'bomb,sugar': { name:'糖衣炸弹',     icon:'💣🍬',type:'dark',  basePrice:39, cost:14, rating:6,  desc:'甜蜜的毁灭' },
+  'bomb,wine': { name:'炸弹酒',       icon:'💣🍷',type:'dark',  basePrice:41, cost:16, rating:4,  desc:'爆炸鸡尾酒' },
+  'bomb,sauce': { name:'炸弹酱油',     icon:'💣🥫',type:'dark',  basePrice:37, cost:15, rating:5,  desc:'黑色炸药' },
+  'bomb,mushroom': {name:'炸弹蘑菇',    icon:'💣🍄',type:'dark',  basePrice:43, cost:17, rating:4,  desc:'蘑菇云前菜' },
+  'chili,chocolate': {name:'魔鬼甜辣',  icon:'🌶️🍫',type:'dark',  basePrice:28, cost:9,  rating:20, desc:'甜辣地狱' },
+  'chocolate,rice': { name:'巧克力饭',  icon:'🍫🍚',type:'dark',  basePrice:30, cost:10, rating:30, desc:'甜的咸的？诡异' },
+  'chocolate,pork': { name:'巧克力炖肉',icon:'🍫🥩',type:'dark',  basePrice:32, cost:14, rating:28, desc:'甜咸双杀' },
+  'chocolate,egg': { name:'巧克力蛋',   icon:'🍫🥚',type:'dark',  basePrice:24, cost:9,  rating:25, desc:'甜腥味' },
+  'chocolate,fish': {name:'巧克力鱼',   icon:'🍫🐟',type:'dark',  basePrice:34, cost:15, rating:22, desc:'甜腥海鲜' },
+  'chocolate,tofu': {name:'巧克力豆腐', icon:'🍫⬜',type:'dark',  basePrice:26, cost:10, rating:25, desc:'甜品豆腐' },
+  'chocolate,noodle': {name:'巧克力面', icon:'🍫🍜',type:'dark',  basePrice:28, cost:11, rating:24, desc:'甜味面条' },
+  'chocolate,mushroom': {name:'巧克力蘑菇',icon:'🍫🍄',type:'dark',basePrice:30, cost:11, rating:22, desc:'甜味菌菇' },
+  'chili,mint': { name:'薄荷辣椒',     icon:'🌶️🌿',type:'dark',  basePrice:20, cost:5,  rating:25, desc:'冰火地狱' },
+  'coal,mint': { name:'煤球薄荷',     icon:'🪨🌿',type:'dark',  basePrice:18, cost:4,  rating:15, desc:'黑清凉' },
+  'mint,rice': { name:'薄荷粥',       icon:'🌿🍚',type:'dark',  basePrice:20, cost:6,  rating:35, desc:'牙膏味米饭' },
+  'coal,rice': { name:'煤球饭',       icon:'🪨🍚',type:'dark',  basePrice:15, cost:6,  rating:15, desc:'这真的能吃吗' },
+  // === 三食材：创意组合 ===
+  'egg,fish,tofu': { name:'鸡蛋豆腐鱼汤',icon:'🥚🐟⬜',type:'normal',basePrice:30, cost:16, rating:85, desc:'浓汤三鲜' },
+  'egg,mushroom,tofu': {name:'鸡蛋蘑菇豆腐',icon:'🥚🍄⬜',type:'normal',basePrice:25,cost:12,rating:80,desc:'山珍鲜嫩' },
+  'egg,fish,mushroom': {name:'鲜鱼蛋羹',icon:'🥚🐟🍄',type:'normal',basePrice:32,cost:17,rating:86,desc:'极致鲜美' },
+  'egg,pork,tofu': {name:'肉沫鸡蛋豆腐',icon:'🥚🥩⬜',type:'normal',basePrice:26,cost:15,rating:80,desc:'蛋肉豆腐' },
+  'egg,onion,pork': {name:'洋葱肉炒蛋',icon:'🥚🥩🧅',type:'normal',basePrice:24,cost:14,rating:78,desc:'家常三宝' },
+  'egg,onion,rice': {name:'洋葱蛋包饭',icon:'🥚🍚🧅',type:'normal',basePrice:22,cost:12,rating:79,desc:'香喷喷蛋包饭' },
+  'egg,garlic,rice': {name:'蒜香蛋包饭',icon:'🥚🍚🧄',type:'normal',basePrice:23,cost:11,rating:80,desc:'蒜香蛋饭' },
+  'egg,noodle,pork': {name:'肉丝鸡蛋面',icon:'🥚🍜🥩',type:'normal',basePrice:26,cost:16,rating:82,desc:'豪华面' },
+  'fish,garlic,tofu': {name:'蒜香鱼豆腐',icon:'🐟🧄⬜',type:'normal',basePrice:30,cost:15,rating:84,desc:'鲜香嫩滑' },
+  'fish,garlic,onion': {name:'葱香蒜味鱼',icon:'🐟🧅🧄',type:'normal',basePrice:28,cost:14,rating:81,desc:'去腥三件套' },
+  'chili,fish,garlic': {name:'麻辣蒜香鱼',icon:'🐟🌶️🧄',type:'normal',basePrice:32,cost:14,rating:87,desc:'招牌麻辣鱼' },
+  'chili,garlic,pork': {name:'辣椒蒜泥肉',icon:'🥩🌶️🧄',type:'normal',basePrice:27,cost:13,rating:82,desc:'香辣下饭' },
+  'garlic,onion,pork': {name:'洋葱蒜香肉',icon:'🥩🧅🧄',type:'normal',basePrice:26,cost:13,rating:79,desc:'浓郁肉香' },
+  'pork,sauce,tofu': {name:'麻婆豆腐肉',icon:'🥩⬜🥫',type:'normal',basePrice:25,cost:15,rating:83,desc:'经典川味' },
+  'egg,pork,rice': {name:'卤肉蛋饭',icon:'🥩🍚🥚',type:'normal',basePrice:28,cost:15,rating:84,desc:'豪华盖饭' },
+  'fish,mushroom,tofu': {name:'三鲜豆腐',icon:'🍄⬜🐟',type:'normal',basePrice:29,cost:18,rating:85,desc:'山珍海味' },
+  'mushroom,pork,rice': {name:'菌菇肉饭',icon:'🍄🍚🥩',type:'normal',basePrice:27,cost:17,rating:82,desc:'鲜香焖饭' },
+  'chili,pork,tofu': {name:'麻婆豆腐',icon:'🌶️🥩⬜',type:'normal',basePrice:24,cost:14,rating:84,desc:'麻辣经典' },
+  'chili,fish,tofu': {name:'麻辣鱼豆腐',icon:'🌶️🐟⬜',type:'normal',basePrice:31,cost:16,rating:86,desc:'麻辣三鲜' },
+  'cheese,egg,rice': {name:'芝士蛋包饭',icon:'🧀🥚🍚',type:'normal',basePrice:28,cost:14,rating:85,desc:'拉丝蛋包饭' },
+  'cheese,fish,rice': {name:'芝士鱼焗饭',icon:'🧀🐟🍚',type:'normal',basePrice:34,cost:20,rating:88,desc:'海鲜焗饭' },
+  'cheese,mushroom,rice': {name:'芝士蘑菇饭',icon:'🧀🍄🍚',type:'normal',basePrice:29,cost:16,rating:83,desc:'奶香鲜饭' },
+  'cheese,chocolate,egg': {name:'巧克力芝士蛋糕',icon:'🍫🧀🥚',type:'dark',basePrice:30,cost:16,rating:40,desc:'甜腻甜品' },
+  'bomb,chili,coal': {name:'核弹炒辣椒',icon:'💣🌶️🪨',type:'dark',basePrice:55,cost:17,rating:1,desc:'毁灭级黑暗' },
+  'bomb,coal,egg': {name:'煤球炸弹炒蛋',icon:'💣🪨🥚',type:'dark',basePrice:48,cost:19,rating:2,desc:'黑爆蛋' },
+  'bomb,chocolate,mint': {name:'炸弹薄荷巧克力',icon:'💣🌿🍫',type:'dark',basePrice:50,cost:20,rating:3,desc:'冰火甜炸' },
+  'chili,coal,mint': {name:'煤球辣椒薄荷',icon:'🪨🌶️🌿',type:'dark',basePrice:25,cost:7,rating:5,desc:'三重地狱' },
+  'chocolate,coal,mint': {name:'煤球巧克力薄荷',icon:'🪨🍫🌿',type:'dark',basePrice:28,cost:10,rating:10,desc:'黑甜冰' },
+  'bomb,chili,egg': {name:'炸弹辣椒炒蛋',icon:'💣🌶️🥚',type:'dark',basePrice:42,cost:18,rating:4,desc:'爆炸辣蛋' },
+  'bomb,coal,fish': {name:'煤球炸弹鱼',icon:'💣🐟🪨',type:'dark',basePrice:52,cost:22,rating:1,desc:'海陆核弹' },
+  'bomb,coal,pork': {name:'煤球炸弹肉',icon:'💣🥩🪨',type:'dark',basePrice:50,cost:22,rating:2,desc:'炭烧核弹肉' },
+  'chili,chocolate,mint': {name:'薄荷辣椒巧克力',icon:'🌿🌶️🍫',type:'dark',basePrice:30,cost:11,rating:15,desc:'冰火甜辣' },
+  'coal,egg,rice': {name:'煤球蛋炒饭',icon:'🪨🍚🥚',type:'dark',basePrice:20,cost:9,rating:10,desc:'黑色炒饭' },
+  'bomb,egg,rice': {name:'炸弹蛋炒饭',icon:'💣🍚🥚',type:'dark',basePrice:48,cost:19,rating:3,desc:'爆炸炒饭' },
+  'coal,fish,rice': {name:'煤球鱼饭',icon:'🪨🐟🍚',type:'dark',basePrice:24,cost:15,rating:8,desc:'黑炭鱼饭' },
+  'egg,mint,rice': {name:'薄荷蛋饭',icon:'🌿🍚🥚',type:'dark',basePrice:22,cost:9,rating:28,desc:'牙膏味蛋饭' },
+
+  // === 新食材配方 ===
+  // 土豆系列
+  'potato,tomato': {name:'土豆番茄',icon:'🥔🍅',type:'normal',basePrice:14,cost:7,rating:70,desc:'酸甜土豆' },
+  'pork,potato': {name:'土豆炖肉',icon:'🥔🥩',type:'normal',basePrice:24,cost:11,rating:82,desc:'家常炖菜' },
+  'chili,potato': {name:'辣子土豆',icon:'🥔🌶️',type:'normal',basePrice:16,cost:6,rating:73,desc:'香辣下饭' },
+  'chicken,potato': {name:'土豆鸡块',icon:'🥔🍗',type:'normal',basePrice:24,cost:12,rating:80,desc:'黄焖鸡风味' },
+  'onion,potato': {name:'洋葱土豆',icon:'🥔🧅',type:'normal',basePrice:12,cost:6,rating:65,desc:'简单配菜' },
+  'garlic,potato': {name:'蒜香土豆',icon:'🥔🧄',type:'normal',basePrice:13,cost:5,rating:68,desc:'蒜香浓郁' },
+  // 胡萝卜系列
+  'carrot,pork': {name:'胡萝卜炒肉',icon:'🥕🥩',type:'normal',basePrice:20,cost:11,rating:75,desc:'营养搭配' },
+  'carrot,egg': {name:'胡萝卜炒蛋',icon:'🥕🥚',type:'normal',basePrice:14,cost:6,rating:70,desc:'色泽金黄' },
+  'carrot,chicken': {name:'胡萝卜鸡',icon:'🥕🍗',type:'normal',basePrice:22,cost:12,rating:77,desc:'清甜鸡肉' },
+  'carrot,corn': {name:'玉米胡萝卜',icon:'🥕🌽',type:'normal',basePrice:14,cost:7,rating:72,desc:'甜上加甜' },
+  // 玉米系列
+  'corn,pork': {name:'玉米炒肉',icon:'🌽🥩',type:'normal',basePrice:20,cost:12,rating:78,desc:'甜香肉嫩' },
+  'corn,egg': {name:'玉米炒蛋',icon:'🌽🥚',type:'normal',basePrice:14,cost:7,rating:73,desc:'香甜嫩蛋' },
+  'corn,shrimp': {name:'玉米虾仁',icon:'🌽🦐',type:'normal',basePrice:28,cost:16,rating:83,desc:'鲜甜双拼' },
+  // 虾系列
+  'garlic,shrimp': {name:'蒜蓉虾',icon:'🦐🧄',type:'normal',basePrice:30,cost:14,rating:86,desc:'蒜香鲜虾' },
+  'chili,shrimp': {name:'麻辣虾',icon:'🦐🌶️',type:'normal',basePrice:32,cost:15,rating:85,desc:'香辣过瘾' },
+  'egg,shrimp': {name:'虾仁滑蛋',icon:'🦐🥚',type:'normal',basePrice:26,cost:15,rating:84,desc:'嫩滑鲜美' },
+  'shrimp,tofu': {name:'虾仁豆腐',icon:'🦐⬜',type:'normal',basePrice:28,cost:16,rating:82,desc:'鲜嫩双拼' },
+  'fish,shrimp': {name:'海鲜双拼',icon:'🦐🐟',type:'normal',basePrice:36,cost:21,rating:88,desc:'海陆鲜味' },
+  // 鸡肉系列
+  'chicken,garlic': {name:'蒜香鸡',icon:'🍗🧄',type:'normal',basePrice:24,cost:11,rating:80,desc:'蒜香烤鸡' },
+  'chicken,chili': {name:'辣子鸡',icon:'🍗🌶️',type:'normal',basePrice:26,cost:12,rating:83,desc:'川味经典' },
+  'chicken,lemon': {name:'柠檬鸡',icon:'🍗🍋',type:'normal',basePrice:25,cost:13,rating:82,desc:'清新酸爽' },
+  'cheese,chicken': {name:'芝士鸡',icon:'🍗🧀',type:'normal',basePrice:28,cost:16,rating:84,desc:'拉丝鸡肉' },
+  'chicken,rice': {name:'黄焖鸡饭',icon:'🍗🍚',type:'normal',basePrice:24,cost:13,rating:82,desc:'汁浓肉烂' },
+  'carrot,chicken,potato': {name:'大盘鸡',icon:'🍗🥔🥕',type:'normal',basePrice:34,cost:15,rating:87,desc:'新疆名菜' },
+  // 牛肉系列
+  'beef,chili': {name:'水煮牛肉',icon:'🥩🌶️',type:'normal',basePrice:36,cost:17,rating:87,desc:'麻辣鲜嫩' },
+  'beef,onion': {name:'洋葱牛肉',icon:'🥩🧅',type:'normal',basePrice:32,cost:17,rating:84,desc:'经典搭配' },
+  'beef,pepper': {name:'青椒牛柳',icon:'🥩🫑',type:'normal',basePrice:34,cost:18,rating:85,desc:'嫩滑牛肉' },
+  'beef,potato': {name:'土豆炖牛肉',icon:'🥩🥔',type:'normal',basePrice:32,cost:17,rating:86,desc:'炖煮经典' },
+  // 面包/牛奶/黄油系列
+  'bread,egg': {name:'法式吐司',icon:'🍞🥚',type:'normal',basePrice:16,cost:8,rating:75,desc:'西式早餐' },
+  'bread,cheese': {name:'芝士三明治',icon:'🍞🧀',type:'normal',basePrice:18,cost:12,rating:78,desc:'拉丝三明治' },
+  'egg,milk': {name:'牛奶炖蛋',icon:'🥛🥚',type:'normal',basePrice:14,cost:8,rating:76,desc:'嫩滑甜品' },
+  'chocolate,milk': {name:'热可可',icon:'🥛🍫',type:'normal',basePrice:16,cost:11,rating:80,desc:'温暖甜蜜' },
+  'bread,butter': {name:'黄油面包',icon:'🧈🍞',type:'normal',basePrice:14,cost:11,rating:72,desc:'简单美味' },
+  'butter,shrimp': {name:'黄油虾',icon:'🧈🦐',type:'normal',basePrice:34,cost:18,rating:87,desc:'奶香鲜虾' },
+  // 柠檬/蜂蜜系列
+  'honey,lemon': {name:'蜂蜜柠檬茶',icon:'🍋🍯',type:'normal',basePrice:14,cost:11,rating:78,desc:'酸甜暖饮' },
+  'fish,lemon': {name:'柠檬鱼',icon:'🍋🐟',type:'normal',basePrice:28,cost:13,rating:84,desc:'清新解腻' },
+  'chicken,honey': {name:'蜜汁鸡',icon:'🍯🍗',type:'normal',basePrice:26,cost:16,rating:83,desc:'甜香烤鸡' },
+  // 醋/青椒系列
+  'fish,vinegar': {name:'糖醋鱼',icon:'🍶🐟',type:'normal',basePrice:28,cost:12,rating:83,desc:'酸甜酥脆' },
+  'tofu,vinegar': {name:'醋溜豆腐',icon:'🍶⬜',type:'normal',basePrice:14,cost:7,rating:66,desc:'酸香嫩滑' },
+  'pepper,pork': {name:'青椒肉丝',icon:'🫑🥩',type:'normal',basePrice:22,cost:12,rating:80,desc:'经典家常' },
+  'egg,pepper': {name:'青椒炒蛋',icon:'🫑🥚',type:'normal',basePrice:14,cost:7,rating:70,desc:'清爽微辣' },
+  // 豆/海带/莲藕/南瓜/黄瓜系列
+  'bean,pork': {name:'豆角炒肉',icon:'🫘🥩',type:'normal',basePrice:20,cost:11,rating:76,desc:'下饭家常' },
+  'fish,seaweed': {name:'海带鱼汤',icon:'🌿🐟',type:'normal',basePrice:24,cost:14,rating:80,desc:'海鲜浓汤' },
+  'seaweed,tofu': {name:'海带豆腐汤',icon:'🌿⬜',type:'normal',basePrice:16,cost:9,rating:74,desc:'清淡鲜美' },
+  'lotus,pork': {name:'莲藕炖肉',icon:'🪷🥩',type:'normal',basePrice:24,cost:14,rating:80,desc:'软糯鲜香' },
+  'garlic,lotus': {name:'蒜香藕片',icon:'🪷🧄',type:'normal',basePrice:16,cost:8,rating:72,desc:'脆嫩爽口' },
+  'pumpkin,rice': {name:'南瓜饭',icon:'🎃🍚',type:'normal',basePrice:16,cost:9,rating:74,desc:'甜甜的饭' },
+  'milk,pumpkin': {name:'南瓜浓汤',icon:'🎃🥛',type:'normal',basePrice:18,cost:10,rating:78,desc:'丝滑香甜' },
+  'cucumber,garlic': {name:'蒜拍黄瓜',icon:'🥒🧄',type:'normal',basePrice:10,cost:5,rating:68,desc:'爽口凉菜' },
+  'cucumber,egg': {name:'黄瓜炒蛋',icon:'🥒🥚',type:'normal',basePrice:14,cost:6,rating:70,desc:'清淡家常' },
+
+  // === 新黑暗食材配方 ===
+  'durian,egg': {name:'榴莲蛋',icon:'🥥🥚',type:'dark',basePrice:30,cost:18,rating:25,desc:'臭味蛋' },
+  'durian,rice': {name:'榴莲饭',icon:'🥥🍚',type:'dark',basePrice:28,cost:19,rating:22,desc:'臭烘烘的饭' },
+  'chicken,durian': {name:'榴莲鸡',icon:'🥥🍗',type:'dark',basePrice:36,cost:24,rating:20,desc:'臭到流泪' },
+  'stinky,tofu': {name:'臭豆腐',icon:'🧀⬜',type:'dark',basePrice:18,cost:10,rating:30,desc:'闻着臭吃着香' },
+  'rice,stinky': {name:'臭豆腐饭',icon:'🧀🍚',type:'dark',basePrice:20,cost:10,rating:25,desc:'臭味盖饭' },
+  'eyeball,fish': {name:'眼球鱼汤',icon:'👁️🐟',type:'dark',basePrice:45,cost:29,rating:8,desc:'鱼眼瞪你' },
+  'egg,eyeball': {name:'眼球炒蛋',icon:'👁️🥚',type:'dark',basePrice:38,cost:23,rating:10,desc:'蛋中有眼' },
+  'egg,slime': {name:'史莱姆蛋',icon:'🟢🥚',type:'dark',basePrice:28,cost:13,rating:18,desc:'弹弹的蛋' },
+  'rice,slime': {name:'史莱姆饭',icon:'🟢🍚',type:'dark',basePrice:25,cost:14,rating:15,desc:'绿色黏糊' },
+  'bat,chili': {name:'蝙蝠辣椒',icon:'🦇🌶️',type:'dark',basePrice:35,cost:21,rating:12,desc:'翼手目料理' },
+  'bat,garlic': {name:'蝙蝠蒜',icon:'🦇🧄',type:'dark',basePrice:33,cost:20,rating:10,desc:'暗夜料理' },
+  'egg,spider': {name:'蜘蛛炒蛋',icon:'🕷️🥚',type:'dark',basePrice:32,cost:19,rating:15,desc:'八条腿的蛋' },
+  'chili,spider': {name:'蜘蛛辣椒',icon:'🕷️🌶️',type:'dark',basePrice:34,cost:19,rating:12,desc:'辣味蛛网' },
+  'garlic,snail': {name:'蒜蓉蜗牛',icon:'🐌🧄',type:'dark',basePrice:26,cost:10,rating:28,desc:'法式黑暗' },
+  'chili,snail': {name:'麻辣蜗牛',icon:'🐌🌶️',type:'dark',basePrice:28,cost:11,rating:30,desc:'辣味壳物' },
+  'rice,worm': {name:'虫子饭',icon:'🐛🍚',type:'dark',basePrice:18,cost:9,rating:18,desc:'高蛋白饭' },
+  'egg,worm': {name:'虫子炒蛋',icon:'🐛🥚',type:'dark',basePrice:20,cost:8,rating:15,desc:'虫蛋组合' },
+  'chili,frog': {name:'麻辣田鸡',icon:'🐸🌶️',type:'dark',basePrice:28,cost:13,rating:25,desc:'呱呱辣' },
+  'frog,garlic': {name:'蒜香蛙',icon:'🐸🧄',type:'dark',basePrice:26,cost:12,rating:28,desc:'蒜香蛙腿' },
+  'egg,ghost': {name:'幽灵蛋',icon:'👻🥚',type:'dark',basePrice:48,cost:28,rating:8,desc:'透明蛋' },
+  'ghost,rice': {name:'幽灵饭',icon:'👻🍚',type:'dark',basePrice:45,cost:29,rating:6,desc:'灵体饭' },
+  'egg,skull': {name:'骷髅炒蛋',icon:'💀🥚',type:'dark',basePrice:42,cost:25,rating:5,desc:'死亡炒蛋' },
+  'bomb,skull': {name:'骷髅炸弹',icon:'💀💣',type:'dark',basePrice:55,cost:34,rating:2,desc:'终极毁灭' },
+  'poop,rice': {name:'便便饭',icon:'💩🍚',type:'dark',basePrice:15,cost:7,rating:5,desc:'不可描述' },
+  'egg,poop': {name:'便便炒蛋',icon:'💩🥚',type:'dark',basePrice:14,cost:6,rating:3,desc:'恶臭蛋' },
+  'egg,radioactive': {name:'辐射蛋',icon:'☢️🥚',type:'dark',basePrice:50,cost:33,rating:3,desc:'发光蛋' },
+  'radioactive,rice': {name:'辐射饭',icon:'☢️🍚',type:'dark',basePrice:48,cost:34,rating:2,desc:'荧光饭' },
+  'alien,egg': {name:'外星蛋',icon:'👽🥚',type:'dark',basePrice:46,cost:31,rating:7,desc:'星际料理' },
+  'alien,fish': {name:'外星鱼',icon:'👽🐟',type:'dark',basePrice:48,cost:37,rating:5,desc:'太空海鲜' },
+  'pork,zombie': {name:'僵尸肉',icon:'🧟🥩',type:'dark',basePrice:28,cost:23,rating:8,desc:'会动的肉' },
+  'egg,zombie': {name:'僵尸蛋',icon:'🧟🥚',type:'dark',basePrice:26,cost:18,rating:10,desc:'半死蛋' },
+  'fish,poison': {name:'毒鱼',icon:'🧪🐟',type:'dark',basePrice:40,cost:27,rating:5,desc:'河豚级别' },
+  'egg,poison': {name:'毒蛋',icon:'🧪🥚',type:'dark',basePrice:36,cost:21,rating:8,desc:'慎重食用' },
+  'battery,egg': {name:'电池蛋',icon:'🔋🥚',type:'dark',basePrice:30,cost:17,rating:6,desc:'充电蛋' },
+  'battery,fish': {name:'电池鱼',icon:'🔋🐟',type:'dark',basePrice:34,cost:23,rating:4,desc:'电鱼' },
+  'egg,sock': {name:'袜子蛋',icon:'🧦🥚',type:'dark',basePrice:16,cost:4,rating:2,desc:'脚臭味蛋' },
+  'rice,sock': {name:'袜子饭',icon:'🧦🍚',type:'dark',basePrice:14,cost:5,rating:1,desc:'脚臭味饭' },
+  'brick,egg': {name:'砖头蛋',icon:'🧱🥚',type:'dark',basePrice:20,cost:7,rating:5,desc:'硬核蛋' },
+  'egg,plastic': {name:'塑料蛋',icon:'♻️🥚',type:'dark',basePrice:18,cost:5,rating:3,desc:'不可降解' },
+  'plastic,rice': {name:'塑料饭',icon:'♻️🍚',type:'dark',basePrice:16,cost:6,rating:2,desc:'白色污染饭' },
+  'rice,sawdust': {name:'木屑饭',icon:'🪵🍚',type:'dark',basePrice:12,cost:5,rating:4,desc:'木头味饭' },
+  'fish,ink': {name:'墨鱼',icon:'🖤🐟',type:'dark',basePrice:30,cost:17,rating:20,desc:'黑漆漆鱼汤' },
+  'ink,rice': {name:'墨汁饭',icon:'🖤🍚',type:'dark',basePrice:22,cost:12,rating:15,desc:'黑色饭' },
+  'egg,ink': {name:'墨汁蛋',icon:'🖤🥚',type:'dark',basePrice:20,cost:11,rating:12,desc:'黑色蛋' },
+
+  // === 三食材新组合 ===
+  'beef,carrot,potato': {name:'红烧牛肉锅',icon:'🥩🥔🥕',type:'normal',basePrice:38,cost:20,rating:88,desc:'炖菜之王' },
+  'chicken,garlic,potato': {name:'蒜香土豆鸡',icon:'🍗🥔🧄',type:'normal',basePrice:28,cost:14,rating:84,desc:'蒜香浓郁' },
+  'carrot,corn,pepper': {name:'三色炒',icon:'🌽🥕🫑',type:'normal',basePrice:18,cost:11,rating:78,desc:'色彩缤纷' },
+  'onion,pepper,pork': {name:'洋葱椒炒肉',icon:'🥩🫑🧅',type:'normal',basePrice:24,cost:14,rating:80,desc:'香浓下饭' },
+  'fish,garlic,lemon': {name:'柠檬蒜香鱼',icon:'🐟🍋🧄',type:'normal',basePrice:32,cost:15,rating:86,desc:'清新鲜鱼' },
+  'egg,honey,milk': {name:'蜂蜜炖奶',icon:'🥛🥚🍯',type:'normal',basePrice:20,cost:15,rating:82,desc:'甜蜜甜品' },
+  'chicken,honey,lemon': {name:'蜜柠鸡',icon:'🍗🍋🍯',type:'normal',basePrice:30,cost:20,rating:85,desc:'酸甜烤鸡' },
+  'beef,onion,pepper': {name:'黑椒牛柳',icon:'🥩🧅🫑',type:'normal',basePrice:36,cost:21,rating:87,desc:'西式牛柳' },
+  'milk,pumpkin,rice': {name:'南瓜奶饭',icon:'🎃🥛🍚',type:'normal',basePrice:22,cost:14,rating:80,desc:'香甜软糯' },
+  // 黑暗三食材
+  'bat,bomb,spider': {name:'核弹蜘蛛蝙蝠',icon:'💣🕷️🦇',type:'dark',basePrice:60,cost:46,rating:1,desc:'地狱三件套' },
+  'durian,poop,stinky': {name:'臭味三重奏',icon:'🥥🧀💩',type:'dark',basePrice:40,cost:24,rating:1,desc:'臭到升天' },
+  'alien,ghost,skull': {name:'万圣节大餐',icon:'👻💀👽',type:'dark',basePrice:70,cost:75,rating:2,desc:'灵异盛宴' },
+  'alien,poison,radioactive': {name:'核污染大餐',icon:'☢️🧪👽',type:'dark',basePrice:75,cost:76,rating:1,desc:'辐射地狱' },
+  'eyeball,spider,worm': {name:'恐怖三宝',icon:'👁️🕷️🐛',type:'dark',basePrice:48,cost:41,rating:3,desc:'恶心三宝' },
+
+};
+
+// 通用配料加成（含油盐算好味道）
+const OIL_SALT = ['oil','salt','sauce','wine','garlic','onion'];
+
+// ---------- 装饰数据 ----------
+const DECOR = {
+  lamp:    { icon:'💡', name:'灯饰',   levels:[
+      {name:'小吊灯',      cost:60,  desc:'昏暗但温馨',  rep:2,  rating:2,  model:'lamp1'},
+      {name:'铜质壁灯',    cost:160, desc:'更亮堂些',    rep:5,  rating:4,  model:'lamp2'},
+      {name:'欧式吊灯',    cost:380, desc:'华丽上档次',  rep:12, rating:8,  model:'lamp3'},
+      {name:'水晶宫灯',    cost:900, desc:'璀璨夺目，镇店之宝！', rep:28, rating:15, model:'lamp4'},
+  ]},
+  table:   { icon:'🪑', name:'桌椅',   levels:[
+      {name:'破木桌椅',  cost:40, desc:'凑合能坐',    rep:1,  rating:1,  model:'table1'},
+      {name:'原木桌椅',  cost:120,desc:'干净整洁',    rep:4,  rating:4,  model:'table2'},
+      {name:'红木雅座',  cost:300,desc:'上档次',      rep:10, rating:8,  model:'table3'},
+      {name:'金色贵宾席',cost:750,desc:'高端奢华',    rep:22, rating:14, model:'table4'},
+  ]},
+  wall:    { icon:'🧱', name:'墙面',   levels:[
+      {name:'素白墙',  cost:30, desc:'简洁',       rep:1,  rating:1, model:'wall1'},
+      {name:'暖黄墙',  cost:90, desc:'温馨',       rep:3,  rating:3, model:'wall2'},
+      {name:'红砖墙',  cost:260,desc:'复古质感',   rep:9,  rating:7, model:'wall3'},
+      {name:'大理石墙',cost:650,desc:'奢华光洁',   rep:20, rating:13,model:'wall4'},
+  ]},
+  plant:   { icon:'🪴', name:'绿植',   levels:[
+      {name:'无绿植',    cost:0,  desc:'空荡荡',     rep:0,  rating:0,  model:'none'},
+      {name:'盆栽绿萝',  cost:50, desc:'添点生气',   rep:2,  rating:3,  model:'plant1'},
+      {name:'发财树',    cost:150,desc:'招财进宝',   rep:6,  rating:6,  model:'plant2'},
+      {name:'金叶福树',  cost:420,desc:'金光闪闪',   rep:14, rating:10, model:'plant3'},
+  ]},
+};
+
+// ---------- 员工数据 ----------
+const STAFF_TYPES = {
+  chef:  { icon:'👨‍🍳', role:'chef',  name:'厨师',   cost:200, salary:25,
+           desc:'自动把你菜单上的菜做出来，解放你的双手' },
+  waiter:{ icon:'🧑‍💼', role:'waiter',name:'服务员', cost:150, salary:20,
+           desc:'自动为客人上菜、收银，服务更快' },
+};
+
+// ---------- 玩家库存（商店商品：可买食材）----------
+const SHOP_STOCK = Object.values(INGREDIENTS);
+
+// ============================================================
+// 游戏状态
+// ============================================================
+const G = {
+  gold: 500,
+  rep: 0,
+  day: 1,
+  dayProfit: 0,
+  inventory: {},           // id -> count
+  menu: [],                // {id, name, icon, price, cost, rating, type, sales, revenue, count}
+  menuSeq: 0,
+  staff: { chef:0, waiter:0 },
+  decor: { lamp:0, table:0, wall:0, plant:0 },  // 索引
+  waitingCustomers: [],
+  activeCustomers: [],     // 当前店内客人
+  seatCount: 4,
+  ordersPending: [],       // 待做订单 {orderId, dish, customer}
+  dishesReady: [],         // 做好待上 {orderId, dish}
+  dayIncome: 0, dayExpense: 0,
+  chefBusy: 0,
+  isOpen: false,
+  started: false,
+  // 烹饪临时
+  cookSlots: [null, null, null],  // 食材id
+  lastDishCost: 0,
+  // 交互目标
+  near: null,
+  nearType: null,   // 'stove'|'shop'|'staff'|'deco'
+};
+
+// ============================================================
+// 基础 DOM 引用与工具
+// ============================================================
+const $ = (s) => document.querySelector(s);
+const toastWrap = $('#toast-wrap');
+const logBox = $('#log-box');
+
+function toast(msg, type='info'){
+  const d = document.createElement('div');
+  d.className = 'toast ' + type;
+  d.textContent = msg;
+  toastWrap.appendChild(d);
+  setTimeout(()=>{ d.style.opacity='0'; d.style.transition='opacity .4s'; }, 2200);
+  setTimeout(()=>{ d.remove(); }, 2700);
+}
+function addLog(msg, cls=''){
+  const d = document.createElement('div');
+  d.className = 'log-item ' + cls;
+  d.innerHTML = msg;
+  logBox.appendChild(d);
+  while(logBox.children.length > 12) logBox.removeChild(logBox.firstChild);
+}
+function fmt(n){ return Math.round(n).toLocaleString('zh-CN'); }
+function money(n){
+  const c = n>=0 ? 'gold' : 'red';
+  return `<span class="${c}">${n>=0?'+':'-'}${fmt(Math.abs(n))}</span>`;
+}
+
+// ============================================================
+// Three.js 场景初始化
+// ============================================================
+const canvas = $('#game-canvas');
+let renderer = null;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+} catch(e) {
+  console.warn('WebGL 不可用，进入无渲染模式（逻辑可测）:', e.message);
+}
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9ec9e8);
+scene.fog = new THREE.Fog(0x9ec9e8, 60, 160);
+
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 300);
+camera.position.set(0, 12, 12);
+
+// 灯光
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 0.9);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff2cc, 1.2);
+sun.position.set(25, 40, 15);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -40; sun.shadow.camera.right = 40;
+sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 100;
+scene.add(sun);
+
+// 工具函数
+function mat(color, rough=0.9, metal=0.0){ return new THREE.MeshStandardMaterial({ color, roughness:rough, metalness:metal }); }
+function box(w,h,d,color,opt={}){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(color, opt.rough, opt.metal));
+  if(opt.castShadow!==false) m.castShadow = true;
+  if(opt.receiveShadow!==false) m.receiveShadow = true;
+  if(opt.pos) m.position.set(...opt.pos);
+  return m;
+}
+function cyl(rt,rb,h,color,opt={}){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h, opt.seg||16), mat(color, opt.rough, opt.metal));
+  if(opt.castShadow!==false) m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+function group(){ return new THREE.Group(); }
+
+// ============================================================
+// 角色模型构建
+// ============================================================
+let characterGroup = null;
+let characterBody = null;
+function buildCharacter(color){
+  const g = group();
+  // 身体
+  const body = box(0.7, 0.9, 0.4, color, {castShadow:true});
+  body.position.y = 1.15;
+  // 头
+  const head = box(0.5, 0.5, 0.5, 0xf2c9a0);
+  head.position.y = 1.85;
+  // 眼睛
+  const eyeL = box(0.08,0.08,0.05, 0x222); eyeL.position.set(-0.12,1.9,0.25);
+  const eyeR = box(0.08,0.08,0.05, 0x222); eyeR.position.set(0.12,1.9,0.25);
+  // 腿
+  const legL = box(0.2,0.6,0.22, 0x2c2c33); legL.position.set(-0.15,0.3,0);
+  const legR = box(0.2,0.6,0.22, 0x2c2c33); legR.position.set(0.15,0.3,0);
+  // 手臂
+  const armL = box(0.18,0.6,0.18, color); armL.position.set(-0.45,1.15,0);
+  const armR = box(0.18,0.6,0.18, color); armR.position.set(0.45,1.15,0);
+  // 厨师帽
+  const hat = box(0.55,0.3,0.55, 0xffffff); hat.position.y=2.25;
+  const hatTop = cyl(0.28,0.28,0.15,0xffffff); hatTop.position.y=2.45;
+  g.add(body,head,eyeL,eyeR,legL,legR,armL,armR,hat,hatTop);
+  g.traverse(o=>{ if(o.isMesh){ o.castShadow=true; } });
+  return g;
+}
+// 普通客人的可变色模型（简化，可复用人形）
+function buildCustomer(color){
+  return buildCharacter(color);
+}
+
+// ============================================================
+// 世界构建：地面、餐馆、商店、街道
+// ============================================================
+const worldGroup = group();
+scene.add(worldGroup);
+const interactables = {};   // 交互点
+const cookedPots = [];      // 灶台上显示已做好的菜
+const restaurantDecoModels = {};  // 装饰模型引用
+
+function buildWorld(){
+  // 地面
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(120,120), mat(0x6fa86f, 0.95));
+  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
+  scene.add(ground);
+  // 道路
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(120,10), mat(0x8d8d94,0.95));
+  road.rotation.x=-Math.PI/2; road.position.set(0,0.01,-14); road.receiveShadow=true;
+  scene.add(road);
+  const roadLine = new THREE.Mesh(new THREE.PlaneGeometry(110,0.4), mat(0xf2d26b));
+  roadLine.rotation.x=-Math.PI/2; roadLine.position.set(0,0.02,-14); scene.add(roadLine);
+
+  buildRestaurant(0, 0);
+  buildShop(16, -14);
+  buildDecoStation(0, -26);
+  buildCurbPlant(0,-14);  // 路边绿植
+
+  // 远处点缀树
+  for(let i=0;i<30;i++){
+    const x=(Math.random()-0.5)*100, z=(Math.random()-0.5)*100;
+    if(Math.abs(x)<16 && Math.abs(z)<20) continue;
+    const tree=group();
+    const trunk=cyl(0.3,0.45,2.2,0x6b4f2a); trunk.position.y=1.1;
+    const leaf=new THREE.Mesh(new THREE.SphereGeometry(1.3,10,8),mat(0x4c8b3a));
+    leaf.position.y=2.6;
+    tree.add(trunk,leaf); tree.position.set(x,0,z);
+    tree.scale.set(0.8+Math.random()*0.8, 0.8+Math.random()*0.8, 0.8+Math.random()*0.8);
+    worldGroup.add(tree);
+  }
+}
+
+// ---- 餐馆 ----
+function buildRestaurant(x, z){
+  const base = group(); base.position.set(x,0,z); base.name='restBase';
+  // 地板
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(10,10), mat(0x9c7c52,0.95));
+  floor.rotation.x=-Math.PI/2; floor.position.y=0.01; floor.receiveShadow=true;
+  base.add(floor);
+  // 墙面（前后开口，做一堵后墙）
+  const wall = box(10,3.2,0.3, 0xf5efe2); wall.position.set(0,1.6,-5); base.add(wall);
+  // 两侧墙
+  const wL = box(0.3,3.2,10, 0xf5efe2); wL.position.set(-5,1.6,0); base.add(wL);
+  const wR = box(0.3,3.2,10, 0xf5efe2); wR.position.set(5,1.6,0); base.add(wR);
+  // 招牌
+  const sign = box(5,1.0,0.2, 0x8a3a2a); sign.position.set(0,3.4,-5); base.add(sign);
+  // 门框
+  const doorFrame = box(2.2,3.0,0.25, 0x6f4518); doorFrame.position.set(0,1.5,-5.05); base.add(doorFrame);
+  // 门口台阶
+  const step = box(3,0.2,1.2, 0x8a8a8a); step.position.set(0,0.1,-4.4); base.add(step);
+
+  // 灶台（左前方）
+  const stove = group();
+  const stoveBody = box(2.6,0.9,1.4, 0x5a5a5a, {metal:0.3, rough:0.5}); stoveBody.position.y=0.45; stove.add(stoveBody);
+  const stoveTop = box(2.6,0.08,1.4, 0x2f2f2f, {metal:0.6}); stoveTop.position.y=0.9; stove.add(stoveTop);
+  const pot = cyl(0.5,0.4,0.5, 0x333); pot.position.y=1.15; stove.add(pot);
+  const potHandle = box(0.7,0.06,0.06, 0x222); potHandle.position.set(0,1.4,0.4); stove.add(potHandle);
+  // 火焰
+  const flame = new THREE.Mesh(new THREE.SphereGeometry(0.28,8,8), new THREE.MeshStandardMaterial({color:0xff8c00, emissive:0xff5500, emissiveIntensity:1.2}));
+  flame.position.set(0,1.32,0.35); flame.userData.flame=true; stove.add(flame);
+  stove.position.set(-3.2,0,3.0);
+  base.add(stove);
+  interactables.stove = { type:'stove', pos:new THREE.Vector3(x-3.2,0,z+3.0) };
+
+  // 柜台（后方）
+  const counter = box(3.5,1.0,1.0, 0x6f4518); counter.position.set(0,0.5,4.2); base.add(counter);
+  const counterTop = box(3.5,0.08,1.0, 0x9c7c52); counterTop.position.set(0,1.0,4.2); base.add(counterTop);
+
+  // 预留桌子（用装饰模型填充，先放基础桌）
+  buildTables(base);
+
+  // 门牌箭头指引
+  worldGroup.add(base);
+  markRestWalls();
+  interactables.restaurant = { type:'restaurant', pos:new THREE.Vector3(x,0,z) };
+  return base;
+}
+
+function buildTables(parent){
+  // 4张餐桌
+  const tablePositions = [[-1.6,-1.5],[1.6,-1.5],[-1.6,1.2],[1.6,1.2]];
+  restaurantDecoModels.tables = [];
+  tablePositions.forEach((p,i)=>{
+    const t = group();
+    const top = cyl(0.6,0.6,0.08, 0x8a5a2b); top.position.y=0.78; top.receiveShadow=true;
+    const leg = cyl(0.06,0.06,0.75, 0x6f4518); leg.position.y=0.37;
+    t.add(top,leg); t.position.set(p[0],0,p[1]);
+    parent.add(t);
+    restaurantDecoModels.tables.push({ group:t, top, leg });
+    // 椅子
+    for(let s=0;s<2;s++){
+      const c=group();
+      const seat=box(0.45,0.08,0.45,0x5a3a1a); seat.position.y=0.45;
+      const back=box(0.45,0.55,0.08,0x5a3a1a); back.position.set(0,0.7,-0.22);
+      const legC=box(0.06,0.45,0.06,0x4a2c12); legC.position.set(0,0.22,0);
+      c.add(seat,back,legC);
+      c.position.set(p[0]+ (s===0?0.85:-0.85), 0, p[1]);
+      c.rotation.y = s===0?0:Math.PI;
+      parent.add(c);
+    }
+  });
+}
+
+// ---- 商店 ----
+function buildShop(x,z){
+  const base = group(); base.position.set(x,0,z);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(6,6), mat(0x8a6a42));
+  floor.rotation.x=-Math.PI/2; floor.position.y=0.01; floor.receiveShadow=true; base.add(floor);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.6,2.4,4), mat(0xc0392b,0.7));
+  roof.position.y=3; roof.rotation.y=Math.PI/4; base.add(roof);
+  const wall = box(6,3,0.3, 0xd8c9a8); wall.position.set(0,1.5,-3); base.add(wall);
+  const wL = box(0.3,3,6, 0xd8c9a8); wL.position.set(-3,1.5,0); base.add(wL);
+  const wR = box(0.3,3,6, 0xd8c9a8); wR.position.set(3,1.5,0); base.add(wR);
+  const sign = box(4.5,0.9,0.2, 0x2c6e49); sign.position.set(0,3.4,-3); base.add(sign);
+  // 门口
+  const doorFrame = box(2,2.8,0.25, 0x5a3a1a); doorFrame.position.set(0,1.4,-3.05); base.add(doorFrame);
+  const step = box(2.4,0.2,1, 0x8a8a8a); step.position.set(0,0.1,-2.4); base.add(step);
+  // 货架
+  for(let i=-1;i<=1;i++){
+    const shelf=box(1.6,1.8,0.4,0x6f4518); shelf.position.set(i*2,0.9,2.4); base.add(shelf);
+  }
+  worldGroup.add(base);
+  interactables.shop = { type:'shop', pos:new THREE.Vector3(x,0,z) };
+  return base;
+}
+
+// ---- 招募站 ----
+function buildDecoStation(x,z){
+  const base=group(); base.position.set(x,0,z);
+  const board=box(4,3,0.3,0x4a2c12); board.position.set(0,1.5,0); base.add(board);
+  const stand=box(0.5,1.2,0.5,0x2c2c33); stand.position.set(0,0.6,0); base.add(stand);
+  worldGroup.add(base);
+  interactables.staff = { type:'staff', pos:new THREE.Vector3(x,0,z) };
+  interactables.deco = { type:'deco', pos:new THREE.Vector3(x,0,z+3.5) };
+  // deco 站用招牌区别
+  const decoBoard=box(3.5,2.4,0.3,0x7a4a2a); decoBoard.position.set(0,1.2,3.5); base.add(decoBoard);
+  return base;
+}
+function buildCurbPlant(x,z){
+  const p=group();
+  const pot=cyl(0.4,0.3,0.5,0x8a5a2b); pot.position.y=0.25;
+  const leaf=new THREE.Mesh(new THREE.SphereGeometry(0.7,8,6),mat(0x4c8b3a)); leaf.position.y=0.9;
+  p.add(pot,leaf); p.position.set(x,0,z); worldGroup.add(p);
+}
+
+// 装饰模型应用
+const DECOR_MODEL_BUILDERS = {
+  lamp1:(g)=>{ const d=new THREE.Mesh(new THREE.SphereGeometry(0.35,12,10), new THREE.MeshStandardMaterial({color:0xffe59a, emissive:0xffaa33, emissiveIntensity:0.6})); d.position.y=0; const rod=cyl(0.02,0.02,1.8,0x333); rod.position.y=1; g.add(d,rod); },
+  lamp2:(g)=>{ const d=new THREE.Mesh(new THREE.SphereGeometry(0.4,12,10), new THREE.MeshStandardMaterial({color:0xffe9ad, emissive:0xffbb44, emissiveIntensity:0.9})); d.position.y=0; const rod=cyl(0.02,0.02,1.8,0x555); rod.position.y=1; g.add(d,rod); },
+  lamp3:(g)=>{ const d=new THREE.Mesh(new THREE.IcosahedronGeometry(0.45,0), new THREE.MeshStandardMaterial({color:0xfff2c2, emissive:0xffcc66, emissiveIntensity:1.1, metalness:0.4})); d.position.y=0; const rod=cyl(0.02,0.02,1.9,0xaa8833); rod.position.y=1.05; g.add(d,rod); },
+  lamp4:(g)=>{ const d=new THREE.Mesh(new THREE.IcosahedronGeometry(0.5,1), new THREE.MeshStandardMaterial({color:0xdff6ff, emissive:0x9adcff, emissiveIntensity:1.4, metalness:0.7, roughness:0.2})); d.position.y=0; const rod=cyl(0.02,0.02,2,0xffd700); rod.position.y=1.1; for(let i=0;i<8;i++){const sp=new THREE.Mesh(new THREE.SphereGeometry(0.05,6,6),mat(0xfff2a8)); sp.position.set(Math.cos(i*Math.PI/4)*0.55, -0.4, Math.sin(i*Math.PI/4)*0.55); g.add(sp);} g.add(d,rod); },
+  table1:()=>{},
+  table2:()=>{},
+  table3:()=>{},
+  table4:()=>{},
+  wall1:()=>{}, wall2:()=>{}, wall3:()=>{}, wall4:()=>{},
+  plant1:(g)=>{ const p=new THREE.Mesh(new THREE.SphereGeometry(0.5,10,8),mat(0x4c8b3a)); p.position.y=0.5; const pot=cyl(0.3,0.22,0.4,0x9c5a2b); pot.position.y=0.2; g.add(p,pot); },
+  plant2:(g)=>{ const p=new THREE.Mesh(new THREE.SphereGeometry(0.6,10,8),mat(0x3a7a33)); p.position.y=0.7; const trunk=cyl(0.08,0.12,0.5,0x5a3a1a); trunk.position.y=0.35; const pot=cyl(0.32,0.24,0.4,0x9c5a2b); pot.position.y=0.2; g.add(p,trunk,pot); },
+  plant3:(g)=>{ const p=new THREE.Mesh(new THREE.SphereGeometry(0.65,10,8),new THREE.MeshStandardMaterial({color:0x6aa84f, emissive:0x88cc66, emissiveIntensity:0.4})); p.position.y=0.8; const trunk=cyl(0.08,0.14,0.6,0x6f4518); trunk.position.y=0.4; const pot=cyl(0.34,0.26,0.4,0xffd700); pot.position.y=0.2; g.add(p,trunk,pot); },
+};
+
+// 重新渲染装饰到场景
+function applyDecor(){
+  // 清除旧装饰
+  Object.values(restaurantDecoModels).forEach(g=>{ if(g && g.parent) g.parent.remove(g); });
+  restaurantDecoModels.lamp = null;
+  restaurantDecoModels['plant1']=null; restaurantDecoModels['plant2']=null;
+
+  const r = interactables.restaurant.pos;
+  // 灯
+  const lampIdx = G.decor.lamp;
+  const lampCfg = DECOR.lamp.levels[lampIdx];
+  if(lampIdx>0 && lampCfg){
+    const g = group();
+    DECOR_MODEL_BUILDERS[lampCfg.model] && DECOR_MODEL_BUILDERS[lampCfg.model](g);
+    g.position.set(r.x, 3.0, r.z);
+    worldGroup.add(g);
+    restaurantDecoModels.lamp = g;
+  }
+  // 绿植
+  const plantIdx = G.decor.plant;
+  const plantCfg = DECOR.plant.levels[plantIdx];
+  if(plantIdx>0 && plantCfg){
+    [1,2].forEach(side=>{
+      const g=group();
+      DECOR_MODEL_BUILDERS[plantCfg.model] && DECOR_MODEL_BUILDERS[plantCfg.model](g);
+      g.position.set(r.x + (side===1?-1.8:1.8), 0, r.z-4.2);
+      worldGroup.add(g);
+      restaurantDecoModels['plant'+side]=g;
+    });
+  }
+  // 桌型
+  const tableColors = [
+    { top:0x8a5a2b, leg:0x6f4518 },
+    { top:0xc49a6c, leg:0x9a6b3f },
+    { top:0x9c3a3a, leg:0x6f1f1f },
+    { top:0xffd700, leg:0xb8860b },
+  ];
+  const tc = tableColors[G.decor.table]||tableColors[0];
+  (restaurantDecoModels.tables||[]).forEach(tb=>{
+    tb.top.material.color.setHex(tc.top);
+    tb.leg.material.color.setHex(tc.leg);
+  });
+  // 墙色
+  const wallTints = {0:0xf5efe2,1:0xffeedd,2:0xa0522d,3:0xbfb5a0};
+  worldGroup.traverse(o=>{
+    if(o.userData.isRestWall){ o.material.color.setHex(wallTints[G.decor.wall]||0xf5efe2); }
+  });
+}
+
+// 记录餐馆墙（在 buildRestaurant 中标记）
+function markRestWalls(){
+  worldGroup.traverse(o=>{
+    if(o.isMesh && o.parent && o.parent.name==='restBase') o.userData.isRestWall=true;
+  });
+}
+
+// ============================================================
+// 玩家控制
+// ============================================================
+const player = {
+  pos: new THREE.Vector3(0,0,6),   // 餐馆门口
+  yaw: 0,          // 朝向
+  speed: 6,
+  model: null,
+};
+const keys = {};
+let camOrbitYaw = 0, camOrbitPitch = 1.0, camDistance = 12;
+let orbitMode = true;   // true=跟随环绕, false=俯视自由
+let mouseDown = false, lastMX=0, lastMY=0;
+
+function setupPlayer(){
+  player.model = buildCharacter(0x3a86ff);
+  player.model.position.copy(player.pos);
+  scene.add(player.model);
+}
+function updatePlayer(dt){
+  if(!player.model) return;
+  // 输入向量
+  let mx=0, mz=0;
+  if(keys['KeyW']||keys['ArrowUp']) mz -= 1;
+  if(keys['KeyS']||keys['ArrowDown']) mz += 1;
+  if(keys['KeyA']||keys['ArrowLeft']) mx -= 1;
+  if(keys['KeyD']||keys['ArrowRight']) mx += 1;
+  const moving = (mx||mz);
+  if(moving){
+    // 相对相机朝向移动
+    const len = Math.hypot(mx,mz);
+    mx/=len; mz/=len;
+    // 世界方向
+    const camYaw = orbitMode ? camOrbitYaw : player.yaw;
+    const cos=Math.cos(camYaw), sin=Math.sin(camYaw);
+    let dx = mx*cos + mz*(-sin);
+    let dz = mx*sin + mz*cos;
+    // 朝向
+    player.yaw = Math.atan2(dx, dz);
+    player.pos.x += dx*player.speed*dt;
+    player.pos.z += dz*player.speed*dt;
+    // 限制边界
+    player.pos.x = THREE.MathUtils.clamp(player.pos.x, -40, 40);
+    player.pos.z = THREE.MathUtils.clamp(player.pos.z, -40, 40);
+    // 走路动画（简易：手臂摆动）
+    animateWalk(dt);
+  }
+  player.model.position.copy(player.pos);
+  player.model.rotation.y = player.yaw;
+}
+let walkPhase=0;
+function animateWalk(dt){
+  walkPhase += dt*10;
+  const sw = Math.sin(walkPhase)*0.5;
+  // 摆动手臂（模型内的手臂）
+  if(player.model){
+    const armL = player.model.children.find(c=>c.position.x===-0.45 && c.position.y===1.15);
+    const armR = player.model.children.find(c=>c.position.x===0.45 && c.position.y===1.15);
+    if(armL) armL.rotation.x = sw;
+    if(armR) armR.rotation.x = -sw;
+  }
+}
+function updateCamera(dt){
+  const target = player.pos.clone();
+  target.y += 1.2;
+  if(orbitMode){
+    const theta = camOrbitYaw;
+    const phi = camOrbitPitch;
+    const cp = Math.cos(phi);
+    const off = new THREE.Vector3(
+      camDistance*Math.sin(phi)*Math.sin(theta),
+      camDistance*Math.cos(phi)+2.5,
+      camDistance*Math.sin(phi)*Math.cos(theta)
+    );
+    const desired = target.clone().add(off);
+    camera.position.lerp(desired, 1-Math.pow(0.001,dt));
+    camera.lookAt(target);
+  } else {
+    // 俯视
+    const desired = new THREE.Vector3(target.x, 22, target.z+14);
+    camera.position.lerp(desired, 1-Math.pow(0.001,dt));
+    camera.lookAt(target);
+  }
+}
+
+// 输入事件
+window.addEventListener('keydown', e=>{
+  // 输入框聚焦时，禁用游戏快捷键（E/F/Tab），避免打断输入
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  const isInput = tag==='INPUT' || tag==='TEXTAREA' || (document.activeElement && document.activeElement.isContentEditable);
+  if(isInput){
+    // 仅保留普通字符输入，不触发游戏快捷键
+    return;
+  }
+  keys[e.code]=true;
+  if(e.code==='KeyE'){ togglePanel('inv-panel'); }
+  if(e.code==='Tab'){ e.preventDefault(); orbitMode=!orbitMode; toast(orbitMode?'跟随视角':'俯视视角','info'); }
+  if(e.code==='KeyF'){ doInteract(); }
+  // 数字键1-9：快捷做菜（菜单前9道菜）
+  if(e.code.startsWith('Digit') && G.menu.length>0){
+    const num = parseInt(e.code.replace('Digit',''));
+    if(num>=1 && num<=9 && num<=G.menu.length){
+      e.preventDefault();
+      quickCook(G.menu[num-1].id);
+    }
+  }
+  if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+canvas.addEventListener('mousedown', e=>{ mouseDown=true; lastMX=e.clientX; lastMY=e.clientY; canvas.classList.add('grabbing'); });
+window.addEventListener('mouseup', ()=>{ mouseDown=false; canvas.classList.remove('grabbing'); });
+window.addEventListener('mousemove', e=>{
+  if(mouseDown && orbitMode){
+    const dx=e.clientX-lastMX, dy=e.clientY-lastMY;
+    camOrbitYaw -= dx*0.005;
+    camOrbitPitch = THREE.MathUtils.clamp(camOrbitPitch + dy*0.005, 0.3, 1.35);
+    lastMX=e.clientX; lastMY=e.clientY;
+  }
+});
+canvas.addEventListener('wheel', e=>{
+  camDistance = THREE.MathUtils.clamp(camDistance + e.deltaY*0.02, 4, 22);
+}, {passive:true});
+
+// 触摸支持（单指拖动旋转，双指缩放）
+let touchDist=0;
+canvas.addEventListener('touchstart', e=>{
+  if(e.touches.length===1){ lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY; }
+  if(e.touches.length===2){ touchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }
+});
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(e.touches.length===1){
+    const dx=e.touches[0].clientX-lastMX, dy=e.touches[0].clientY-lastMY;
+    if(orbitMode){ camOrbitYaw-=dx*0.005; camOrbitPitch=THREE.MathUtils.clamp(camOrbitPitch+dy*0.005,0.3,1.35); }
+    lastMX=e.touches[0].clientX; lastMY=e.touches[0].clientY;
+  } else if(e.touches.length===2){
+    const nd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    if(touchDist){ camDistance=THREE.MathUtils.clamp(camDistance+(touchDist-nd)*0.03,4,22); }
+    touchDist=nd;
+  }
+}, {passive:false});
+
+// ============================================================
+// 交互检测与执行
+// ============================================================
+const hintEl = $('#interact-hint');
+function checkNearby(){
+  let best=null, bestD=2.2;
+  for(const key in interactables){
+    const it=interactables[key];
+    if(it.type==='restaurant') continue;
+    const d=player.pos.distanceTo(it.pos);
+    if(d<bestD){ bestD=d; best=it; }
+  }
+  if(best){
+    hintEl.style.display='block';
+    const label = best.type==='stove'?'🔥 按 F 使用灶台做菜'
+      : best.type==='shop'?'🏪 按 F 进入商店'
+      : best.type==='staff'?'👥 按 F 招募员工'
+      : '🛋️ 按 F 装饰饭店';
+    hintEl.textContent = label;
+    G.near=best; G.nearType=best.type;
+  } else {
+    hintEl.style.display='none';
+    G.near=null; G.nearType=null;
+  }
+}
+function doInteract(){
+  if(!G.near) return;
+  if(G.nearType==='stove') openCookPanel();
+  else if(G.nearType==='shop') togglePanel('shop-panel');
+  else if(G.nearType==='staff') togglePanel('staff-panel');
+  else if(G.nearType==='deco') togglePanel('deco-panel');
+}
+
+// ============================================================
+// 面板通用控制
+// ============================================================
+function togglePanel(id){
+  const p = document.getElementById(id);
+  if(p.classList.contains('show')){ p.classList.remove('show'); return; }
+  // 关闭其他
+  document.querySelectorAll('.panel-overlay.show').forEach(x=>x.classList.remove('show'));
+  p.classList.add('show');
+  refreshAllPanels();
+}
+document.querySelectorAll('[data-close]').forEach(b=>{
+  b.addEventListener('click', ()=>{ document.getElementById(b.dataset.close).classList.remove('show'); });
+});
+// 点击遮罩关闭
+document.querySelectorAll('.panel-overlay').forEach(p=>{
+  p.addEventListener('click', e=>{ if(e.target===p) p.classList.remove('show'); });
+});
+
+function refreshAllPanels(){
+  renderShop(); renderMenu(); renderStaff(); renderDeco(); renderInventory(); updateHUD();
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function updateHUD(){
+  $('#hud-gold').textContent = '🪙 ' + fmt(G.gold);
+  $('#hud-rep').textContent = '⭐ ' + G.rep;
+  $('#hud-day').textContent = '📅 第' + G.day + '天';
+  $('#hud-staff').textContent = '👨‍🍳' + G.staff.chef + ' / 🧑‍💼' + G.staff.waiter;
+  const profitEl = $('#hud-profit');
+  profitEl.textContent = (G.dayProfit>=0?'+':'') + fmt(G.dayProfit) + ' 金币';
+  profitEl.style.color = G.dayProfit>=0 ? '#7dd87d' : '#ff6b6b';
+}
+
+// ============================================================
+// 商店面板
+// ============================================================
+let shopFilter = 'all';
+function renderShop(){
+  $('#shop-gold').textContent = fmt(G.gold);
+  const grid = $('#shop-grid'); grid.innerHTML='';
+  SHOP_STOCK.forEach(ing=>{
+    // 过滤
+    if(shopFilter==='normal' && ing.dark) return;
+    if(shopFilter==='dark' && !ing.dark) return;
+    const owned = G.inventory[ing.id]||0;
+    const card = document.createElement('div');
+    card.className='card';
+    if(ing.dark) card.style.borderColor = 'rgba(230,57,70,.4)';
+    card.innerHTML = `
+      <div class="owned-badge">×${owned}</div>
+      <div class="icon">${ing.icon}</div>
+      <div class="name">${ing.name}${ing.dark?' 💀':''}</div>
+      <div class="desc">${ing.desc}</div>
+      <div class="price">🪙 ${ing.cost}<small> /份</small></div>`;
+    card.addEventListener('click', ()=>buyIngredient(ing.id));
+    grid.appendChild(card);
+  });
+  // 绑定标签切换
+  document.querySelectorAll('#shop-tabs .tab').forEach(t=>{
+    t.onclick = ()=>{
+      document.querySelectorAll('#shop-tabs .tab').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      shopFilter = t.dataset.shopTab;
+      renderShop();
+    };
+  });
+}
+function buyIngredient(id){
+  const ing = INGREDIENTS[id];
+  if(G.gold < ing.cost){ toast('金币不足，买不起'+ing.name,'bad'); return; }
+  G.gold -= ing.cost;
+  G.inventory[id] = (G.inventory[id]||0)+1;
+  G.dayExpense += ing.cost;
+  addLog(`🛒 购买 ${ing.icon}${ing.name} <span class="minus">-${ing.cost}</span>`, 'small');
+  renderShop(); updateHUD(); renderInventory();
+  toast(`已购买 ${ing.name} ×1（库存${G.inventory[id]}）`,'good');
+}
+
+// ============================================================
+// 背包面板
+// ============================================================
+function renderInventory(){
+  const grid = $('#inventory-grid'); grid.innerHTML='';
+  const entries = Object.entries(G.inventory).filter(([,c])=>c>0);
+  if(entries.length===0){
+    grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:30px;">背包空空如也，去商店采购些食材吧！</div>';
+    return;
+  }
+  entries.forEach(([id,count])=>{
+    const ing=INGREDIENTS[id];
+    const card=document.createElement('div');
+    card.className='card';
+    card.innerHTML=`<div class="icon">${ing.icon}</div><div class="name">${ing.name}</div><div class="desc">单价 ${ing.cost}</div><div class="count">×${count}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ============================================================
+// 菜单与定价
+// ============================================================
+function renderMenu(){
+  const list = $('#menu-list'); list.innerHTML='';
+  if(G.menu.length===0){
+    list.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">还没有菜品。去灶台做一道菜加入菜单吧！<br><span style="font-size:12px;">定价太贵客人少，太便宜亏本还被嫌弃。<br>做过的菜会显示快捷键，按数字键可直接做菜。</span></div>';
+    return;
+  }
+  G.menu.forEach((m,idx)=>{
+    const revenue = (m.sales||0) * m.price;
+    const profit = (m.price - m.cost) * (m.sales||0);
+    // 快捷键：前9道菜用1-9
+    const hotkey = idx < 9 ? (idx+1) : null;
+    const hotkeyLabel = hotkey ? `<kbd style="background:var(--gold2);color:#3a2a00;border:1px solid var(--gold);border-radius:5px;padding:2px 8px;font-size:13px;font-weight:800;margin-left:6px;">${hotkey}</kbd>` : '';
+    // 检查食材是否充足
+    const ings = m.ings || [];
+    const need = {};
+    ings.forEach(i=>{ need[i]=(need[i]||0)+1; });
+    const canCook = Object.entries(need).every(([id,n])=> (G.inventory[id]||0) >= n);
+    const ingsStr = ings.map(i=>INGREDIENTS[i]?INGREDIENTS[i].icon:'?').join(' ');
+    const card=document.createElement('div');
+    card.className='dish-card';
+    card.innerHTML=`
+      <div class="head">
+        <span class="dname">${m.icon} ${m.name} ${hotkeyLabel}</span>
+        <span class="tag ${m.type==='normal'?'normal':'dark'}">${m.type==='normal'?'家常菜':'黑暗料理'}</span>
+      </div>
+      <div class="meta">成本 🪙${m.cost} · 口感评分 ${m.rating} · 售出 ${m.sales||0} 份 · 食材 ${ingsStr||'?'}</div>
+      <div class="price-row">
+        <span style="font-size:13px;color:var(--muted);">售价</span>
+        <input type="number" min="1" step="1" value="${m.price}" data-id="${m.id}">
+        <span style="font-size:13px;color:var(--muted);">金币</span>
+        <button class="btn green" data-cook="${m.id}" style="padding:6px 12px;font-size:13px;" ${canCook?'':'disabled'}>🔥做菜</button>
+        <button class="btn red" data-del="${m.id}" style="padding:6px 12px;font-size:13px;">下架</button>
+      </div>
+      <div class="revenue">累计：收入 <span class="pos">+${fmt(revenue)}</span> · 利润 <span class="${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${fmt(profit)}</span>${canCook?'':` · <span style="color:#ff6b6b;">食材不足</span>`}</div>`;
+    list.appendChild(card);
+  });
+  // 价格修改
+  list.querySelectorAll('.price-row input').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const id=inp.dataset.id; const menu=G.menu.find(x=>x.id===id);
+      let val=parseInt(inp.value)||0; val=Math.max(1,val);
+      menu.price=val; inp.value=val;
+      toast(`已定价「${menu.name}」售价 ${val} 金币`,'info');
+    });
+  });
+  // 一键做菜
+  list.querySelectorAll('[data-cook]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id=b.dataset.cook;
+      quickCook(id);
+    });
+  });
+  // 下架
+  list.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id=b.dataset.del;
+      G.menu = G.menu.filter(x=>x.id!==id);
+      renderMenu();
+      toast('已下架该菜品','info');
+    });
+  });
+}
+
+// 快捷做菜：直接消耗食材做菜单上的菜
+function quickCook(menuId){
+  const m = G.menu.find(x=>x.id===menuId);
+  if(!m) return;
+  const ings = m.ings || [];
+  if(ings.length===0){ toast('该菜品没有食材信息，无法快捷做菜','bad'); return; }
+  // 检查食材
+  const need = {};
+  ings.forEach(i=>{ need[i]=(need[i]||0)+1; });
+  const canMake = Object.entries(need).every(([id,n])=> (G.inventory[id]||0) >= n);
+  if(!canMake){
+    const missing = Object.entries(need).filter(([id,n])=> (G.inventory[id]||0) < n)
+      .map(([id])=>INGREDIENTS[id].name).join('、');
+    toast(`食材不足：缺少 ${missing}`,'bad');
+    return;
+  }
+  // 扣除食材
+  Object.entries(need).forEach(([id,n])=>{ G.inventory[id]-=n; });
+  // 直接送给等待的客人
+  const served = playerServe(m);
+  if(served){
+    toast(`🍳 快捷做菜「${m.name}」→ 送给客人！`,'good');
+    addLog(`🍳 快捷做菜「${m.name}」并送出`,'small');
+  } else {
+    toast(`🍳 快捷做菜「${m.name}」（暂无等待客人，菜已备好）`,'info');
+    addLog(`🍳 快捷做菜「${m.name}」`,'small');
+  }
+  renderMenu(); renderInventory(); updateHUD();
+}
+
+// ============================================================
+// 烹饪面板
+// ============================================================
+function openCookPanel(){
+  togglePanel('cook-panel');
+  refreshCookPanel();
+}
+function refreshCookPanel(){
+  renderCookSlots();
+  renderIngrPick();
+  updateRecipeResult();
+}
+function renderCookSlots(){
+  const wrap=$('#cook-slots');
+  wrap.querySelectorAll('.slot').forEach((slot,idx)=>{
+    const ing=G.cookSlots[idx];
+    slot.innerHTML = ing
+      ? `<div class="s-icon">${INGREDIENTS[ing].icon}</div><div class="s-name">${INGREDIENTS[ing].name}</div><button class="s-rm" data-rm="${idx}">✕</button>`
+      : `<div class="s-icon">🍳</div><div class="s-name">锅位${idx+1}</div>`;
+    slot.classList.toggle('has', !!ing);
+    if(ing){ slot.style.borderColor = recipeDark()? '#e63946' : 'var(--gold2)'; }
+  });
+  wrap.querySelectorAll('[data-rm]').forEach(b=>{
+    b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const idx=parseInt(b.dataset.rm);
+      G.cookSlots[idx]=null;
+      refreshCookPanel();
+    });
+  });
+}
+function renderIngrPick(){
+  const wrap=$('#ingr-pick'); wrap.innerHTML='';
+  Object.entries(G.inventory).filter(([,c])=>c>0).forEach(([id,count])=>{
+    const ing=INGREDIENTS[id];
+    const btn=document.createElement('button');
+    btn.textContent = `${ing.icon}${ing.name} ×${count}`;
+    if(G.cookSlots.filter(x=>x===id).length>=count) btn.disabled=true;
+    btn.addEventListener('click', ()=>{
+      const empty=G.cookSlots.findIndex(x=>x===null);
+      if(empty===-1){ toast('锅位已满（最多3种食材）','bad'); return; }
+      G.cookSlots[empty]=id;
+      refreshCookPanel();
+    });
+    wrap.appendChild(btn);
+  });
+  if(wrap.children.length===0){
+    wrap.innerHTML='<span style="color:var(--muted);font-size:13px;">背包没有食材，先买些再来吧。</span>';
+  }
+}
+function recipeDark(ings){
+  ings = ings || G.cookSlots.filter(Boolean);
+  return ings.some(i => INGREDIENTS[i] && INGREDIENTS[i].dark);
+}
+// 预测结果
+function predictDish(slots){
+  const ings = slots.filter(Boolean);
+  if(ings.length===0) return null;
+  const key = [...ings].sort().join(',');
+  const r = RECIPES[key];
+  // 成本
+  const cost = ings.reduce((s,i)=>s+INGREDIENTS[i].cost,0) + (ings.includes('oil')?0:2);
+  if(r) return { key, ings:[...ings], name:r.name, icon:r.icon, type:r.type, cost, rating:r.rating, known:true, price:r.basePrice };
+  // 未知组合 → 基于食材名自动生成创意菜名
+  const dark = recipeDark(ings);
+  const autoName = autoDishName(ings, dark);
+  return { key, ings:[...ings], name:autoName, icon:ings.map(i=>INGREDIENTS[i].icon).join(''), type:dark?'dark':'normal', cost, rating: dark? (15+Math.floor(Math.random()*15)) : (40+Math.floor(Math.random()*20)), known:false, price: cost+ (dark?25:8) };
+}
+
+// 根据食材组合自动生成菜名（非预定义组合）
+function autoDishName(ings, dark){
+  const names = ings.map(i=>INGREDIENTS[i].name);
+  // 烹饪动词库
+  const verbs = ['炒','炖','煮','蒸','煎','拌','烩','焖','烧','爆'];
+  const darkVerbs = ['炒','炖','煮','蒸','煎','拌','烩','焖','烧','爆','煨','熬'];
+  const verb = dark ? darkVerbs[Math.floor(Math.random()*darkVerbs.length)] : verbs[Math.floor(Math.random()*verbs.length)];
+  // 后缀库
+  const normalSuffixes = ['','汤','煲','饭','面','饼','羹','锅','拼盘','大杂烩'];
+  const darkSuffixes = ['（黑暗）','地狱版','终极速食','神秘料理','地狱料理','黑暗版'];
+  // 按食材数量决定命名模式
+  if(ings.length===1){
+    // 单食材：直接食材名+做法
+    const v = dark ? '炒' : verb;
+    return `${names[0]}${v}了` ;
+  }
+  if(ings.length===2){
+    // 双食材：A+B+动词 或 AB+汤/饭等
+    if(dark){
+      return `${names[0]}${verb}${names[1]}`;
+    }
+    // 正常：偶尔加后缀
+    const useSuffix = Math.random() < 0.3;
+    if(useSuffix){
+      const suf = normalSuffixes[Math.floor(Math.random()*normalSuffixes.length)];
+      return `${names[0]}${names[1]}${suf}`;
+    }
+    return `${names[0]}${verb}${names[1]}`;
+  }
+  // 三食材：取主要食材名组合
+  if(dark){
+    const suf = darkSuffixes[Math.floor(Math.random()*darkSuffixes.length)];
+    return `${names[0]}${names[1]}${names[2]}${suf}`;
+  }
+  // 正常三鲜：A+B+C+汤/煲/锅
+  const suf = ['汤','煲','锅','羹','大杂烩','三鲜'][Math.floor(Math.random()*6)];
+  return `${names[0]}${names[1]}${names[2]}${suf}`;
+}
+function updateRecipeResult(){
+  const box=$('#recipe-result');
+  const pred=predictDish(G.cookSlots);
+  if(!pred){ box.style.display='none'; return; }
+  box.style.display='block';
+  const editable = G.cookSlots.filter(Boolean).length>0;
+  box.innerHTML=`
+    <div class="pred">当前锅内：<b>${pred.icon} ${pred.name}</b> <span class="tag ${pred.type==='normal'?'normal':'dark'}">${pred.type==='normal'?'家常':'黑暗'}</span></div>
+    <div style="font-size:13px;color:var(--muted);margin:6px 0;">成本 🪙${pred.cost} · 建议售价 🪙${pred.price} · 口感评分 ${pred.rating}</div>
+    <input class="recipe-name-input" placeholder="给这道菜起个名字…（可选）" maxlength="12">
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;">
+      <button class="btn green" id="btn-make">🔥 开始烹饪</button>
+      <button class="btn ghost" id="btn-reset">清空锅</button>
+    </div>`;
+  $('#btn-make').addEventListener('click', ()=>{
+    const customName = box.querySelector('.recipe-name-input').value.trim();
+    cookDish(pred, customName);
+  });
+  $('#btn-reset').addEventListener('click', ()=>{ G.cookSlots=[null,null,null]; refreshCookPanel(); });
+}
+function cookDish(pred, customName){
+  // 扣除食材
+  const slots = G.cookSlots.filter(Boolean);
+  slots.forEach(id=>{ G.inventory[id]--; });
+  // 生成菜品
+  const name = customName || pred.name;
+  const ingsKey = pred.ings ? [...pred.ings].sort().join(',') : '';
+  // 去重：只要食材组合一样就视为同一道菜，不重复添加到菜单
+  const dup = G.menu.find(m => (m.ingsKey||'')===ingsKey && ingsKey!=='');
+  let dish;
+  if(dup){
+    dish = dup;   // 复用已有菜单项
+  } else {
+    const menuId = 'm'+ (++G.menuSeq);
+    dish = { id:menuId, name, icon:pred.icon, price:pred.price, cost:pred.cost, rating:pred.rating, type:pred.type, sales:0, revenue:0, custom:!!customName, ingsKey, ings:[...(pred.ings||[])] };
+    G.menu.push(dish);
+  }
+  G.cookSlots=[null,null,null];
+
+  // 如果店内有待服务的客人，直接送这道菜
+  const served = playerServe(dish);
+  if(served){
+    toast(`🍳 完成「${name}」，直接送给等待的客人！`,'good');
+  } else if(dup){
+    toast(`🍳 完成「${name}」（菜单已有，未重复添加）`,'info');
+  } else {
+    toast(`🍳 完成「${name}」并加入菜单！`,'good');
+    addLog(`🍳 新菜品「${name}」上菜单`, 'small');
+  }
+  refreshCookPanel(); renderMenu(); renderInventory(); updateHUD();
+  togglePanel('cook-panel');
+}
+
+// ============================================================
+// 员工面板
+// ============================================================
+function renderStaff(){
+  $('#staff-gold').textContent=fmt(G.gold);
+  $('#staff-chef-n').textContent=G.staff.chef;
+  $('#staff-waiter-n').textContent=G.staff.waiter;
+  const list=$('#staff-list'); list.innerHTML='';
+  Object.values(STAFF_TYPES).forEach(s=>{
+    const have = G.staff[s.role];
+    const card=document.createElement('div');
+    card.className='staff-card';
+    card.innerHTML=`
+      <div class="sicon">${s.icon}</div>
+      <div class="sinfo">
+        <div class="sname">${s.name}</div>
+        <div class="sdesc">${s.desc}</div>
+        <div class="sdesc">雇金 🪙${s.cost}/人 · 日薪 🪙${s.salary}</div>
+        <div class="status">${have>0 ? `已雇 ${have} 人` : '尚未雇佣'}</div>
+      </div>
+      <button class="btn ${have>0?'blue':'green'}" data-hire="${s.role}" ${G.gold<s.cost?'disabled':''}>${have>0?'再雇':'招募'} ${s.cost}🪙</button>`;
+    list.appendChild(card);
+  });
+  list.querySelectorAll('[data-hire]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const role=b.dataset.hire;
+      const s=STAFF_TYPES[role];
+      if(G.gold<s.cost){ toast('金币不足','bad'); return; }
+      G.gold-=s.cost;
+      G.staff[role]++;
+      addLog(`👤 招募${s.icon}${s.name}，花费 ${s.cost}`, 'small');
+      toast(`已招募 ${s.icon}${s.name}！`,'good');
+      renderStaff(); updateHUD();
+    });
+  });
+}
+
+// ============================================================
+// 装饰面板
+// ============================================================
+function renderDeco(){
+  $('#deco-gold').textContent=fmt(G.gold);
+  const grid=$('#deco-grid'); grid.innerHTML='';
+  Object.entries(DECOR).forEach(([key,cat])=>{
+    const lvl=G.decor[key];
+    const curRep = cat.levels.slice(0,lvl+1).reduce((s,l)=>s+l.rep,0);
+    const curRate = cat.levels.slice(0,lvl+1).reduce((s,l)=>s+l.rating,0);
+    const nextRep = cat.levels[lvl+1]?.rep||0;
+    const nextRate = cat.levels[lvl+1]?.rating||0;
+    const card=document.createElement('div');
+    card.className='card deco-card';
+    card.style.gridColumn='1/-1';
+    let levelsHtml='<div class="levels">';
+    cat.levels.forEach((l,i)=>{ levelsHtml+=`<div class="level-dot ${i<=lvl?'filled':''}" title="${l.name}"></div>`; });
+    levelsHtml+='</div>';
+    card.innerHTML=`
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+        <span style="font-weight:800;font-size:15px;">${cat.icon} ${cat.name}</span>
+        <span class="tag normal">当前：${cat.levels[lvl].name}</span>
+      </div>
+      ${levelsHtml}
+      <div style="font-size:11px;color:var(--muted);width:100%;">当前加成：声望+${curRep} · 口感+${curRate}${nextRep?` · 下级额外：声望+${nextRep} · 口感+${nextRate}`:''}</div>`;
+    // 升级按钮行
+    const next = cat.levels[lvl+1];
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:6px;justify-content:center;margin-top:4px;width:100%;';
+    if(next){
+      const btn=document.createElement('button');
+      btn.className='btn blue'; btn.style.cssText='padding:6px 14px;font-size:13px;';
+      btn.textContent=`升级 → ${next.name}（${next.cost}🪙）`;
+      btn.disabled = G.gold<next.cost;
+      btn.addEventListener('click', ()=>{
+        if(G.gold<next.cost){ toast('金币不足','bad'); return; }
+        G.gold-=next.cost; G.decor[key]=lvl+1;
+        addLog(`🛋️ 升级${cat.name} → ${next.name}`, 'small');
+        toast(`已升级 ${cat.icon}${next.name}！`,'good');
+        applyDecor(); renderDeco(); updateHUD();
+      });
+      row.appendChild(btn);
+    } else {
+      const lbl=document.createElement('span');
+      lbl.style.cssText='font-size:12px;color:var(--green);font-weight:700;';
+      lbl.textContent='✅ 已满级';
+      row.appendChild(lbl);
+    }
+    card.appendChild(row);
+    grid.appendChild(card);
+  });
+}
+
+// ============================================================
+// 客人系统
+// ============================================================
+const GUEST_COLORS = [0xe63946,0xf4a261,0x8ecae6,0x9c6644,0x74c69d,0x9d4edd,0xfb6f92];
+let guestSeq=0;
+const guests = [];   // {id, model, state, target, timer, order, dishReady, tip, color, patience}
+const guestSpawnTimer = { t: 0 };
+
+function spawnGuest(){
+  if(!G.isOpen) return;
+  // 座位限制
+  const seatCap = G.seatCount + G.decor.table*1;
+  if(guests.filter(g=>g.state!=='leaving').length >= seatCap+4) return;
+  // 客流由菜单价格与声望决定
+  if(G.menu.length===0) return;   // 没菜不来
+  // 客流量计算
+  const avgPrice = G.menu.reduce((s,m)=>s+m.price,0)/Math.max(1,G.menu.length);
+  const idealPrice = G.menu.reduce((s,m)=>s+m.cost,0)/Math.max(1,G.menu.length) * 2.2;
+  const priceFactor = priceFactorFor(avgPrice, idealPrice);
+  if(priceFactor <= 0.05) return;  // 太贵几乎没人
+  const repFactor = 0.4 + Math.min(0.6, G.rep/100);
+  const spawnChance = priceFactor * repFactor;
+  if(Math.random() > spawnChance) return;
+
+  const color = GUEST_COLORS[guestSeq % GUEST_COLORS.length];
+  const g = {
+    id: ++guestSeq,
+    model: buildCustomer(color),
+    color,
+    state:'walking_in',   // walking_in, ordering, waiting_food, eating, paying, leaving
+    target:null,
+    timer: 0,
+    order: null,       // {menuId, dish}
+    seat: null,
+    patience: 40,      // 耐心（秒），超时生气离开
+    tip: 0,
+  };
+  // 出生点：路边
+  const r = interactables.restaurant.pos;
+  g.model.position.set(r.x + (Math.random()>0.5?6:-6), 0, r.z - 12);
+  g.model.rotation.y = 0;
+  scene.add(g.model);
+  g.target = { x: r.x, z: r.z - 4.2 };   // 门口
+  guests.push(g);
+}
+function priceFactorFor(avgPrice, idealPrice){
+  // 价格越高客流越低，用指数衰减
+  const ratio = avgPrice / idealPrice;
+  if(ratio <= 0.8) return 0.9;       // 便宜 → 人多
+  if(ratio <= 1.1) return 0.7;
+  if(ratio <= 1.6) return 0.4;
+  if(ratio <= 2.2) return 0.15;
+  if(ratio <= 3.0) return 0.06;
+  return 0.02;                        // 太贵几乎没人
+}
+// 口味评价：价格相对成本越贵，客人越挑剔
+function customerLikesDish(dish, guest){
+  const valueRatio = dish.price / dish.cost;  // 售价/成本 倍数
+  const expected = 2.2;  // 客人期望合理加价
+  let taste = dish.rating + (G.decor.wall>0? DECOR.wall.levels[G.decor.wall].rating:0)
+    + (G.decor.lamp>0? DECOR.lamp.levels[G.decor.lamp].rating:0)
+    + (G.decor.plant>0? DECOR.plant.levels[G.decor.plant].rating:0);
+  // 卖太贵会扣口感满意度
+  let overcharge = 0;
+  if(valueRatio > expected){ overcharge = Math.min(45, (valueRatio-expected)*18); }
+  const satisfied = Math.max(0, taste - overcharge);
+  return { satisfied, overcharge };
+}
+
+// 更新客人 AI
+function updateGuests(dt){
+  const r = interactables.restaurant.pos;
+  const stovePos = interactables.stove.pos;
+  const counterPos = new THREE.Vector3(r.x, 0, r.z+4.2);
+
+  for(let i=guests.length-1;i>=0;i--){
+    const g=guests[i];
+    if(!g.model) continue;
+    g.timer += dt;
+    switch(g.state){
+      case 'walking_in': {
+        moveToward(g, g.target, dt, 2.4);
+        if(reached(g, g.target, 0.5)){
+          g.state='ordering';
+          // 检查是否有可用菜单
+          if(G.menu.length===0){ g.state='leaving'; g.target={x:r.x+(Math.random()>0.5?8:-8), z:r.z-14}; break; }
+          // 挑选一道菜（偏好评分高的）
+          const candidates = G.menu.filter(m=>m.type==='normal').length>0 ? G.menu.filter(m=>m.type==='normal') : G.menu;
+          const dish = candidates[Math.floor(Math.random()*candidates.length)];
+          g.order = { menuId:dish.id, dish };
+          g.state='waiting_food';
+          g.timer=0;
+          // 分配座位
+          const seats = [[r.x-1.6, r.z-1.5],[r.x+1.6, r.z-1.5],[r.x-1.6, r.z+1.2],[r.x+1.6, r.z+1.2]];
+          g.seat = seats[Math.floor(Math.random()*seats.length)];
+          addLog(`🚶 客人${g.id} 点了「${dish.icon}${dish.name}」`,'small');
+        }
+        break;
+      }
+      case 'waiting_food': {
+        // 走向座位等待
+        if(g.seat){
+          moveToward(g, {x:g.seat[0], z:g.seat[1]}, dt, 2.2);
+        }
+        break;  // 实际等待由 serveOrder / 耐心超时处理
+      }
+      case 'paying': {
+        // 结账
+        const { satisfied } = customerLikesDish(g.order.dish, g);
+        const basePay = g.order.dish.price;
+        let pay = basePay;
+        // 满意度影响是否付款、付多少
+        if(satisfied >= 60){
+          g.tip = Math.round(basePay*0.15);
+          pay += g.tip;
+        } else if(satisfied >= 35){
+          // 正常付款
+        } else {
+          // 嫌弃，少付或拒付
+          pay = Math.round(basePay * 0.4);
+          g.tip = -1;  // 不满标记
+        }
+        if(g.tip===-1){
+          // 拒绝/少付
+          G.gold += pay;
+          G.dayIncome += pay;
+          G.dayProfit += pay - g.order.dish.cost;
+          addLog(`😠 客人${g.id} 嫌弃「${g.order.dish.name}」，勉强付了 ${pay}`, 'bad');
+        } else {
+          G.gold += pay;
+          G.dayIncome += pay;
+          G.dayProfit += pay - g.order.dish.cost;
+          // 记录菜单销量
+          const m = G.menu.find(x=>x.id===g.order.menuId);
+          if(m){ m.sales=(m.sales||0)+1; m.revenue=(m.revenue||0)+pay; }
+          G.rep += 1;
+          addLog(`😊 客人${g.id} 付账 ${pay}（含小费${g.tip}）`, '');
+        }
+        g.state='leaving';
+        g.target={x:r.x+(Math.random()>0.5?8:-8), z:r.z-14};
+        g.timer=0;
+        updateHUD();
+        break;
+      }
+      case 'leaving': {
+        moveToward(g, g.target, dt, 2.6);
+        if(reached(g, g.target, 1.2)){
+          scene.remove(g.model);
+          guests.splice(i,1);
+        }
+        break;
+      }
+    }
+    // 耐心：等待太久生气离开
+    if((g.state==='waiting_food' || g.state==='ordering') && g.timer > g.patience){
+      g.state='leaving'; g.target={x:r.x+(Math.random()>0.5?8:-8), z:r.z-14};
+      addLog(`😤 客人${g.id} 等太久，生气走了！`,'bad');
+      G.rep = Math.max(0, G.rep-1);
+      updateHUD();
+    }
+  }
+}
+function moveToward(g, target, dt, speed){
+  const dx = target.x - g.model.position.x;
+  const dz = target.z - g.model.position.z;
+  const dist = Math.hypot(dx,dz);
+  if(dist < 0.1) return;
+  const step = Math.min(speed*dt, dist);
+  g.model.position.x += dx/dist * step;
+  g.model.position.z += dz/dist * step;
+  g.model.rotation.y = Math.atan2(dx, dz);
+}
+function reached(g, target, tol){
+  return Math.hypot(target.x-g.model.position.x, target.z-g.model.position.z) < tol;
+}
+
+// 送菜：把已做好的菜送给对应客人，让客人进入付款
+function serveOrder(orderId){
+  const order = G.ordersPending.find(o=>o.orderId===orderId);
+  if(!order) return;
+  G.ordersPending = G.ordersPending.filter(o=>o.orderId!==orderId);
+  const guest = guests.find(g=>g && g.id===order.customerId && g.state==='waiting_food');
+  if(!guest) return;   // 客人已离开
+  guest.state='paying';
+  guest.timer=0;
+  addLog(`🍽️ 上菜：「${order.dish.name}」 → 客人${guest.id}`,'small');
+}
+
+// ============================================================
+// 烹饪自动化（玩家手动 + 厨师）
+// ============================================================
+// 玩家手动：在 openCookPanel 中
+// 厨师：自动把订单做出来
+let chefTimer={t:0};
+function updateChefs(dt){
+  if(G.staff.chef===0) return;
+  // 每个厨师同时能处理一个订单，2秒做一个
+  const capacity = G.staff.chef;
+  let active = G.ordersPending.filter(o=>o.beingCooked).length;
+  for(const order of G.ordersPending){
+    if(active>=capacity) break;
+    if(order.beingCooked) continue;
+    // 开始做菜前，检查并消耗食材
+    const ings = order.dish.ings || [];
+    const need = {};
+    ings.forEach(i=>{ need[i]=(need[i]||0)+1; });
+    const canMake = Object.entries(need).every(([id,n])=> (G.inventory[id]||0) >= n);
+    if(!canMake){
+      // 食材不足，取消该订单，客人继续等待（由耐心机制处理）
+      if(!order.cancelled){
+        order.cancelled = true;
+        addLog(`⚠️ 食材不足，厨师无法做「${order.dish.name}」，订单取消`,'bad');
+      }
+      continue;
+    }
+    // 扣除食材
+    Object.entries(need).forEach(([id,n])=>{ G.inventory[id]-=n; });
+    renderInventory(); updateHUD();
+    order.beingCooked=true;
+    order.cookTimer=0;
+    active++;
+  }
+  // 清理已取消的订单
+  for(let i=G.ordersPending.length-1;i>=0;i--){
+    if(G.ordersPending[i].cancelled) G.ordersPending.splice(i,1);
+  }
+  for(const order of G.ordersPending){
+    if(!order.beingCooked) continue;
+    order.cookTimer = (order.cookTimer||0)+dt;
+    if(order.cookTimer>=2.5){
+      // 做完了
+      order.done=true;
+      addLog(`👨‍🍳 厨师做好了「${order.dish.name}」`,'small');
+    }
+  }
+}
+
+// ============================================================
+// 服务自动化（服务员送菜；若无服务员但有厨师，厨师兼顾送菜）
+// ============================================================
+let waiterTimer={t:0};
+function updateWaiters(dt){
+  const canServe = G.staff.waiter>0 || G.staff.chef>0;
+  if(!canServe) return;
+  // 送菜：把已做好的订单送上
+  const doneOrders = G.ordersPending.filter(o=>o.done);
+  for(const order of doneOrders){
+    serveOrder(order.orderId);
+    return;   // 一次送一份，模拟忙碌
+  }
+}
+
+// ============================================================
+// 营业流程
+// ============================================================
+function generateOrder(){
+  if(G.menu.length===0) return;
+  // 只有厨师在场时，才自动为客人生成订单（由厨师做）
+  if(G.staff.chef===0) return;
+  const guest = guests.find(g=>g && g.state==='waiting_food');
+  if(guest && guest.order){
+    const exists = G.ordersPending.some(o=>o.customerId===guest.id);
+    if(!exists){
+      G.ordersPending.push({ orderId:'o'+(++G.menuSeq), customerId:guest.id, dish:guest.order.dish, beingCooked:false, done:false, cookTimer:0 });
+    }
+  }
+}
+let orderCheckTimer={t:0};
+
+// 玩家手动做菜也可送给等待的客人
+function playerServe(dish){
+  // 找到等待食物且没有订单的客人
+  const guest = guests.find(g=>g && g.state==='waiting_food' && !G.ordersPending.some(o=>o.customerId===g.id));
+  if(guest){
+    // 更新该客人的点单为玩家做的菜
+    guest.order = { menuId: dish.id, dish };
+    const order = { orderId:'op'+ (++G.menuSeq), customerId:guest.id, dish, beingCooked:true, done:true, cookTimer:0 };
+    G.ordersPending.push(order);
+    serveOrder(order.orderId);
+    return true;
+  }
+  return false;
+}
+
+// 结束一天（打烊结算，手动触发）
+function endDay(){
+  if(!G.isOpen) return;
+  G.isOpen=false;
+  // 日薪支出
+  const salaries = G.staff.chef*STAFF_TYPES.chef.salary + G.staff.waiter*STAFF_TYPES.waiter.salary;
+  G.gold -= salaries;
+  G.dayProfit -= salaries;
+  G.dayExpense += salaries;
+  if(salaries>0) addLog(`💸 支付员工日薪 ${salaries}`, 'bad');
+  // 汇总
+  const net = G.dayProfit;
+  const summary = net>=0 ? `🌙 打烊！本日净赚 <span class="plus">+${fmt(net)}</span> 金币` : `🌙 打烊！本日亏损 <span class="minus">-${fmt(Math.abs(net))}</span> 金币`;
+  addLog(summary, net>=0?'':'bad');
+  if(net<0) toast('⚠️ 今天亏本了！试着调整定价或降低成本','bad');
+  else toast(`🌙 打烊结算：本日净赚 ${fmt(net)} 金币`,'good');
+  // 清理店内客人
+  for(let i=guests.length-1;i>=0;i--){
+    scene.remove(guests[i].model); guests.splice(i,1);
+  }
+  G.ordersPending=[];
+  G.day++;
+  G.dayProfit=0; G.dayIncome=0; G.dayExpense=0;
+  updateHUD();
+  setTimeout(()=>{ startDay(); }, 1500);
+}
+function startDay(){
+  G.isOpen=true;
+  toast(`☀️ 第 ${G.day} 天开始营业！`,'good');
+  addLog(`☀️ 第 ${G.day} 天营业开始`, 'small');
+}
+
+// ============================================================
+// 主循环
+// ============================================================
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if(!G.started){ if(renderer) renderer.render(scene,camera); return; }
+
+  updatePlayer(dt);
+  updateCamera(dt);
+  checkNearby();
+
+  // 火焰动画
+  worldGroup.traverse(o=>{
+    if(o.userData && o.userData.flame){
+      o.position.y = 1.32 + Math.sin(Date.now()*0.02)*0.05;
+    }
+  });
+
+  // 客人系统
+  if(G.isOpen){
+    guestSpawnTimer.t += dt;
+    if(guestSpawnTimer.t >= 2.5){ guestSpawnTimer.t=0; spawnGuest(); }
+    // 生成订单
+    orderCheckTimer.t += dt;
+    if(orderCheckTimer.t >= 1.2){
+      orderCheckTimer.t=0; generateOrder();
+    }
+    updateChefs(dt);
+    updateWaiters(dt);
+  }
+  updateGuests(dt);
+
+  if(renderer) renderer.render(scene,camera);
+}
+
+// ============================================================
+// 启动
+// ============================================================
+function initGame(){
+  buildWorld();
+  setupPlayer();
+  applyDecor();
+  updateHUD();
+  G.started=true;
+  startDay();
+}
+
+// 顶部按钮
+$('#btn-shop').addEventListener('click', ()=>togglePanel('shop-panel'));
+$('#btn-menu').addEventListener('click', ()=>togglePanel('menu-panel'));
+$('#btn-cook').addEventListener('click', ()=>{ openCookPanel(); });
+$('#btn-staff').addEventListener('click', ()=>togglePanel('staff-panel'));
+$('#btn-deco').addEventListener('click', ()=>togglePanel('deco-panel'));
+$('#btn-close').addEventListener('click', ()=>{ endDay(); });
+$('#btn-help').addEventListener('click', ()=>togglePanel('help-panel'));
+$('#btn-music').addEventListener('click', ()=>{
+  const playing = BGM.toggle();
+  $('#btn-music').textContent = playing ? '🔊' : '🔇';
+  toast(playing ? '🎵 背景音乐已开启' : '🔇 背景音乐已关闭', 'info');
+});
+$('#btn-start').addEventListener('click', ()=>{
+  $('#welcome').style.display='none';
+  initGame();
+  animate();
+  // 首次点击开始游戏，自动播放背景音乐（符合浏览器自动播放策略）
+  BGM.start();
+  $('#btn-music').textContent = '🔊';
+});
+
+// 窗口缩放
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  if(renderer) renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// 预热渲染（在欢迎屏后面可见）
+if(renderer) renderer.render(scene,camera);
+// 暴露调试接口（不影响正常游戏，便于测试与扩展）
+window.__G = G;
+window.__game = { predictDish, cookDish, spawnGuest, serveOrder, priceFactorFor, customerLikesDish };
+window.__INGREDIENTS = INGREDIENTS;
+window.__RECIPES = RECIPES;
+window.__fn = { renderMenu, renderShop, renderInventory, quickCook, updateHUD, togglePanel };
+window.__BGM = BGM;
+// ============================================================
+// 核心逻辑结束
+// ============================================================
+</script>
+</body>
+</html>

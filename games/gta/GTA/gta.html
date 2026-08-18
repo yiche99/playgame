@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTA - 一彻版</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:#000;color:#fff;user-select:none}
+.screen{position:absolute;inset:0;display:none;overflow:hidden}
+.screen.active{display:block}
+#mainMenu{flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,#2a2a4a 0%,#0a0a1a 80%)}
+#mainMenu.active{display:flex}
+.menu-bg{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.02) 0 2px,transparent 2px 12px),radial-gradient(ellipse at 20% 60%,rgba(255,200,0,.08),transparent 60%),radial-gradient(ellipse at 80% 30%,rgba(255,80,80,.08),transparent 60%);pointer-events:none}
+.game-title{font-size:9rem;font-weight:900;color:#ffd83b;text-shadow:0 0 30px rgba(255,216,59,.6),6px 6px 0 #000,-2px -2px 0 #c00;letter-spacing:.2em;font-family:"Impact","Arial Black",sans-serif;z-index:2}
+.game-sub{margin-top:-10px;opacity:.7;z-index:2}
+.menu-buttons{margin-top:40px;display:flex;flex-direction:column;gap:14px;z-index:2}
+.menu-buttons button{width:260px;padding:12px 24px;background:rgba(0,0,0,.6);color:#ffd83b;border:2px solid #ffd83b;border-radius:6px;font-size:1.3rem;cursor:pointer;transition:.15s}
+.menu-buttons button:hover{background:#ffd83b;color:#000;transform:scale(1.05)}
+.footer{position:absolute;bottom:16px;opacity:.5;font-size:.85rem}
+#saveMenu,#helpMenu{flex-direction:column;align-items:center;justify-content:flex-start;padding:60px 20px;background:linear-gradient(180deg,#181826 0%,#050510 100%)}
+#saveMenu.active,#helpMenu.active{display:flex}
+#saveMenu h2,#helpMenu h2{font-size:2.5rem;color:#ffd83b;margin-bottom:24px;text-shadow:2px 2px 0 #000}
+.save-slots{display:flex;flex-direction:column;gap:14px;width:480px;max-width:90%}
+.save-slot{background:rgba(0,0,0,.5);border:2px solid #555;border-radius:8px;padding:18px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:.15s}
+.save-slot:hover{border-color:#ffd83b;background:rgba(255,216,59,.1)}
+.save-slot.empty{color:#888}
+.save-slot .slot-info b{color:#ffd83b}
+.save-slot .slot-meta{font-size:.85rem;opacity:.7}
+.help-content{max-width:700px;line-height:1.8;background:rgba(0,0,0,.5);padding:24px;border-radius:8px}
+.help-content hr{margin:12px 0;border-color:#444}
+.back-btn{margin-top:30px;padding:10px 24px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;cursor:pointer}
+.back-btn:hover{background:#444}
+#gameContainer{background:#000}
+#gameCanvas{display:block;width:100%;height:100%}
+.ui-panel{position:absolute;background:rgba(0,0,0,.55);border:2px solid rgba(255,216,59,.6);border-radius:6px;padding:10px;pointer-events:none;z-index:10}
+#playerPanel{top:12px;left:12px;min-width:280px}
+.player-row{display:flex;gap:12px;align-items:center}
+.avatar{width:64px;height:64px;background:#1a1a1a;border:2px solid #ffd83b;border-radius:4px;overflow:hidden}
+.avatar canvas{width:100%;height:100%;image-rendering:pixelated}
+.player-info{flex:1}
+.player-name{color:#ffd83b;font-weight:bold;font-size:1.1rem;margin-bottom:4px}
+.hp-bar{position:relative;height:18px;width:180px;background:#300;border:1px solid #800;border-radius:3px;overflow:hidden}
+.hp-fill{width:100%;height:100%;background:linear-gradient(180deg,#4f4 0%,#0a0 100%);transition:width .2s}
+.hp-bar span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:bold;text-shadow:1px 1px 1px #000}
+.wanted{margin-top:6px;font-size:.9rem}
+.ws{color:#ff4040;letter-spacing:2px;font-size:1.2rem}
+.wl{color:#fff;margin-left:8px}
+.reward{font-size:.85rem;opacity:.85;margin-top:2px;color:#8f8}
+.body-status{margin-top:10px;display:flex;gap:10px;align-items:flex-start}
+.body-status canvas{background:#1a1a1a;border:1px solid #555;border-radius:4px}
+.body-legend{font-size:.75rem;line-height:1.5;display:flex;flex-direction:column;gap:4px}
+.body-legend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.ok{background:#4f4}.broken{background:#f80}.bleed{background:#f44}
+#minimap{top:12px;right:12px;padding:4px;cursor:pointer;pointer-events:auto}
+#minimap canvas{display:block;border:1px solid #ffd83b}
+.minimap-label{text-align:center;font-size:.7rem;color:#ffd83b;margin-top:4px}
+.minimap-hint{text-align:center;font-size:.65rem;color:rgba(255,255,255,.5);margin-top:2px}
+.crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:2rem;color:rgba(255,255,255,.7);text-shadow:0 0 6px #000;pointer-events:none;z-index:10}
+.crosshair.locked{color:rgba(255,50,50,.9);font-size:1.6rem}
+#lockHint{position:absolute;left:50%;top:55%;transform:translateX(-50%);color:rgba(255,255,255,.4);font-size:.85rem;pointer-events:none;z-index:10;display:block}
+#lockHint.hidden{display:none}
+.hud-hint{position:absolute;left:50%;top:75%;transform:translateX(-50%);padding:6px 14px;background:rgba(0,0,0,.6);color:#ffd83b;border-radius:4px;font-size:.95rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:10}
+.hud-hint.show{opacity:1}
+.weapon-hud{position:absolute;bottom:20px;right:20px;background:rgba(0,0,0,.6);border:2px solid rgba(255,216,59,.6);border-radius:6px;padding:10px 14px;text-align:right;z-index:10}
+.weapon-name{color:#ffd83b;font-size:1.2rem;font-weight:bold}
+.weapon-damage{font-size:.9rem;opacity:.85}
+.weapon-damage span{color:#f88}
+.modal{position:absolute;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal.hidden{display:none}
+.modal-content{background:linear-gradient(180deg,#1c1c2e 0%,#0a0a14 100%);border:2px solid #ffd83b;border-radius:10px;padding:24px;min-width:560px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 0 40px rgba(255,216,59,.3)}
+.modal-content.narrow{min-width:320px;text-align:center}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;color:#ffd83b;border-bottom:1px solid #444;padding-bottom:8px}
+.modal-header button{background:transparent;color:#fff;border:1px solid #555;width:28px;height:28px;border-radius:4px;cursor:pointer}
+.modal-content button{display:block;width:100%;margin:10px 0;padding:10px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;font-size:1.05rem;cursor:pointer;transition:.15s}
+.modal-content button:hover{background:#ffd83b;color:#000}
+.inv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px}
+.inv-cell{aspect-ratio:1;background:#222;border:2px solid #555;border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:2rem;position:relative;transition:.15s}
+.inv-cell:hover{border-color:#ffd83b}
+.inv-cell.selected{border-color:#ffd83b;background:#443}
+.inv-cell .count{position:absolute;bottom:2px;right:4px;font-size:.8rem;color:#ffd83b;font-weight:bold}
+.inv-detail{background:#1a1a1a;border:1px solid #444;border-radius:4px;padding:12px;min-height:90px}
+.inv-detail h4{color:#ffd83b;margin-bottom:6px}
+.inv-detail .desc{font-size:.9rem;opacity:.85}
+.inv-detail .actions{margin-top:8px;display:flex;gap:6px}
+.inv-detail .actions button{display:inline-block;width:auto;padding:6px 12px;font-size:.85rem;margin:0}
+.death-box h2{color:#f44;font-size:3rem;margin-bottom:10px}
+.subtitle{position:absolute;bottom:18%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.7);color:#ffd83b;padding:8px 16px;border-radius:4px;font-size:1.4rem;font-weight:bold;letter-spacing:2px;border:2px solid #ffd83b;z-index:15}
+.subtitle.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div id="mainMenu" class="screen active">
+  <div class="menu-bg"></div>
+  <h1 class="game-title">GTA</h1>
+  <p class="game-sub">一彻游戏工作室 · 沙盒动作</p>
+  <div class="menu-buttons">
+    <button id="btnNewGame">开始新游戏</button>
+    <button id="btnLoadGame">继续游戏</button>
+    <button id="btnHelp">玩法说明</button>
+  </div>
+  <div class="footer">v1.0 · 模仿 Criminal Russia 3D 风格</div>
+</div>
+
+<div id="saveMenu" class="screen">
+  <h2>选择存档</h2>
+  <div id="saveSlots" class="save-slots"></div>
+  <button class="back-btn" id="btnBackFromSaves">返回</button>
+</div>
+
+<div id="helpMenu" class="screen">
+  <h2>玩法说明</h2>
+  <div class="help-content">
+    <p><b>移动：</b>W前进 / A左移 / D右移 / S后退（相对角色朝向）</p>
+    <p><b>视角：</b>移动鼠标转向，点击左键锁定光标</p>
+    <p><b>奔跑：</b>Shift</p>
+    <p><b>跳跃：</b>空格</p>
+    <p><b>攻击：</b>鼠标左键</p>
+    <p><b>上车/下车：</b>F</p>
+    <p><b>飞机驾驶：</b>F登机 → WASD飞行 → 空格上升 → Shift下降 → F下机</p>
+    <p><b>飞机舱门：</b>F（靠近飞机打开/关闭）</p>
+    <p><b>进入建筑/离开：</b>F（靠近门）</p>
+    <p><b>切换楼层：</b>Q 下楼 / 0 上楼</p>
+    <p><b>拾取物品：</b>R（建筑内）</p>
+    <p><b>拾取/放下尸体：</b>G</p>
+    <p><b>背包：</b>E</p>
+    <p><b>切换武器：</b>1-5 / 滚轮</p>
+    <p><b>放大地图：</b>点击右上角小地图</p>
+    <p><b>暂停：</b>ESC</p>
+    <hr>
+    <p>捣乱越大 → 通缉越高 → 奖励越多！</p>
+    <p>FBI会砸门，搞笑台词随机播放！</p>
+  </div>
+  <button class="back-btn" id="btnBackFromHelp">返回</button>
+</div>
+
+<div id="gameContainer" class="screen">
+  <canvas id="gameCanvas"></canvas>
+  <div id="playerPanel" class="ui-panel">
+    <div class="player-row">
+      <div class="avatar"><canvas id="avatarCanvas" width="64" height="64"></canvas></div>
+      <div class="player-info">
+        <div class="player-name">玩家 一彻</div>
+        <div class="city-label" id="cityLabel" style="font-size:.75rem;color:#8cf;margin-bottom:2px">A城</div>
+        <div class="hp-bar"><div id="hpFill" class="hp-fill"></div><span id="hpText">100 / 100</span></div>
+        <div class="wanted"><span class="ws" id="wantedStars">☆☆☆☆☆☆☆☆☆☆</span><span class="wl" id="wantedLabel">0 星通缉</span></div>
+        <div class="reward">奖励：<span id="rewardText">0</span> $/h</div>
+      </div>
+    </div>
+    <div class="body-status">
+      <canvas id="bodyCanvas" width="160" height="220"></canvas>
+      <div class="body-legend">
+        <div><span class="dot ok"></span> 正常</div>
+        <div><span class="dot broken"></span> 骨折</div>
+        <div><span class="dot bleed"></span> 流血</div>
+      </div>
+    </div>
+  </div>
+  <div id="minimap" class="ui-panel" title="点击放大地图">
+    <canvas id="minimapCanvas" width="220" height="220"></canvas>
+    <div class="minimap-label">地图</div>
+    <div class="minimap-hint">点击放大</div>
+  </div>
+  <div class="crosshair" id="crosshair">+</div>
+  <div id="lockHint">点击鼠标左键锁定光标</div>
+  <div class="hud-hint" id="hudHint"></div>
+  <div class="weapon-hud">
+    <div class="weapon-name" id="weaponName">拳头</div>
+    <div class="weapon-damage">伤害 <span id="weaponDamage">5</span></div>
+  </div>
+  <div id="buildingHUD" class="modal hidden" style="pointer-events:none">
+    <div class="modal-content narrow" style="background:rgba(0,0,0,.8);border-color:#ffd83b;min-width:300px">
+      <h4 style="color:#ffd83b" id="buildingName">建筑</h4>
+      <p style="margin:6px 0">楼层 <span id="buildingFloor" style="color:#8cf">0</span></p>
+      <p style="font-size:.85rem;opacity:.8" id="buildingItems">按R拾取物品</p>
+      <p style="font-size:.75rem;opacity:.6;margin-top:4px">Q下楼 | 0上楼 | F离开</p>
+    </div>
+  </div>
+  <div id="inventory" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header"><h3>背包 (E 关闭)</h3><button id="closeInv">✕</button></div>
+      <div class="inv-grid" id="invGrid"></div>
+      <div class="inv-detail" id="invDetail"><p>选择一个物品查看</p></div>
+    </div>
+  </div>
+  <div id="pauseMenu" class="modal hidden">
+    <div class="modal-content narrow">
+      <h3>游戏暂停</h3>
+      <button id="btnResume">继续游戏</button>
+      <button id="btnSaveQuit">保存并退出</button>
+    </div>
+  </div>
+  <div id="deathScreen" class="modal hidden">
+    <div class="modal-content narrow death-box">
+      <h2>你死了</h2>
+      <p>必须重新加载存档</p>
+      <button id="btnDeathBack">回到主菜单</button>
+    </div>
+  </div>
+  <div id="fbiSubtitle" class="subtitle hidden"><span id="fbiText"></span></div>
+  <div id="bigMap" class="modal hidden" style="z-index:200">
+    <div class="modal-content" style="min-width:700px;min-height:500px;max-width:95vw;max-height:90vh;padding:16px">
+      <div class="modal-header"><h3>世界地图</h3><button id="closeBigMap">✕</button></div>
+      <div style="position:relative;overflow:hidden;border:2px solid #555;border-radius:4px;cursor:grab" id="bigMapContainer">
+        <canvas id="bigMapCanvas" width="800" height="600"></canvas>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;font-size:.8rem">
+        <span><span style="display:inline-block;width:12px;height:12px;background:#4f4;border-radius:2px;margin-right:4px"></span>住宅区</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:#48f;border-radius:2px;margin-right:4px"></span>商业区</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:#888;border-radius:2px;margin-right:4px"></span>工业区</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:#f44;border-radius:2px;margin-right:4px"></span>警局/医院/消防</span>
+        <span><span style="display:inline-block;width:12px;height:12px;background:#ff0;border-radius:2px;margin-right:4px"></span>你在这里</span>
+        <span style="opacity:.7">拖拽移动 | 滚轮缩放</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+// ===== UTILS =====
+var U={
+  rand:function(a,b){return Math.random()*(b-a)+a},
+  randInt:function(a,b){return Math.floor(Math.random()*(b-a+1))+a},
+  pick:function(a){return a[Math.floor(Math.random()*a.length)]},
+  dist2:function(a,b){var dx=a.x-b.x,dz=a.z-b.z;return dx*dx+dz*dz},
+  dist:function(a,b){return Math.sqrt(U.dist2(a,b))},
+  clamp:function(v,a,b){return Math.max(a,Math.min(b,v))},
+  fmtDate:function(t){var d=new Date(t);return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getDate().toString().padStart(2,'0')+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')}
+};
+
+// ===== GLOBAL STATE =====
+var G={
+  scene:null,camera:null,renderer:null,clock:null,
+  paused:true,dead:false,
+  player:null,world:null,
+  vehicles:[],buildings:[],trees:[],items:[],projectiles:[],
+  police:[],civilians:[],
+  wantedLevel:0,
+  keys:{},mouse:{x:0,y:0,down:false},
+  startTime:0,playTime:0,inVehicle:null,
+  carryingBody:null,carrySlot:null,
+  inBuilding:null,currentFloor:0
+};
+
+// ===== SCENE VARS =====
+var scene,camera,renderer,clock;
+
+// ===== WORLD =====
+function World(s){
+  this.scene=s;this.size=4000;this.buildings=[];this.trees=[];this.roads=[];
+  this._createGround();this._createRoads();this._generateCity();this._createPentagon();this._createTrees();
+}
+World.prototype._createGround=function(){
+  var g=new THREE.PlaneGeometry(this.size,this.size);
+  var m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:0x6a8a3a}));
+  m.rotation.x=-Math.PI/2;m.position.y=0;this.scene.add(m);
+};
+World.prototype._createRoads=function(){
+  var rm=new THREE.MeshLambertMaterial({color:0x333333});
+  var lm=new THREE.MeshBasicMaterial({color:0xffff66});
+  for(var i=-2;i<=2;i++){
+    var r1={x:i*600,z:0,w:30,l:this.size},r2={x:0,z:i*600,w:this.size,l:30};
+    [r1,r2].forEach(function(r){
+      var mesh=new THREE.Mesh(new THREE.PlaneGeometry(r.w,r.l),rm);
+      mesh.rotation.x=-Math.PI/2;mesh.position.set(r.x,0.02,r.z);this.scene.add(mesh);
+      var line=new THREE.Mesh(new THREE.PlaneGeometry(0.3,r.l),lm);
+      line.rotation.x=-Math.PI/2;line.position.set(r.x,0.03,r.z);this.scene.add(line);
+      this.roads.push(r);
+    }.bind(this));
+  }
+};
+World.prototype._isOnRoad=function(x,z){
+  for(var i=0;i<this.roads.length;i++){
+    var r=this.roads[i];
+    if(Math.abs(x-r.x)<r.w/2&&Math.abs(z-r.z)<r.l/2)return true;
+  }
+  return false;
+};
+World.prototype._isNearBuilding=function(x,z,m){
+  m=m||4;
+  for(var i=0;i<this.buildings.length;i++){
+    var b=this.buildings[i];
+    if(Math.abs(x-b.x)<b.w/2+m&&Math.abs(z-b.z)<b.d/2+m)return b;
+  }
+  return null;
+};
+World.prototype._generateCity=function(){
+  var self=this;
+
+  // ======== A城：市中心 (-500~500, -500~500) ========
+  // 中心商业区
+  var aCenter=[{x:0,z:0,n:8,t:'office'},{x:80,z:-80,n:6,t:'shop'},{x:-80,z:80,n:6,t:'shop'}];
+  // 银行
+  self._createBuilding(0,120,'bank','A');
+  // 警局
+  self._createBuilding(250,-50,'police','A');
+  // 医院
+  self._createBuilding(-200,200,'hospital','A');
+  // 消防局
+  self._createBuilding(300,300,'firestation','A');
+  // 学校
+  self._createBuilding(-300,-250,'school','A');
+  // 教堂
+  self._createBuilding(150,-300,'church','A');
+  // 公园
+  self._createBuilding(-350,350,'park','A');
+
+  // 住宅区 - 4个方向各一片
+  var houseBlocks=[
+    {x:300,z:150,n:8,t:'house'},{x:-300,z:-100,n:8,t:'house'},
+    {x:150,z:300,n:6,t:'house'},{x:-150,z:-300,n:6,t:'house'},
+    {x:400,z:-200,n:6,t:'apt'},{x:-400,z:100,n:6,t:'apt'},
+    {x:100,z:-400,n:5,t:'house'},{x:-100,z:400,n:5,t:'house'}
+  ];
+  for(var hi=0;hi<houseBlocks.length;hi++){
+    var hb=houseBlocks[hi];
+    for(var i=0;i<hb.n;i++)self._createBuilding(hb.x+U.rand(-50,50),hb.z+U.rand(-50,50),hb.t,'A');
+  }
+
+  // 商业区
+  var shopBlocks=[
+    {x:200,z:-200,n:5,t:'shop'},{x:-200,z:-200,n:5,t:'shop'},
+    {x:350,z:-350,n:4,t:'restaurant'},{x:-350,z:-350,n:4,t:'restaurant'},
+    {x:450,z:50,n:3,t:'office'},{x:-450,z:-50,n:3,t:'office'},
+    {x:50,z:450,n:3,t:'shop'},{x:-50,z:-450,n:3,t:'shop'}
+  ];
+  for(var si=0;si<shopBlocks.length;si++){
+    var sb=shopBlocks[si];
+    for(var i2=0;i2<sb.n;i2++)self._createBuilding(sb.x+U.rand(-40,40),sb.z+U.rand(-40,40),sb.t,'A');
+  }
+
+  // 路边建筑（填充道路两侧）
+  for(var r=-400;r<=400;r+=80){
+    if(Math.abs(r)<60)continue;
+    self._createBuilding(r+U.rand(-20,20),450+U.rand(-20,20),U.pick(['house','shop','restaurant']),'A');
+    self._createBuilding(r+U.rand(-20,20),-450+U.rand(-20,20),U.pick(['house','shop','restaurant']),'A');
+    self._createBuilding(450+U.rand(-20,20),r+U.rand(-20,20),U.pick(['house','shop','restaurant']),'A');
+    self._createBuilding(-450+U.rand(-20,20),r+U.rand(-20,20),U.pick(['house','shop','restaurant']),'A');
+  }
+
+  // A城机场（北边远处）
+  self._createAirport(0,-1200);
+
+  // ======== B城：工业区 (-1200~-600, 600~1200) ========
+  var bTypes=['factory','factory','house','apt','shop','gas'];
+  for(var bi=0;bi<30;bi++){
+    var bx=U.rand(-1150,-650),bz=U.rand(650,1150);
+    if(!self._isOnRoad(bx,bz)&&!self._isNearBuilding(bx,bz,8)){
+      self._createBuilding(bx,bz,U.pick(bTypes),'B');
+    }
+  }
+  // B城特殊建筑
+  self._createBuilding(-900,950,'police','B');
+  self._createBuilding(-750,750,'hospital','B');
+  self._createBuilding(-1050,850,'school','B');
+  // B城修车店
+  self._createGarage(-900,650);
+  // B城加油站
+  self._createBuilding(-1100,700,'gas','B');
+
+  // ======== C城：商业区 (600~1200, -1200~-600) ========
+  var cTypes=['shop','restaurant','office','apt','house','house'];
+  for(var ci=0;ci<30;ci++){
+    var cx=U.rand(650,1150),cz=U.rand(-1150,-650);
+    if(!self._isOnRoad(cx,cz)&&!self._isNearBuilding(cx,cz,8)){
+      self._createBuilding(cx,cz,U.pick(cTypes),'C');
+    }
+  }
+  // C城特殊建筑
+  self._createBuilding(900,-950,'police','C');
+  self._createBuilding(750,-750,'hospital','C');
+  self._createBuilding(1050,-850,'bank','C');
+  // C城修车店
+  self._createGarage(900,-650);
+  // C城加油站
+  self._createBuilding(1100,-700,'gas','C');
+  // C城消防局
+  self._createBuilding(650,-1050,'firestation','C');
+
+  // ======== 野外建筑 ========
+  var ruralSpots=[
+    {x:500,z:500,t:'motel'},{x:-500,z:-500,t:'motel'},
+    {x:1500,z:0,t:'gas'},{x:-1500,z:0,t:'gas'},
+    {x:0,z:1500,t:'gas'},{x:0,z:-1500,t:'gas'},
+    {x:800,z:800,t:'church'},{x:-800,z:-800,t:'church'},
+    {x:1600,z:1600,t:'factory'},{x:-1600,z:-1600,t:'factory'}
+  ];
+  for(var ri=0;ri<ruralSpots.length;ri++){
+    var rs=ruralSpots[ri];
+    self._createBuilding(rs.x,rs.z,rs.t,'野外');
+  }
+
+  // 路边随机建筑
+  for(var ri2=0;ri2<40;ri2++){
+    var rx=U.rand(-1800,1800),rz=U.rand(-1800,1800);
+    // 靠近道路但不靠近已有建筑
+    var nearRoad=false;
+    for(var nri=0;nri<self.roads.length;nri++){
+      var rd=self.roads[nri];
+      if(Math.abs(rx-rd.x)<rd.w/2+30||Math.abs(rz-rd.z)<rd.l/2+30){nearRoad=true;break;}
+    }
+    if(nearRoad&&!self._isOnRoad(rx,rz)&&!self._isNearBuilding(rx,rz,10)){
+      var rt=U.pick(['house','gas','motel','shop']);
+      var rc='野外';
+      if(rx>-600&&rx<600&&rz>-600&&rz<600)rc='A';
+      else if(rx<-500&&rz>500)rc='B';
+      else if(rx>500&&rz<-500)rc='C';
+      self._createBuilding(rx,rz,rt,rc);
+    }
+  }
+
+  // ======== 街景物件 ========
+  self._createStreetLights();
+  self._createDecorations();
+
+  // 五角大楼
+  self._createPentagon();
+};
+World.prototype._createBuilding=function(x,z,type,city){
+  var w,h,d,color,roofColor;
+  var cfg={
+    house:{w:U.rand(8,14),h:U.rand(8,16),d:U.rand(8,14),color:U.pick([0xb87333,0xcc9966,0x887766,0xa98463,0xc4956a]),roof:0x553322},
+    apt:{w:16,h:U.rand(36,65),d:16,color:U.pick([0x8a90a0,0x9aa0a8,0x7a8088]),roof:0x444455},
+    shop:{w:12,h:10,d:12,color:U.pick([0xdd6644,0xee7755,0xcc5533]),roof:0x553322},
+    hospital:{w:24,h:20,d:20,color:0xe8e8f0,roof:0xcc4444},
+    police:{w:18,h:16,d:18,color:0x334477,roof:0x222244},
+    bank:{w:20,h:22,d:16,color:0xddddcc,roof:0x888866},
+    restaurant:{w:12,h:8,d:14,color:U.pick([0xee8844,0xdd7733,0xff9966]),roof:0x884422},
+    office:{w:14,h:U.rand(24,45),d:14,color:U.pick([0x8899aa,0x99aabb,0x778899]),roof:0x555566},
+    factory:{w:22,h:14,d:28,color:0x888888,roof:0x666666},
+    school:{w:20,h:14,d:24,color:0xddccaa,roof:0x994422},
+    firestation:{w:16,h:12,d:18,color:0xcc3333,roof:0x881111},
+    gas:{w:10,h:6,d:10,color:0xeeeeee,roof:0xcc2222},
+    motel:{w:28,h:8,d:14,color:0xccbb99,roof:0x886644},
+    church:{w:14,h:18,d:20,color:0xddccaa,roof:0x884422},
+    park:{w:30,h:2,d:30,color:0x4a8a3a,roof:0x3a6a2a}
+  };
+  var c=cfg[type]||cfg.house;
+  w=c.w;h=c.h;d=c.d;color=c.color;roofColor=c.roof;
+
+  var g=new THREE.Group();
+  var body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:color}));
+  body.position.y=h/2;g.add(body);
+
+  // 屋顶
+  if(type==='church'){
+    // 尖顶教堂
+    var spire=new THREE.Mesh(new THREE.ConeGeometry(3,8,8),new THREE.MeshLambertMaterial({color:0x886644}));
+    spire.position.y=h+4;g.add(spire);
+    var cross=new THREE.Mesh(new THREE.BoxGeometry(0.3,2,0.3),new THREE.MeshLambertMaterial({color:0xdddd00}));
+    cross.position.y=h+9;g.add(cross);
+  }else if(type==='park'){
+    // 公园没有屋顶，只有围栏
+  }else{
+    var roof=new THREE.Mesh(new THREE.BoxGeometry(w+0.4,0.5,d+0.4),new THREE.MeshLambertMaterial({color:roofColor}));
+    roof.position.y=h+0.25;g.add(roof);
+  }
+
+  // 特殊标识
+  if(type==='hospital'){
+    // 红十字标志
+    var crossH=new THREE.Mesh(new THREE.BoxGeometry(1,5,0.3),new THREE.MeshBasicMaterial({color:0xff0000}));
+    crossH.position.set(0,h/2+3,d/2+0.15);g.add(crossH);
+    var crossV=new THREE.Mesh(new THREE.BoxGeometry(5,1,0.3),new THREE.MeshBasicMaterial({color:0xff0000}));
+    crossV.position.set(0,h/2+3,d/2+0.15);g.add(crossV);
+  }
+  if(type==='police'){
+    // 蓝灯
+    var bl=new THREE.Mesh(new THREE.SphereGeometry(0.8,8,8),new THREE.MeshBasicMaterial({color:0x3366ff}));
+    bl.position.set(0,h+1,0);g.add(bl);
+  }
+  if(type==='gas'){
+    // 加油站顶棚
+    var canopy=new THREE.Mesh(new THREE.BoxGeometry(w+6,0.3,6),new THREE.MeshLambertMaterial({color:0xdd2222}));
+    canopy.position.set(0,5,d/2+3);g.add(canopy);
+    // 加油柱
+    for(var pi=0;pi<2;pi++){
+      var pump=new THREE.Mesh(new THREE.BoxGeometry(1,2.5,1.5),new THREE.MeshLambertMaterial({color:0xeeeeee}));
+      pump.position.set(pi===0?-3:3,1.25,d/2+3);g.add(pump);
+    }
+  }
+
+  // 大门
+  var doorColor=type==='firestation'?0xffffff:(type==='bank'?0x886644:0x6b3a1a);
+  var doorMat=new THREE.MeshLambertMaterial({color:doorColor});
+  var door=new THREE.Mesh(new THREE.BoxGeometry(2.5,3.5,0.3),doorMat);
+  door.position.set(0,1.75,d/2+0.15);g.add(door);
+
+  // 窗户
+  if(type!=='park'&&type!=='gas'){
+    var wm=new THREE.MeshBasicMaterial({color:type==='office'?0xaaccee:0x88ccff});
+    var floors=Math.max(1,Math.floor(h/4));
+    for(var f=0;f<floors;f++){
+      var y=2+f*4;
+      if(y>h-2)break;
+      for(var wi=0;wi<2;wi++){
+        var wx=(wi===0?1:-1)*w/3;
+        var win1=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.6),wm);
+        win1.position.set(wx,y,d/2+0.01);g.add(win1);
+        var win2=new THREE.Mesh(new THREE.PlaneGeometry(1.2,1.6),wm);
+        win2.position.set(wx,y,-d/2-0.01);win2.rotation.y=Math.PI;g.add(win2);
+      }
+    }
+  }
+
+  // 多层楼梯标记
+  if(h>12&&type!=='park'){
+    var stairMarker=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.15,0.8),new THREE.MeshBasicMaterial({color:0xffaa00}));
+    stairMarker.position.set(2,0.08,d/2+0.15);g.add(stairMarker);
+  }
+
+  g.position.set(x,0,z);this.scene.add(g);
+
+  var realFloors=type==='park'?1:Math.max(1,Math.floor(h/4));
+  var bhp=type==='park'?200:(200+h*3);
+  var b={mesh:g,x:x,z:z,w:w,h:h,d:d,type:type,city:city||'A',floors:realFloors,hp:bhp,maxHp:bhp,door:{mesh:door,hp:50,maxHp:50,locked:false,broken:false,open:false},destroyed:false};
+  this.buildings.push(b);G.buildings.push(b);
+};
+World.prototype._createPentagon=function(){
+  var x=1200,z=1200,w=120,h=25,d=100;
+  var g=new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:0xc8c8c8})));
+  g.position.set(x,0,z);this.scene.add(g);
+  var b={mesh:g,x:x,z:z,w:w,h:h,d:d,type:'pentagon',hp:5000,maxHp:5000,door:null,destroyed:false,isPentagon:true};
+  this.buildings.push(b);G.buildings.push(b);
+};
+World.prototype._createAirport=function(x,z){
+  // 机场：大型扁平建筑 + 跑道 + 停靠飞机
+  var g=new THREE.Group();
+  // 航站楼
+  var terminal=new THREE.Mesh(new THREE.BoxGeometry(60,8,20),new THREE.MeshLambertMaterial({color:0xccccdd}));
+  terminal.position.y=4;g.add(terminal);
+  // 塔台
+  var tower=new THREE.Mesh(new THREE.BoxGeometry(6,20,6),new THREE.MeshLambertMaterial({color:0xeeeeff}));
+  tower.position.set(25,10,-8);g.add(tower);
+  // 跑道
+  var runway=new THREE.Mesh(new THREE.PlaneGeometry(300,20),new THREE.MeshLambertMaterial({color:0x444444}));
+  runway.rotation.x=-Math.PI/2;runway.position.set(0,0.01,-50);g.add(runway);
+  // 跑道标线
+  for(var li=-140;li<140;li+=20){
+    var line=new THREE.Mesh(new THREE.PlaneGeometry(15,0.5),new THREE.MeshBasicMaterial({color:0xffffff}));
+    line.rotation.x=-Math.PI/2;line.position.set(li,0.02,-50);g.add(line);
+  }
+  g.position.set(x,0,z);this.scene.add(g);
+  var b={mesh:g,x:x,z:z,w:300,h:20,d:80,type:'airport',city:'A',floors:1,hp:3000,maxHp:3000,door:{mesh:terminal,hp:200,locked:false,broken:false,open:true},destroyed:false,isAirport:true};
+  this.buildings.push(b);G.buildings.push(b);
+  // 机场旁停两架飞机
+  G.vehicles.push(new Vehicle(this.scene,x-30,z-60,'plane'));
+  G.vehicles.push(new Vehicle(this.scene,x+30,z-60,'plane'));
+};
+World.prototype._createGarage=function(x,z){
+  var g=new THREE.Group();
+  var body=new THREE.Mesh(new THREE.BoxGeometry(20,6,15),new THREE.MeshLambertMaterial({color:0x888888}));
+  body.position.y=3;g.add(body);
+  var sign=new THREE.Mesh(new THREE.BoxGeometry(14,1.5,0.3),new THREE.MeshBasicMaterial({color:0xff4444}));
+  sign.position.set(0,6.5,7.6);g.add(sign);
+  var doorG=new THREE.Mesh(new THREE.BoxGeometry(10,4,0.3),new THREE.MeshLambertMaterial({color:0x555555}));
+  doorG.position.set(0,2,7.6);g.add(doorG);
+  g.position.set(x,0,z);this.scene.add(g);
+  var b={mesh:g,x:x,z:z,w:20,h:6,d:15,type:'garage',city:(x<0?'B':'C'),floors:1,hp:800,maxHp:800,door:{mesh:doorG,hp:100,locked:false,broken:false,open:true},destroyed:false,isGarage:true};
+  this.buildings.push(b);G.buildings.push(b);
+  // 修车店旁停一些车
+  G.vehicles.push(new Vehicle(this.scene,x+12,z,'car'));
+  G.vehicles.push(new Vehicle(this.scene,x-12,z,'car'));
+};
+World.prototype._createStreetLights=function(){
+  var poleMat=new THREE.MeshLambertMaterial({color:0x555555});
+  var lightMat=new THREE.MeshBasicMaterial({color:0xffff88});
+  for(var r=0;r<this.roads.length;r++){
+    var rd=this.roads[r];
+    var isHorizontal=(rd.w>rd.l);
+    var length=isHorizontal?rd.w:rd.l;
+    for(var p=-length/2+20;p<length/2;p+=60){
+      var lx, lz;
+      if(isHorizontal){lx=rd.x+p;lz=rd.z+(rd.l/2-4);}
+      else{lx=rd.x+(rd.w/2-4);lz=rd.z+p;}
+      if(this._isNearBuilding(lx,lz,3))continue;
+      var pole=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.2,5,6),poleMat);
+      pole.position.set(lx,2.5,lz);this.scene.add(pole);
+      var lamp=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.2,0.4),lightMat);
+      lamp.position.set(lx,5,lz);this.scene.add(lamp);
+    }
+  }
+};
+World.prototype._createDecorations=function(){
+  var benchMat=new THREE.MeshLambertMaterial({color:0x8B4513});
+  var binMat=new THREE.MeshLambertMaterial({color:0x336633});
+  // 在建筑旁边随机放长椅和垃圾桶
+  for(var i=0;i<60;i++){
+    var b=U.pick(this.buildings);
+    if(!b||b.type==='park'||b.type==='airport')continue;
+    var bx=b.x+U.rand(-b.w/2-3,b.w/2+3),bz=b.z+U.rand(-b.d/2-3,b.d/2+3);
+    if(this._isOnRoad(bx,bz)||this._isNearBuilding(bx,bz,2))continue;
+    if(Math.random()<0.6){
+      var bench=new THREE.Mesh(new THREE.BoxGeometry(2,0.3,0.6),benchMat);
+      bench.position.set(bx,0.4,bz);this.scene.add(bench);
+    }else{
+      var bin=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.35,1.2,8),binMat);
+      bin.position.set(bx,0.6,bz);this.scene.add(bin);
+    }
+  }
+};
+World.prototype._createTrees=function(){
+  var tm=new THREE.MeshLambertMaterial({color:0x2d5a1e});
+  var trm=new THREE.MeshLambertMaterial({color:0x4d2b1f});
+  for(var i=0;i<400;i++){
+    var x=U.rand(-1800,1800),z=U.rand(-1800,1800);
+    if(this._isOnRoad(x,z)||this._isNearBuilding(x,z,3))continue;
+    var g=new THREE.Group();
+    var th=U.rand(2,4);
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.4,th,6),trm));
+    var lr=U.rand(1.5,2.5);
+    var l=new THREE.Mesh(new THREE.SphereGeometry(lr,6,6),tm);
+    l.position.y=th+lr*0.6;g.add(l);
+    g.position.set(x,0,z);this.scene.add(g);
+    var t={mesh:g,x:x,z:z,hp:30,maxHp:30,type:'tree'};
+    this.trees.push(t);G.trees.push(t);
+  }
+};
+World.prototype.damage=function(t,amt){
+  if(t.destroyed)return;
+  t.hp-=amt;
+  if(t.hp<=0){this._destroy(t);}
+};
+World.prototype._destroy=function(t){
+  t.destroyed=true;
+  if(t.type==='tree'){t.mesh.rotation.z=Math.PI/2;t.mesh.position.y=0.5;}
+  else{t.mesh.visible=false;if(t.isPentagon&&G.player)G.player.addReward(10000,'撞塌五角大楼!');}
+};
+
+// ===== PLAYER =====
+function Player(s,cam){
+  this.scene=s;this.camera=cam;
+  this.maxHp=100;this.hp=100;this.armor=0;
+  this.speed=0.25;this.runMul=1.7;this.jumpVel=0.35;this.gravity=0.018;
+  this.velY=0;this.onGround=true;
+  this.angleY=0;this.targetAngleY=0;
+  this.body={head:'ok',body:'ok',lArm:'ok',rArm:'ok',lLeg:'ok',rLeg:'ok'};
+  this.inventory=[{id:'fist',name:'拳头',damage:5,type:'melee',icon:'👊',count:1,equipped:true},{id:'apple',name:'苹果',type:'food',heal:10,icon:'🍎',count:2},{id:'grenade',name:'手雷',damage:80,range:12,type:'throwable',icon:'💣',count:3}];
+  this.equippedIndex=0;this.equippedItem=this.inventory[0];
+  this.crimeScore=0;this.totalReward=0;this._fallTop=0;
+  this._buildModel();
+}
+Player.prototype._buildModel=function(){
+  this.group=new THREE.Group();
+  this.torso=new THREE.Mesh(new THREE.BoxGeometry(1,1,0.55),new THREE.MeshLambertMaterial({color:0xffd83b}));
+  this.torso.position.y=1.85;this.group.add(this.torso);
+  // 胸前黑色条纹（正面标识）
+  var chestStripe=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.7,0.01),new THREE.MeshLambertMaterial({color:0x111111}));
+  chestStripe.position.set(0,1.85,0.28);this.group.add(chestStripe);
+  // 背后白色标记（背面标识）
+  var backMark=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.01),new THREE.MeshLambertMaterial({color:0xffffff}));
+  backMark.position.set(0,1.85,-0.28);this.group.add(backMark);
+  this.head=new THREE.Mesh(new THREE.SphereGeometry(0.32,12,10),new THREE.MeshLambertMaterial({color:0xd4a76a}));
+  this.head.position.y=2.7;this.group.add(this.head);
+  // 眼睛（正面标识）
+  var eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.05,4,4),new THREE.MeshBasicMaterial({color:0x000000}));
+  eyeL.position.set(-0.1,2.75,0.3);this.group.add(eyeL);
+  var eyeR=new THREE.Mesh(new THREE.SphereGeometry(0.05,4,4),new THREE.MeshBasicMaterial({color:0x000000}));
+  eyeR.position.set(0.1,2.75,0.3);this.group.add(eyeR);
+  var hair=new THREE.Mesh(new THREE.SphereGeometry(0.34,12,8,0,Math.PI*2,0,Math.PI*0.55),new THREE.MeshLambertMaterial({color:0x4a2e1a}));
+  hair.position.y=2.72;this.group.add(hair);
+  this.lArm=this._makeArm();this.lArm.position.set(-0.65,2.25,0);this.group.add(this.lArm);
+  this.rArm=this._makeArm();this.rArm.position.set(0.65,2.25,0);this.group.add(this.rArm);
+  this.lLeg=this._makeLeg();this.lLeg.position.set(-0.25,0.95,0);this.group.add(this.lLeg);
+  this.rLeg=this._makeLeg();this.rLeg.position.set(0.25,0.95,0);this.group.add(this.rLeg);
+  var shoe=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.2,0.6),new THREE.MeshLambertMaterial({color:0xffffff}));
+  this.lShoe=shoe.clone();this.lShoe.position.set(-0.25,0.1,0.05);this.group.add(this.lShoe);
+  this.rShoe=shoe.clone();this.rShoe.position.set(0.25,0.1,0.05);this.group.add(this.rShoe);
+  this.group.position.set(0,0,0);this.scene.add(this.group);
+};
+Player.prototype._makeArm=function(){
+  var g=new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.3,1.1,0.3),new THREE.MeshLambertMaterial({color:0xd4a76a})));
+  var tm=new THREE.MeshLambertMaterial({color:0x1a1a1a});
+  for(var i=0;i<4;i++){var t=new THREE.Mesh(new THREE.BoxGeometry(0.32,0.18,0.005),tm);t.position.set(0,-0.2-i*0.22,0.16);g.add(t);}
+  return g;
+};
+Player.prototype._makeLeg=function(){
+  var g=new THREE.Group();
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.42,1.6,0.45),new THREE.MeshLambertMaterial({color:0x111111})));
+  var s=new THREE.Mesh(new THREE.BoxGeometry(0.05,1.5,0.001),new THREE.MeshLambertMaterial({color:0xffffff}));
+  s.position.set(-0.22,-0.8,0.23);g.add(s);
+  return g;
+};
+Player.prototype.equip=function(item){this.equippedItem=item;updateWeaponHud();};
+Player.prototype.getDamage=function(){return this.equippedItem?this.equippedItem.damage:0;};
+Player.prototype.addCrime=function(amt,reason){
+  this.crimeScore+=amt;this._checkWanted();hint(reason||'+捣乱');
+};
+Player.prototype.addReward=function(amt,reason){
+  this.totalReward+=amt;hint('+'+amt+'$ '+(reason||''));
+};
+Player.prototype._checkWanted=function(){
+  var t=[0,10,30,60,100,160,240,360,520,720,1000],l=0;
+  for(var i=0;i<t.length;i++){if(this.crimeScore>=t[i])l=i;}
+  if(l!==G.wantedLevel){G.wantedLevel=l;spawnPolice(l);updateWanted();}
+};
+Player.prototype.takeDamage=function(amt,part){
+  var abs=Math.min(this.armor,amt*0.6);
+  this.armor=Math.max(0,this.armor-amt*0.6);amt-=abs;
+  this.hp-=amt;
+  // 骨折概率大幅降低：只有伤害>30且10%概率才骨折
+  if(part&&this.body[part]!=='broken'&&Math.random()<0.1&&amt>30){
+    this.body[part]='broken';updateBody();hint(partName(part)+' 骨折!');
+  }else if(part&&amt>10&&this.body[part]==='ok'){this.body[part]='bleed';updateBody();}
+  if(this.hp<=0){this.hp=0;this.die();}
+  updateHp();
+};
+Player.prototype.die=function(){G.dead=true;document.getElementById('deathScreen').classList.remove('hidden');};
+Player.prototype.heal=function(amt){this.hp=Math.min(this.maxHp+this.armor,this.hp+amt);updateHp();};
+Player.prototype.update=function(dt){
+  var run=(G.keys['ShiftLeft']||G.keys['ShiftRight'])?this.runMul:1;
+  var mx=0,mz=0;
+  if(G.keys['KeyW']||G.keys['ArrowUp'])mz-=1;
+  if(G.keys['KeyS']||G.keys['ArrowDown'])mz+=1;
+  if(G.keys['KeyA']||G.keys['ArrowLeft'])mx-=1;
+  if(G.keys['KeyD']||G.keys['ArrowRight'])mx+=1;
+
+  // 鼠标指针转向（始终生效）
+  if(this._mouseTargetAngle!==undefined){
+    var diff=this._mouseTargetAngle-this.angleY;
+    while(diff>Math.PI)diff-=Math.PI*2;
+    while(diff<-Math.PI)diff+=Math.PI*2;
+    this.angleY+=diff*0.15;
+    this.targetAngleY=this.angleY;
+  }
+
+  if(mx||mz){
+    var len=Math.sqrt(mx*mx+mz*mz);mx/=len;mz/=len;
+    var s=this.speed*run;
+    // 移动方向跟随角色朝向：W前进=沿angleY方向，A/D左右平移
+    var forwardX=Math.sin(this.angleY);
+    var forwardZ=Math.cos(this.angleY);
+    var rightX=Math.cos(this.angleY);
+    var rightZ=-Math.sin(this.angleY);
+    // W/S 沿前方/后方移动，A/D 沿左右移动
+    this.group.position.x+=(forwardX*(-mz)+rightX*mx)*s;
+    this.group.position.z+=(forwardZ*(-mz)+rightZ*mx)*s;
+    // 模型朝向始终跟随鼠标方向
+    this.group.rotation.y=this.angleY;
+    var t=performance.now()*0.012;
+    this.lLeg.rotation.x=Math.sin(t*2)*0.5;this.rLeg.rotation.x=-Math.sin(t*2)*0.5;
+    this.lArm.rotation.x=-Math.sin(t*2)*0.3;this.rArm.rotation.x=Math.sin(t*2)*0.3;
+  }else{
+    this.group.rotation.y=this.angleY;
+    this.lLeg.rotation.x*=0.85;this.rLeg.rotation.x*=0.85;
+    this.lArm.rotation.x*=0.85;this.rArm.rotation.x*=0.85;
+  }
+  if(G.keys['Space']&&this.onGround){this.velY=this.jumpVel;this.onGround=false;}
+  this.velY-=this.gravity;this.group.position.y+=this.velY;
+  if(this.group.position.y<=0){
+    this.group.position.y=0;this.velY=0;this.onGround=true;this._fallTop=0;
+  }
+  if(this.group.position.y>this._fallTop)this._fallTop=this.group.position.y;
+  var lim=1950;
+  this.group.position.x=U.clamp(this.group.position.x,-lim,lim);
+  this.group.position.z=U.clamp(this.group.position.z,-lim,lim);
+  updateCityLabel();
+  if(Math.random()<0.005){
+    for(var k in this.body){if(this.body[k]==='bleed'||this.body[k]==='broken')this.hp=Math.max(0,this.hp-0.1);}
+  }
+  // 相机在角色后方
+  var cd=7,ch=3.5;
+  var tx=this.group.position.x-Math.sin(this.angleY)*cd,tz=this.group.position.z-Math.cos(this.angleY)*cd;
+  G.camera.position.lerp(new THREE.Vector3(tx,ch,tz),0.15);
+  G.camera.lookAt(this.group.position.x,2,this.group.position.z);
+  if(this.crimeScore>0){this.crimeScore=Math.max(0,this.crimeScore-dt*0.5);this._checkWanted();}
+};
+
+// ===== VEHICLE =====
+function Vehicle(s,x,z,type){
+  this.scene=s;this.type=type;this.hp=type==='plane'?800:500;this.maxHp=this.hp;
+  this.speed=0;this.maxSpeed=type==='plane'?2.5:0.55;
+  this.accel=type==='plane'?0.025:0.018;this.turnSpeed=type==='plane'?0.04:0.05;
+  this.angleY=0;this.velY=0;this.occupant=null;this.deformation=0;
+  this.flying=false;this.airborne=(type==='plane');
+  this._lastCollisionTime=0;this._collisionCooldown=2000;
+  this._build(type);
+  var startY=type==='plane'?0:0;
+  this.group.position.set(x,startY,z);s.add(this.group);
+}
+Vehicle.prototype._build=function(type){
+  this.group=new THREE.Group();
+  if(type==='car'){
+    this.body=new THREE.Mesh(new THREE.BoxGeometry(2.2,0.8,4.2),new THREE.MeshLambertMaterial({color:0xffcc00}));
+    this.body.position.y=0.6;this.group.add(this.body);
+    var cab=new THREE.Mesh(new THREE.BoxGeometry(1.9,0.7,2.2),new THREE.MeshLambertMaterial({color:0x222233}));
+    cab.position.y=1.35;cab.position.z=-0.2;this.group.add(cab);
+    [[-1,-1.4],[1,-1.4],[-1,1.4],[1,1.4]].forEach(function(p){
+      var w=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.3,12),new THREE.MeshLambertMaterial({color:0x111111}));
+      w.rotation.z=Math.PI/2;w.position.set(p[0]*1.05,0.4,p[1]);this.group.add(w);
+    }.bind(this));
+    var light=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.2,0.4),new THREE.MeshBasicMaterial({color:0xffffff}));
+    light.position.set(0,1.75,0.5);this.group.add(light);
+  }else if(type==='plane'){
+    this.body=new THREE.Mesh(new THREE.CylinderGeometry(0.7,0.7,6,8),new THREE.MeshLambertMaterial({color:0xeeeeee}));
+    this.body.rotation.x=Math.PI/2;this.body.position.y=1.2;this.group.add(this.body);
+    var wing=new THREE.Mesh(new THREE.BoxGeometry(8,0.15,1.5),new THREE.MeshLambertMaterial({color:0xdddddd}));
+    wing.position.y=1.2;this.group.add(wing);
+    var tail=new THREE.Mesh(new THREE.BoxGeometry(0.2,1,1.5),new THREE.MeshLambertMaterial({color:0xdddddd}));
+    tail.position.set(0,1.7,2.5);this.group.add(tail);
+    this.prop=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.1,0.2),new THREE.MeshLambertMaterial({color:0x333333}));
+    this.prop.position.set(0,1.2,-3.1);this.group.add(this.prop);
+    // 飞机舱门（侧面）
+    this.doorMesh=new THREE.Mesh(new THREE.BoxGeometry(0.15,1.2,0.8),new THREE.MeshLambertMaterial({color:0x6688cc}));
+    this.doorMesh.position.set(0.75,1.2,0.5);this.group.add(this.doorMesh);
+    this.doorOpen=false;
+  }
+};
+Vehicle.prototype.enter=function(p){
+  if(this.type==='plane'&&!this.doorOpen){
+    hint('舱门未打开! 请先按F打开舱门');
+    return;
+  }
+  this.occupant=p;G.inVehicle=this;p.group.visible=false;
+  if(this.type==='plane'){
+    hint('登机! WASD飞行, 空格上升, Shift下降, F下机');
+  }else{
+    hint('上车! WASD驾驶, F下车');
+  }
+};
+Vehicle.prototype.exit=function(){
+  if(!this.occupant)return;
+  var p=this.occupant;p.group.visible=true;
+  p.group.position.set(this.group.position.x+3,0,this.group.position.z+3);
+  this.occupant=null;G.inVehicle=null;hint('已下车');
+};
+Vehicle.prototype.toggleDoor=function(){
+  if(this.type!=='plane')return;
+  this.doorOpen=!this.doorOpen;
+  if(this.doorMesh){
+    this.doorMesh.position.x=this.doorOpen?1.5:0.75;
+    this.doorMesh.material.color.setHex(this.doorOpen?0x88cc66:0x6688cc);
+  }
+  hint('飞机舱门已'+(this.doorOpen?'打开':'关闭'));
+  return this.doorOpen;
+};
+Vehicle.prototype.update=function(dt){
+  if(!this.occupant)return;
+  var fwd=(G.keys['KeyW']||G.keys['ArrowUp']);
+  var bwd=(G.keys['KeyS']||G.keys['ArrowDown']);
+  var left=(G.keys['KeyA']||G.keys['ArrowLeft']);
+  var right=(G.keys['KeyD']||G.keys['ArrowRight']);
+
+  if(this.type==='plane'){
+    // 飞机驾驶
+    if(fwd)this.speed=Math.min(this.maxSpeed,this.speed+this.accel);
+    else if(bwd)this.speed=Math.max(-this.maxSpeed*0.3,this.speed-this.accel*0.5);
+    else this.speed*=0.995;
+
+    if(left)this.angleY+=this.turnSpeed;
+    if(right)this.angleY-=this.turnSpeed;
+
+    // 高度控制
+    if(G.keys['Space'])this.velY+=0.015;
+    if(G.keys['ControlLeft']||G.keys['ShiftLeft'])this.velY-=0.015;
+    this.velY*=0.98;
+    this.group.position.y+=this.velY;
+
+    // 地面检测
+    if(this.group.position.y<0){this.group.position.y=0;this.velY=0;this.flying=false;}
+    else if(this.group.position.y>0.5)this.flying=true;
+
+    // 空中时才做水平移动
+    this.group.position.x+=Math.sin(this.angleY)*this.speed;
+    this.group.position.z+=Math.cos(this.angleY)*this.speed;
+
+    // 螺旋桨旋转
+    if(this.prop)this.prop.rotation.z+=0.3+Math.abs(this.speed)*0.5;
+
+    // 空中不检测碰撞
+    if(!this.flying)this._checkCollisions();
+
+    // 相机跟随
+    var cd=14,ch=this.flying?8:6;
+    var tx=this.group.position.x-Math.sin(this.angleY)*cd;
+    var tz=this.group.position.z-Math.cos(this.angleY)*cd;
+    G.camera.position.lerp(new THREE.Vector3(tx,this.group.position.y+ch,tz),0.1);
+    G.camera.lookAt(this.group.position.x,this.group.position.y+1,this.group.position.z);
+
+  }else{
+    // 汽车驾驶
+    if(fwd)this.speed=Math.min(this.maxSpeed,this.speed+this.accel);
+    else if(bwd)this.speed=Math.max(-this.maxSpeed*0.5,this.speed-this.accel*1.2);
+    else this.speed*=0.97;
+
+    if(left)this.angleY+=this.turnSpeed*(this.speed>0?1:(this.speed<0?-1:1));
+    if(right)this.angleY-=this.turnSpeed*(this.speed>0?1:(this.speed<0?-1:1));
+
+    this.group.position.x+=Math.sin(this.angleY)*this.speed;
+    this.group.position.z+=Math.cos(this.angleY)*this.speed;
+
+    // 地形跟随
+    this.velY-=0.02;this.group.position.y+=this.velY;
+    if(this.group.position.y<=0){this.group.position.y=0;this.velY=0;}
+
+    this._checkCollisions();
+
+    var cd=10,ch=5;
+    var tx=this.group.position.x-Math.sin(this.angleY)*cd;
+    var tz=this.group.position.z-Math.cos(this.angleY)*cd;
+    G.camera.position.lerp(new THREE.Vector3(tx,ch,tz),0.15);
+    G.camera.lookAt(this.group.position.x,2,this.group.position.z);
+  }
+};
+Vehicle.prototype._checkCollisions=function(){
+  var px=this.group.position.x,pz=this.group.position.z;
+  var now=performance.now();
+  if(now-this._lastCollisionTime<this._collisionCooldown)return;
+  var collided=false;
+
+  // 碰撞建筑
+  for(var i=0;i<G.buildings.length;i++){
+    var b=G.buildings[i];if(b.destroyed)continue;
+    if(Math.abs(px-b.x)<b.w/2+2&&Math.abs(pz-b.z)<b.d/2+3){
+      G.world.damage(b,1+Math.abs(this.speed)*15);
+      collided=true;
+    }
+  }
+  // 碰撞树木
+  for(var j=0;j<G.trees.length;j++){
+    var t=G.trees[j];if(t.destroyed)continue;
+    if(U.dist2({x:px,z:pz},t)<4){
+      G.world.damage(t,15);
+      collided=true;
+    }
+  }
+  // 撞NPC
+  var all=[].concat(G.police,G.civilians);
+  for(var k=0;k<all.length;k++){
+    var npc=all[k];if(!npc||npc.dead)continue;
+    if(U.dist2({x:px,z:pz},npc.mesh.position)<4){
+      npc.takeDamage(20+Math.abs(this.speed)*60,'body');
+      collided=true;
+    }
+  }
+  if(collided){
+    this._lastCollisionTime=now;
+    // 车辆只受到极轻微损伤
+    var dmg=Math.abs(this.speed)*0.5;
+    this.hp-=dmg;
+    this.deformation=Math.min(0.8,1-this.hp/this.maxHp);
+    if(this.body){this.body.scale.x=1-this.deformation*0.3;this.body.scale.z=1-this.deformation*0.2;}
+    if(this.hp<=0)this._explode();
+    if(this.speed>0.03)this.speed*=-0.15;
+  }
+};
+Vehicle.prototype._explode=function(){
+  var self=this;
+  // 冒烟效果
+  if(this.body)this.body.material.color.setHex(0x333333);
+  setTimeout(function(){
+    if(self.occupant){self.exit();}
+    self.scene.remove(self.group);
+    var i=G.vehicles.indexOf(self);if(i>=0)G.vehicles.splice(i,1);
+    hint('载具已报废!');
+  },800);
+};
+
+// ===== WEAPONS =====
+var Weapons={
+  attack:function(){
+    var p=G.player,item=p.equippedItem;
+    if(!item||!item.damage)return;
+    if(item.type==='melee')this._melee(item);
+    else if(item.type==='throwable')this._throw(item);
+  },
+  _melee:function(item){
+    var p=G.player;
+    var ax=p.group.position.x+Math.sin(p.angleY)*1,az=p.group.position.z+Math.cos(p.angleY)*1;
+    var r=item.range||2,hit=false;
+    [].concat(G.police,G.civilians).forEach(function(e){
+      if(e.dead||hit)return;
+      if(U.dist2({x:ax,z:az},e.mesh.position)<r*r){e.takeDamage(item.damage,'body');p.addCrime(2,'用'+item.name+'打人');hit=true;}
+    });
+    G.buildings.forEach(function(b){
+      if(b.destroyed||hit)return;
+      if(U.dist2({x:ax,z:az},{x:b.x,z:b.z})<r*r){G.world.damage(b,item.damage);p.addCrime(b.isPentagon?30:3,'破坏');hit=true;}
+    });
+    if(item.id==='fist'){p.lArm.rotation.x=-1.5;setTimeout(function(){p.lArm.rotation.x=0;},200);}
+  },
+  _throw:function(item){
+    var p=G.player;
+    var proj={pos:{x:p.group.position.x+Math.sin(p.angleY)*1,y:1.5,z:p.group.position.z+Math.cos(p.angleY)*1},vel:{x:Math.sin(p.angleY)*0.3,y:0.2,z:Math.cos(p.angleY)*0.3},damage:item.damage,range:item.range,timer:0,ttl:60};
+    var m=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,8),new THREE.MeshLambertMaterial({color:0x223322}));
+    m.position.set(proj.pos.x,proj.pos.y,proj.pos.z);G.scene.add(m);proj.mesh=m;
+    G.projectiles.push(proj);
+    if(item.count>1)item.count--;
+    else{p.inventory.splice(p.equippedIndex,1);p.equippedIndex=Math.min(p.equippedIndex,p.inventory.length-1);if(p.inventory.length>0)p.equip(p.inventory[p.equippedIndex]);renderInv();}
+  },
+  updateProjectiles:function(){
+    for(var i=G.projectiles.length-1;i>=0;i--){
+      var p=G.projectiles[i];
+      p.vel.y-=0.01;p.pos.x+=p.vel.x;p.pos.y+=p.vel.y;p.pos.z+=p.vel.z;
+      if(p.mesh)p.mesh.position.set(p.pos.x,p.pos.y,p.pos.z);
+      p.timer++;
+      if(p.pos.y<0.1||p.timer>p.ttl){this._explode(p);G.projectiles.splice(i,1);}
+    }
+  },
+  _explode:function(p){
+    if(p.mesh)G.scene.remove(p.mesh);
+    var r=p.range||12,r2=r*r;
+    [].concat(G.police,G.civilians).forEach(function(e){if(!e.dead&&U.dist2(p.pos,e.mesh.position)<r2)e.takeDamage(p.damage,'body');});
+    G.buildings.forEach(function(b){if(!b.destroyed&&U.dist2(p.pos,{x:b.x,z:b.z})<r2){G.world.damage(b,p.damage);G.player.addCrime(b.isPentagon?100:20,'炸!');}});
+    G.player.addCrime(15,'爆炸');
+    var f=new THREE.Mesh(new THREE.SphereGeometry(2,12,12),new THREE.MeshBasicMaterial({color:0xffff66,transparent:true,opacity:0.8}));
+    f.position.set(p.pos.x,p.pos.y,p.pos.z);G.scene.add(f);
+    setTimeout(function(){G.scene.remove(f);},300);
+  }
+};
+
+// ===== NPC =====
+function NPC(x,z,type,weapon,hp){
+  this.scene=G.scene;this.type=type;this.civilian=(type==='civilian');
+  this.weapon=weapon;this.hp=hp;this.maxHp=hp;
+  this.speed=this.civilian?0.06:0.08;this.angleY=0;this.dead=false;this.shotCd=0;
+  this._build();this.mesh.position.set(x,0,z);this.scene.add(this.mesh);
+}
+NPC.prototype._build=function(){
+  this.mesh=new THREE.Group();
+  var bc=this.civilian?U.pick([0x996633,0x6666aa,0xaa4466,0x44aa66]):(this.type==='cop'?0x223377:0x222222);
+  var body=new THREE.Mesh(new THREE.BoxGeometry(0.8,1.2,0.5),new THREE.MeshLambertMaterial({color:bc}));
+  body.position.y=1.6;this.mesh.add(body);
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.28,8,6),new THREE.MeshLambertMaterial({color:0xd4a76a}));
+  head.position.y=2.45;this.mesh.add(head);
+  if(!this.civilian){
+    var cap=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.2,0.5),new THREE.MeshLambertMaterial({color:0x111111}));
+    cap.position.y=2.7;this.mesh.add(cap);
+  }else{
+    var hair=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6,0,Math.PI*2,0,Math.PI*0.5),new THREE.MeshLambertMaterial({color:U.pick([0x222,0x553311,0x886633])}));
+    hair.position.y=2.5;this.mesh.add(hair);
+  }
+  var lm=new THREE.MeshLambertMaterial({color:0x111133});
+  var leg1=new THREE.Mesh(new THREE.BoxGeometry(0.35,1.2,0.4),lm);leg1.position.set(-0.2,0.6,0);this.mesh.add(leg1);
+  var leg2=new THREE.Mesh(new THREE.BoxGeometry(0.35,1.2,0.4),lm);leg2.position.set(0.2,0.6,0);this.mesh.add(leg2);
+};
+NPC.prototype.takeDamage=function(amt){
+  this.hp-=amt;
+  if(this.hp<=0&&!this.dead)this._die();
+};
+NPC.prototype._die=function(){
+  this.dead=true;this.mesh.rotation.z=Math.PI/2;this.mesh.position.y=0.4;
+  this.bodyMesh=this.mesh; // 保存引用以便拾取
+  if(this.civilian)G.player.addCrime(15,'杀害平民!');
+  else{G.player.addCrime(5,'击杀警察');G.player.addReward(50,'击杀警察');}
+  // 尸体30秒后消失（如果没被拾取）
+  var self=this;this._cleanupTimer=setTimeout(function(){
+    if(G.carryingBody===self)G.carryingBody=null;
+    self.scene.remove(self.mesh);
+  },30000);
+};
+NPC.prototype.pickUp=function(){
+  if(!this.dead||G.carryingBody)return false;
+  G.carryingBody=this;
+  // 把尸体放到玩家肩膀上
+  this.mesh.rotation.set(0,0,0);
+  this.mesh.position.set(0,0,0);
+  G.player.group.add(this.mesh);
+  this.mesh.position.set(0.3,1.4,-0.3);
+  this.mesh.rotation.set(Math.PI*0.4,0,0.2);
+  if(this._cleanupTimer)clearTimeout(this._cleanupTimer);
+  hint('按G放下尸体');
+  return true;
+};
+NPC.prototype.dropBody=function(){
+  if(G.carryingBody!==this)return;
+  G.carryingBody=null;
+  G.player.group.remove(this.mesh);
+  var pp=G.player.group.position;
+  this.mesh.position.set(pp.x+Math.sin(G.player.angleY)*2,0.4,pp.z+Math.cos(G.player.angleY)*2);
+  this.mesh.rotation.set(0,0,Math.PI/2);
+  G.scene.add(this.mesh);
+  hint('尸体已放下');
+  // 重新设置清理计时器
+  var self=this;
+  this._cleanupTimer=setTimeout(function(){
+    if(G.carryingBody===self)G.carryingBody=null;
+    self.scene.remove(self.mesh);
+  },15000);
+};
+NPC.prototype.update=function(dt){
+  if(this.dead)return;
+  if(this.civilian)return this._updateCivilian(dt);
+  return this._updateCop(dt);
+};
+NPC.prototype._updateCivilian=function(dt){
+  var dx=this.mesh.position.x-G.player.group.position.x;
+  var dz=this.mesh.position.z-G.player.group.position.z;
+  var d=Math.sqrt(dx*dx+dz*dz);
+  if(d<30&&d>0.1){this.mesh.position.x+=dx/d*this.speed;this.mesh.position.z+=dz/d*this.speed;this.angleY=Math.atan2(dx,dz);this.mesh.rotation.y=this.angleY;}
+};
+NPC.prototype._updateCop=function(dt){
+  var pp=G.player.group.position,pos=this.mesh.position;
+  var dx=pp.x-pos.x,dz=pp.z-pos.z,d=Math.sqrt(dx*dx+dz*dz);
+  if(d>2.5)this._moveToward(pp.x,pp.z,dt);
+  else{this.shotCd--;if(this.shotCd<=0){this._shoot();this.shotCd=60;}}
+};
+NPC.prototype._moveToward=function(tx,tz,dt){
+  var pos=this.mesh.position,dx=tx-pos.x,dz=tz-pos.z,d=Math.sqrt(dx*dx+dz*dz);
+  if(d>0.5){pos.x+=dx/d*this.speed;pos.z+=dz/d*this.speed;this.angleY=Math.atan2(dx,dz);this.mesh.rotation.y=this.angleY;}
+};
+NPC.prototype._shoot=function(){
+  // 玩家在车内时不受伤，子弹打在车上
+  if(G.inVehicle){
+    G.inVehicle.hp-=3;
+    if(G.inVehicle.hp<=0)G.inVehicle._explode();
+    return;
+  }
+  var dmg={pistol:12,rifle:18,shotgun:30}[this.weapon]||10;
+  G.player.takeDamage(dmg,U.pick(['head','body','lArm','rArm','lLeg','rLeg']));
+};
+
+// ===== SAVE =====
+var Save={
+  _k:'gta_yiche_saves',
+  _all:function(){try{return JSON.parse(localStorage.getItem(this._k))||[]}catch(e){return[];}},
+  save:function(slot,data){var s=this._all();s[slot]={time:Date.now(),slot:slot,wantedLevel:data.wantedLevel,playTime:data.playTime,player:data.player};localStorage.setItem(this._k,JSON.stringify(s));hint('已保存到存档'+(slot+1));},
+  load:function(slot){return this._all()[slot]||null;},
+  del:function(slot){var s=this._all();delete s[slot];localStorage.setItem(this._k,JSON.stringify(s));},
+  capture:function(p){return{wantedLevel:G.wantedLevel,playTime:G.playTime,player:{x:p.group.position.x,y:p.group.position.y,z:p.group.position.z,angleY:p.angleY,hp:p.hp,armor:p.armor,maxHp:p.maxHp,crimeScore:p.crimeScore,totalReward:p.totalReward,inventory:JSON.parse(JSON.stringify(p.inventory)),equippedIndex:p.equippedIndex,body:JSON.parse(JSON.stringify(p.body))}};},
+  apply:function(slot){
+    var d=this.load(slot);if(!d)return false;
+    var p=G.player,dp=d.player;
+    p.group.position.set(dp.x,dp.y,dp.z);p.angleY=dp.angleY;p.targetAngleY=dp.angleY;
+    p.hp=dp.hp;p.armor=dp.armor;p.maxHp=dp.maxHp;
+    p.crimeScore=dp.crimeScore;p.totalReward=dp.totalReward;
+    p.inventory=dp.inventory;p.equippedIndex=dp.equippedIndex;
+    p.body=dp.body;G.wantedLevel=d.wantedLevel;G.playTime=d.playTime;
+    p._checkWanted();updateHp();updateBody();updateWanted();updateWeaponHud();renderInv();
+    return true;
+  }
+};
+
+// ===== UI HELPERS =====
+var hintTimer=null,fbiTimer=null;
+function hint(msg){
+  var el=document.getElementById('hudHint');el.textContent=msg;el.classList.add('show');
+  if(hintTimer)clearTimeout(hintTimer);
+  hintTimer=setTimeout(function(){el.classList.remove('show');},2200);
+}
+function partName(p){return{head:'头部',body:'身体',lArm:'左前臂',rArm:'右前臂',lLeg:'左腿',rLeg:'右腿'}[p];}
+function updateHp(){
+  var p=G.player;
+  document.getElementById('hpFill').style.width=(p.hp/p.maxHp*100)+'%';
+  document.getElementById('hpText').textContent=Math.floor(p.hp)+' / '+p.maxHp;
+}
+function updateWanted(){
+  var l=G.wantedLevel;
+  document.getElementById('wantedStars').textContent='★'.repeat(l)+'☆'.repeat(10-l);
+  document.getElementById('wantedLabel').textContent=l+' 星通缉';
+  document.getElementById('rewardText').textContent=l*200+100;
+}
+function updateWeaponHud(){
+  var item=G.player.equippedItem;
+  document.getElementById('weaponName').textContent=item?item.name:'拳头';
+  document.getElementById('weaponDamage').textContent=item?item.damage:5;
+}
+function updateBody(){
+  var c=document.getElementById('bodyCanvas'),ctx=c.getContext('2d');
+  ctx.fillStyle='#0d0d0d';ctx.fillRect(0,0,160,220);
+  var b=G.player.body;
+  function db(x1,y1,x2,y2,s){
+    ctx.strokeStyle=s==='broken'?'#ff8800':s==='bleed'?'#ff4444':'#44dd44';
+    ctx.lineWidth=s==='broken'?4:3;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    if(s==='broken'){ctx.fillStyle='#ff8800';ctx.font='bold 10px sans-serif';ctx.fillText('⚡',(x1+x2)/2-5,(y1+y2)/2-8);}
+  }
+  function dd(x,y,s){ctx.fillStyle=s==='broken'?'#ff8800':s==='bleed'?'#ff4444':'#44dd44';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();}
+  dd(80,20,b.head);db(80,25,80,110,b.body);db(80,35,35,60,b.lArm);db(35,60,25,100,b.lArm);
+  db(80,35,125,60,b.rArm);db(125,60,135,100,b.rArm);
+  db(80,110,60,160,b.lLeg);db(60,160,50,200,b.lLeg);
+  db(80,110,100,160,b.rLeg);db(100,160,110,200,b.rLeg);
+  dd(80,35,b.body);dd(80,110,b.body);dd(35,60,b.lArm);dd(60,160,b.lLeg);dd(100,160,b.rLeg);
+}
+function drawAvatar(){
+  var c=document.getElementById('avatarCanvas'),ctx=c.getContext('2d');
+  ctx.fillStyle='#1a1a1a';ctx.fillRect(0,0,64,64);
+  ctx.fillStyle='#d4a76a';ctx.beginPath();ctx.arc(32,22,10,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#4a2e1a';ctx.beginPath();ctx.arc(32,20,10,Math.PI,0);ctx.fill();
+  ctx.fillStyle='#ffd83b';ctx.fillRect(20,30,24,16);
+  ctx.fillStyle='#111';ctx.fillRect(22,46,20,12);
+  ctx.fillStyle='#fff';ctx.fillRect(22,58,8,4);ctx.fillRect(34,58,8,4);
+}
+function updateBuildingUI(){
+  var b=G.inBuilding;
+  if(!b)return;
+  // 更新城市标签显示建筑内部信息
+  var cl=document.getElementById('cityLabel');
+  if(cl){
+    cl.textContent=buildingTypeName(b.type)+' · 楼层 '+(G.currentFloor+1)+'/'+b.floors;
+    cl.style.color='#ffd83b';
+  }
+  document.getElementById('buildingFloor').textContent=(G.currentFloor+1)+' / '+b.floors;
+  var itemNames=_buildingLootItems.map(function(it){return it.icon+' '+it.name;}).join(', ');
+  document.getElementById('buildingItems').textContent=itemNames||'该层没有物品';
+}
+function updateCityLabel(){
+  var pp=G.player.group.position;
+  var city='野外';
+  if(pp.x>-600&&pp.x<600&&pp.z>-600&&pp.z<600)city='A城';
+  else if(pp.x<-500&&pp.z>500)city='B城';
+  else if(pp.x>500&&pp.z<-500)city='C城';
+  var cl=document.getElementById('cityLabel');
+  if(cl){cl.textContent=city;cl.style.color='#8cf';}
+}
+function drawMinimap(){
+  var c=document.getElementById('minimapCanvas'),ctx=c.getContext('2d');
+  ctx.fillStyle='#1a2e1a';ctx.fillRect(0,0,220,220);
+  // 绘制道路
+  ctx.fillStyle='#444';
+  ctx.fillRect(108,0,4,220);ctx.fillRect(0,108,220,4);
+  ctx.fillRect(88,0,4,220);ctx.fillRect(128,0,4,220);
+  ctx.fillRect(0,88,220,4);ctx.fillRect(0,128,220,4);
+  var pp=G.player.group.position,sc=220/4000;
+  // 建筑标记
+  for(var i=0;i<G.buildings.length;i++){
+    var b=G.buildings[i];
+    if(b.destroyed)continue;
+    var bx=(b.x+2000)*sc,bz=(b.z+2000)*sc;
+    if(bx<0||bx>220||bz<0||bz>220)continue;
+    var clr='#4f4';
+    if(b.type==='shop'||b.type==='office'||b.type==='restaurant')clr='#48f';
+    else if(b.type==='factory'||b.type==='garage')clr='#888';
+    else if(b.type==='police'||b.type==='hospital'||b.type==='firestation')clr='#f44';
+    else if(b.type==='airport')clr='#ccc';
+    ctx.fillStyle=clr;ctx.fillRect(bx-1,bz-1,2,2);
+  }
+  // 玩家位置
+  ctx.fillStyle='#ff0';
+  ctx.fillRect((pp.x+2000)*sc-3,(pp.z+2000)*sc-3,6,6);
+  // 警察
+  ctx.fillStyle='#f44';
+  G.police.forEach(function(p){if(p.dead)return;var x=(p.mesh.position.x+2000)*sc,z=(p.mesh.position.z+2000)*sc;if(x>=0&&x<=220&&z>=0&&z<=220){ctx.beginPath();ctx.arc(x,z,1.5,0,Math.PI*2);ctx.fill();}});
+}
+
+// ===== 大地图系统 =====
+var bigMapState={open:false,scale:1,offsetX:0,offsetY:0,dragging:false,dragStartX:0,dragStartY:0};
+
+function openBigMap(){
+  bigMapState.open=true;bigMapState.scale=1;bigMapState.offsetX=0;bigMapState.offsetY=0;
+  document.getElementById('bigMap').classList.remove('hidden');
+  document.getElementById('inventory').classList.add('hidden');
+  G.paused=true;
+  drawBigMap();
+}
+function closeBigMap(){
+  bigMapState.open=false;
+  document.getElementById('bigMap').classList.add('hidden');
+  G.paused=false;
+}
+function drawBigMap(){
+  var canvas=document.getElementById('bigMapCanvas');
+  var container=document.getElementById('bigMapContainer');
+  // 自适应大小
+  var cw=Math.min(window.innerWidth*0.9-32,800);
+  var ch=Math.min(window.innerHeight*0.7-80,600);
+  canvas.width=cw;canvas.height=ch;
+  var ctx=canvas.getContext('2d');
+  var sc=(cw/4000)*bigMapState.scale;
+  var ox=bigMapState.offsetX,oy=bigMapState.offsetY;
+
+  ctx.fillStyle='#3a5a2a';ctx.fillRect(0,0,cw,ch);
+
+  // 网格
+  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=0.5;
+  for(var gx=-2000;gx<=2000;gx+=200){
+    var sx=(gx+2000)*sc+ox;ctx.beginPath();ctx.moveTo(sx,0);ctx.lineTo(sx,ch);ctx.stroke();
+  }
+  for(var gz=-2000;gz<=2000;gz+=200){
+    var sz=(gz+2000)*sc+oy;ctx.beginPath();ctx.moveTo(0,sz);ctx.lineTo(cw,sz);ctx.stroke();
+  }
+
+  // 道路
+  ctx.fillStyle='rgba(80,80,80,.7)';
+  for(var r=-2;r<=2;r++){
+    var rx=(r*600+2000)*sc+ox,rz=(0+2000)*sc+oy;
+    ctx.fillRect(rx-15*sc,0,30*sc,ch);
+    ctx.fillRect(0,rz-15*sc,cw,30*sc);
+  }
+
+  // 城市区域
+  ctx.fillStyle='rgba(100,150,200,.15)';ctx.strokeStyle='rgba(100,150,200,.4)';ctx.lineWidth=2;
+  // A城
+  ctx.fillRect((-600+2000)*sc+ox,(-600+2000)*sc+oy,1200*sc,1200*sc);
+  ctx.strokeRect((-600+2000)*sc+ox,(-600+2000)*sc+oy,1200*sc,1200*sc);
+  // B城
+  ctx.fillStyle='rgba(150,120,100,.15)';ctx.strokeStyle='rgba(150,120,100,.4)';
+  ctx.fillRect((-1200+2000)*sc+ox,(600+2000)*sc+oy,600*sc,600*sc);
+  ctx.strokeRect((-1200+2000)*sc+ox,(600+2000)*sc+oy,600*sc,600*sc);
+  // C城
+  ctx.fillStyle='rgba(100,150,200,.15)';ctx.strokeStyle='rgba(100,150,200,.4)';
+  ctx.fillRect((600+2000)*sc+ox,(-1200+2000)*sc+oy,600*sc,600*sc);
+  ctx.strokeRect((600+2000)*sc+ox,(-1200+2000)*sc+oy,600*sc,600*sc);
+
+  // 城市标签
+  ctx.fillStyle='#fff';ctx.font='bold '+(14*bigMapState.scale)+'px sans-serif';
+  ctx.fillText('A城',(0+2000)*sc+ox-15,(0+2000)*sc+oy-5);
+  ctx.fillText('B城',(-900+2000)*sc+ox-15,(900+2000)*sc+oy-5);
+  ctx.fillText('C城',(900+2000)*sc+ox-15,(-900+2000)*sc+oy-5);
+
+  // 建筑
+  for(var i=0;i<G.buildings.length;i++){
+    var b=G.buildings[i];
+    if(b.destroyed)continue;
+    var bx=(b.x+2000)*sc+ox,bz=(b.z+2000)*sc+oy;
+    if(bx<-10||bx>cw+10||bz<-10||bz>ch+10)continue;
+    var clr,sz=Math.max(3,Math.min(8,b.w*sc*0.5));
+    if(b.type==='house'||b.type==='apt')clr='#4f4';
+    else if(b.type==='shop'||b.type==='restaurant'||b.type==='office'||b.type==='bank')clr='#48f';
+    else if(b.type==='factory'||b.type==='garage')clr='#888';
+    else if(b.type==='police')clr='#44f';
+    else if(b.type==='hospital')clr='#f44';
+    else if(b.type==='firestation')clr='#f84';
+    else if(b.type==='school')clr='#ff4';
+    else if(b.type==='airport'){clr='#ccc';sz=Math.max(8,30*sc);}
+    else if(b.type==='church')clr='#da4';
+    else if(b.type==='gas')clr='#e84';
+    else if(b.type==='motel')clr='#c94';
+    else if(b.type==='park')clr='#2a2';
+    else clr='#aaa';
+    ctx.fillStyle=clr;
+    ctx.fillRect(bx-sz/2,bz-sz/2,sz,sz);
+    // 大建筑标签
+    if((b.type==='airport'||b.type==='police'||b.type==='hospital'||b.type==='garage'||b.type==='bank')&&bigMapState.scale>0.8){
+      ctx.fillStyle='#fff';ctx.font=(10*bigMapState.scale)+'px sans-serif';
+      ctx.fillText(buildingTypeName(b.type),bx-10,bz-sz/2-2);
+    }
+  }
+
+  // 玩家位置
+  var pp=G.player.group.position;
+  var px=(pp.x+2000)*sc+ox,pz=(pp.z+2000)*sc+oy;
+  ctx.fillStyle='#ff0';ctx.beginPath();ctx.arc(px,pz,5,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.stroke();
+  // 方向指示
+  ctx.strokeStyle='#ff0';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(px,pz);ctx.lineTo(px+Math.sin(G.player.angleY)*12,pz+Math.cos(G.player.angleY)*12);ctx.stroke();
+
+  // 图例
+  ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(cw-110,ch-60,105,55);
+  ctx.fillStyle='#fff';ctx.font='10px sans-serif';
+  ctx.fillText('住宅区 ■',cw-105,ch-45);
+  ctx.fillText('商业区 ■',cw-105,ch-30);
+  ctx.fillText('警局 ■ 医院 ■',cw-105,ch-15);
+  ctx.fillStyle='#4f4';ctx.fillRect(cw-18,ch-53,6,6);
+  ctx.fillStyle='#48f';ctx.fillRect(cw-18,ch-38,6,6);
+  ctx.fillStyle='#44f';ctx.fillRect(cw-18,ch-23,6,6);
+  ctx.fillStyle='#f44';ctx.fillRect(cw-5,ch-23,6,6);
+}
+function renderInv(){
+  var grid=document.getElementById('invGrid');grid.innerHTML='';
+  G.player.inventory.forEach(function(item,i){
+    var cell=document.createElement('div');
+    cell.className='inv-cell'+(i===G.player.equippedIndex?' selected':'');
+    cell.innerHTML='<span>'+item.icon+'</span>'+(item.count>1?'<span class="count">'+item.count+'</span>':'');
+    cell.onclick=(function(idx){return function(){selectInv(idx);};})(i);
+    grid.appendChild(cell);
+  });
+  updateInvDetail();
+}
+function selectInv(i){G.player.equippedIndex=i;G.player.equip(G.player.inventory[i]);renderInv();}
+function updateInvDetail(){
+  var item=G.player.inventory[G.player.equippedIndex],det=document.getElementById('invDetail');
+  if(!item){det.innerHTML='<p>背包空了</p>';return;}
+  var h='<h4>'+item.icon+' '+item.name+'</h4><p class="desc">';
+  if(item.type==='melee')h+='近战 | 伤害'+item.damage;
+  if(item.type==='food')h+='食物 | 恢复'+item.heal+' HP';
+  if(item.type==='throwable')h+='投掷 | 伤害'+item.damage+' | 范围'+item.range;
+  h+='</p><div class="actions">';
+  if(item.type==='food')h+='<button onclick="useFood()">使用</button>';
+  h+='<button onclick="dropItem()">丢弃</button>';
+  h+='</div>';det.innerHTML=h;
+}
+function useFood(){
+  var item=G.player.inventory[G.player.equippedIndex];
+  if(item.type!=='food')return;
+  G.player.heal(item.heal);item.count--;
+  if(item.count<=0){G.player.inventory.splice(G.player.equippedIndex,1);if(G.player.equippedIndex>=G.player.inventory.length)G.player.equippedIndex=0;if(G.player.inventory.length>0)G.player.equip(G.player.inventory[G.player.equippedIndex]);}
+  renderInv();hint('吃了'+item.name+' +'+item.heal+' HP');
+}
+function dropItem(){
+  var idx=G.player.equippedIndex,item=G.player.inventory[idx];
+  if(!item||item.id==='fist')return;
+  G.player.inventory.splice(idx,1);
+  if(G.player.equippedIndex>=G.player.inventory.length)G.player.equippedIndex=0;
+  if(G.player.inventory.length>0)G.player.equip(G.player.inventory[G.player.equippedIndex]);
+  renderInv();hint('已丢弃');
+}
+function pickUpNearestBody(){
+  var pp=G.player.group.position;
+  var all=[].concat(G.police,G.civilians);
+  var closest=null,closestDist=9; // 3单位范围
+  for(var i=0;i<all.length;i++){
+    var n=all[i];
+    if(!n.dead||n===G.carryingBody)continue;
+    var d=U.dist2(pp,n.mesh.position);
+    if(d<closestDist){closestDist=d;closest=n;}
+  }
+  if(closest){closest.pickUp();}
+  else{hint('附近没有可拾取的尸体');}
+}
+function checkEnterBuilding(){
+  var pp=G.player.group.position;
+  for(var i=0;i<G.buildings.length;i++){
+    var b=G.buildings[i];
+    if(b.destroyed)continue;
+    // 检查是否靠近建筑的门
+    var doorX=b.x,doorZ=b.z+b.d/2+0.5;
+    var dx=pp.x-doorX,dz=pp.z-doorZ;
+    if(dx*dx+dz*dz<9){
+      enterBuilding(b);
+      return;
+    }
+  }
+}
+function enterBuilding(b){
+  G.inBuilding=b;
+  G.currentFloor=0;
+  G.player.group.visible=false;
+  hint('进入 '+buildingTypeName(b.type)+' | 按F离开 | 按Q/0切换楼层');
+  // 显示建筑HUD
+  var hud=document.getElementById('buildingHUD');
+  if(hud)hud.classList.remove('hidden');
+  document.getElementById('buildingName').textContent=buildingTypeName(b.type);
+  document.getElementById('buildingFloor').textContent='1 / '+b.floors;
+  // 在建筑内生成可拾取物品
+  spawnBuildingLoot(b);
+}
+function exitBuilding(){
+  if(!G.inBuilding)return;
+  G.player.group.visible=true;
+  var pp=G.player.group.position;
+  var b=G.inBuilding;
+  pp.x=b.x;pp.z=b.z+b.d/2+2;
+  G.inBuilding=null;
+  G.currentFloor=0;
+  // 清除建筑内物品
+  clearBuildingLoot();
+  // 隐藏建筑HUD
+  var hud=document.getElementById('buildingHUD');
+  if(hud)hud.classList.add('hidden');
+  // 恢复城市标签
+  updateCityLabel();
+  hint('已离开建筑');
+}
+function buildingTypeName(t){
+  return {house:'民房',apt:'公寓',shop:'商店',garage:'修车店',airport:'机场',pentagon:'五角大楼',
+    hospital:'医院',police:'警局',bank:'银行',restaurant:'餐厅',office:'办公楼',factory:'工厂',
+    school:'学校',firestation:'消防局',gas:'加油站',motel:'汽车旅馆',church:'教堂',park:'公园'}[t]||'建筑';
+}
+var _buildingLootItems=[];
+function spawnBuildingLoot(b){
+  clearBuildingLoot();
+  var floor=G.currentFloor;
+  var types=['food','weapon','material'];
+  // 不同楼层不同物品
+  var lootTable={
+    0:[{id:'apple',name:'苹果',type:'food',heal:10,icon:'🍎',count:1},{id:'knife',name:'小刀',damage:18,type:'melee',icon:'🔪',count:1},{id:'bandage',name:'绷带',type:'food',heal:25,icon:'🩹',count:1}],
+    1:[{id:'pistol',name:'手枪',damage:25,type:'melee',icon:'🔫',count:1},{id:'medkit',name:'医疗包',type:'food',heal:50,icon:'🏥',count:1},{id:'ammo',name:'弹药箱',damage:0,type:'material',icon:'📦',count:5}],
+    2:[{id:'rifle',name:'步枪',damage:45,type:'melee',icon:'🎯',count:1},{id:'grenade',name:'手雷',damage:80,range:12,type:'throwable',icon:'💣',count:2},{id:'armor',name:'防弹衣',type:'food',heal:40,icon:'🛡️',count:1}],
+    3:[{id:'shotgun',name:'霰弹枪',damage:60,type:'melee',icon:'💥',count:1},{id:'grenade',name:'手雷',damage:80,range:12,type:'throwable',icon:'💣',count:3},{id:'medkit',name:'大医疗包',type:'food',heal:80,icon:'🏥',count:1}]
+  };
+  var available=lootTable[Math.min(floor,3)]||lootTable[0];
+  var count=U.randInt(1,Math.min(3,available.length));
+  for(var i=0;i<count;i++){
+    var item=JSON.parse(JSON.stringify(U.pick(available)));
+    item._buildingLoot=true;
+    _buildingLootItems.push(item);
+  }
+  if(_buildingLootItems.length>0){
+    var names=_buildingLootItems.map(function(it){return it.icon+' '+it.name;}).join(', ');
+    hint('楼层 '+floor+' 发现: '+names+' | 按R拾取全部');
+  }
+}
+function clearBuildingLoot(){
+  _buildingLootItems=[];
+}
+function pickUpBuildingLoot(){
+  if(!G.inBuilding||_buildingLootItems.length===0)return;
+  for(var i=0;i<_buildingLootItems.length;i++){
+    var item=_buildingLootItems[i];
+    // 检查背包是否有同类物品可堆叠
+    var stacked=false;
+    for(var j=0;j<G.player.inventory.length;j++){
+      if(G.player.inventory[j].id===item.id&&G.player.inventory[j].type!=='melee'){
+        G.player.inventory[j].count+=item.count||1;
+        stacked=true;break;
+      }
+    }
+    if(!stacked){
+      G.player.inventory.push(item);
+    }
+  }
+  hint('拾取了 '+_buildingLootItems.length+' 件物品');
+  _buildingLootItems=[];
+  renderInv();
+}
+function spawnPolice(lvl){
+  G.police.forEach(function(p){if(p.mesh)G.scene.remove(p.mesh);});G.police=[];
+  if(lvl===0)return;
+  var cfg={1:{n:2,t:'cop',w:'pistol',hp:50},2:{n:4,t:'cop',w:'pistol',hp:50},3:{n:6,t:'cop',w:'pistol',hp:60},4:{n:8,t:'cop',w:'pistol',hp:60},5:{n:10,t:'swat',w:'rifle',hp:100},6:{n:12,t:'swat',w:'rifle',hp:120},7:{n:16,t:'swat',w:'rifle',hp:140},8:{n:20,t:'swat',w:'shotgun',hp:160},9:{n:25,t:'swat',w:'shotgun',hp:180},10:{n:30,t:'swat',w:'shotgun',hp:200}}[lvl];
+  var pp=G.player.group.position;
+  for(var i=0;i<cfg.n;i++){
+    var a=i/cfg.n*Math.PI*2,r=60,x=pp.x+Math.cos(a)*r,z=pp.z+Math.sin(a)*r;
+    G.police.push(new NPC(x,z,cfg.t,cfg.w,cfg.hp));
+  }
+  hint('通缉等级 '+lvl+' 星! '+cfg.n+' 名'+(cfg.t==='swat'?'特警':'警察')+'赶来!');
+}
+
+// ===== SCREEN SWITCH =====
+function showScreen(id){
+  var screens=document.querySelectorAll('.screen');
+  for(var i=0;i<screens.length;i++)screens[i].classList.remove('active');
+  document.getElementById(id).classList.add('active');
+}
+
+// ===== SCENE INIT =====
+function initScene(){
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x88aaff);
+  scene.fog=new THREE.Fog(0x88aaff,200,1500);
+  camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,3000);
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('gameCanvas'),antialias:false});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  scene.add(new THREE.AmbientLight(0xffffff,0.6));
+  var sun=new THREE.DirectionalLight(0xffffff,0.8);sun.position.set(100,200,50);scene.add(sun);
+  clock=new THREE.Clock();
+  G.scene=scene;G.camera=camera;G.renderer=renderer;G.clock=clock;
+}
+
+function startNewGame(){
+  showScreen('gameContainer');
+  G.paused=false;G.dead=false;
+  G.startTime=performance.now();G.playTime=0;G.wantedLevel=0;
+  G.inBuilding=null;G.currentFloor=0;
+  if(G.carryingBody){G.carryingBody.dropBody();}
+  clearBuildingLoot();
+  var hud=document.getElementById('buildingHUD');
+  if(hud)hud.classList.add('hidden');
+  G.police.forEach(function(p){if(p.mesh)scene.remove(p.mesh);});G.police=[];
+  var p=G.player;
+  p.group.position.set(0,0,0);p.hp=100;p.armor=0;p.maxHp=100;
+  p.crimeScore=0;p.totalReward=0;
+  p.body={head:'ok',body:'ok',lArm:'ok',rArm:'ok',lLeg:'ok',rLeg:'ok'};
+  p.inventory=[{id:'fist',name:'拳头',damage:5,type:'melee',icon:'👊',count:1,equipped:true},{id:'apple',name:'苹果',type:'food',heal:10,icon:'🍎',count:2},{id:'grenade',name:'手雷',damage:80,range:12,type:'throwable',icon:'💣',count:3},{id:'medkit',name:'医疗包',type:'food',heal:50,icon:'🏥',count:1}];
+  p.equippedIndex=0;p.equip(p.inventory[0]);
+  updateHp();updateBody();updateWanted();updateWeaponHud();renderInv();
+  hint('欢迎来到 GTA! WASD移动, 左键攻击, E背包, F上车');
+}
+
+function loadGame(slot){
+  showScreen('gameContainer');
+  G.paused=false;G.dead=false;G.startTime=performance.now();
+  Save.apply(slot);hint('载入存档成功');
+}
+
+function doResume(){G.paused=false;document.getElementById('pauseMenu').classList.add('hidden');}
+
+function saveAndQuit(){
+  Save.save(0,Save.capture(G.player));
+  G.paused=true;document.getElementById('pauseMenu').classList.add('hidden');
+  showScreen('mainMenu');loadSavesUI();
+}
+
+function loadSavesUI(){
+  var grid=document.getElementById('saveSlots');grid.innerHTML='';
+  var saves=Save._all();
+  for(var i=0;i<5;i++){
+    var s=saves[i],div=document.createElement('div');
+    div.className='save-slot'+(s?'':' empty');
+    if(s){
+      div.innerHTML='<div class="slot-info"><b>存档 '+(i+1)+'</b><div class="slot-meta">'+U.fmtDate(s.time)+' · 通缉 '+s.wantedLevel+'星</div><div class="slot-meta">HP '+Math.floor(s.player.hp)+' · 已玩 '+Math.floor(s.playTime/60)+'分</div></div><div><button class="load-btn">读取</button><button class="del-btn">删除</button></div>';
+      (function(slot){div.querySelector('.load-btn').onclick=function(e){e.stopPropagation();loadGame(slot);};})(i);
+      (function(slot){div.querySelector('.del-btn').onclick=function(e){e.stopPropagation();Save.del(slot);loadSavesUI();};})(i);
+    }else{div.innerHTML='<div class="slot-info"><b>存档 '+(i+1)+'</b> (空)</div>';}
+    grid.appendChild(div);
+  }
+}
+
+// ===== INPUT =====
+function bindInput(){
+  window.addEventListener('keydown',function(e){
+    G.keys[e.code]=true;
+    if(e.code==='Escape'){
+      if(!G.paused&&!G.dead){G.paused=true;document.getElementById('pauseMenu').classList.remove('hidden');}
+      else if(!G.dead)doResume();
+    }
+    if(e.code==='KeyE'&&!G.paused&&!G.dead){
+      var inv=document.getElementById('inventory');
+      if(inv.classList.contains('hidden')){inv.classList.remove('hidden');renderInv();}
+      else inv.classList.add('hidden');
+    }
+    if(e.code==='KeyF'&&!G.paused&&!G.dead){
+      if(G.inVehicle){G.inVehicle.exit();}
+      else if(G.inBuilding){exitBuilding();}
+      else{
+        var entered=false;
+        for(var i=0;i<G.vehicles.length;i++){
+          var v=G.vehicles[i];
+          if(U.dist2(G.player.group.position,v.group.position)<36){
+            if(v.type==='plane'&&!v.doorOpen){
+              // 先打开舱门
+              v.toggleDoor();
+              entered=true;break;
+            }
+            v.enter(G.player);entered=true;break;
+          }
+        }
+        if(!entered){
+          // 检查是否靠近飞机已打开舱门但还没进入
+          for(var j=0;j<G.vehicles.length;j++){
+            var v2=G.vehicles[j];
+            if(v2.type==='plane'&&v2.doorOpen&&!v2.occupant&&U.dist2(G.player.group.position,v2.group.position)<36){
+              v2.enter(G.player);entered=true;break;
+            }
+          }
+        }
+        if(!entered){
+          // 检查是否靠近飞机要关闭舱门
+          for(var k=0;k<G.vehicles.length;k++){
+            var v3=G.vehicles[k];
+            if(v3.type==='plane'&&v3.doorOpen&&!v3.occupant&&U.dist2(G.player.group.position,v3.group.position)<25){
+              v3.toggleDoor();entered=true;break;
+            }
+          }
+        }
+        if(!entered){
+          // 检查是否靠近建筑门，进入建筑
+          checkEnterBuilding();
+        }
+      }
+    }
+    if(e.code==='KeyG'&&!G.paused&&!G.dead){
+      if(G.carryingBody){
+        // 放下尸体
+        G.carryingBody.dropBody();
+      }else{
+        // 尝试拾取最近的尸体
+        pickUpNearestBody();
+      }
+    }
+    if(e.code==='KeyR'&&!G.paused&&!G.dead&&G.inBuilding){
+      pickUpBuildingLoot();
+    }
+    if(e.code==='KeyQ'&&!G.paused&&!G.dead&&G.inBuilding){
+      // 下楼
+      if(G.currentFloor>0){G.currentFloor--;spawnBuildingLoot(G.inBuilding);hint('下到楼层 '+G.currentFloor);}
+    }
+    if(e.code==='Digit0'&&!G.paused&&!G.dead&&G.inBuilding){
+      // 上楼 (用0键因为方便)
+      var maxFloor=G.inBuilding.floors-1;
+      if(G.currentFloor<maxFloor){G.currentFloor++;spawnBuildingLoot(G.inBuilding);hint('上到楼层 '+G.currentFloor);}
+    }
+    if(e.code.startsWith('Digit')&&!G.paused&&!G.dead){
+      var idx=parseInt(e.code.charAt(5))-1;
+      if(G.player.inventory[idx]){G.player.equippedIndex=idx;G.player.equip(G.player.inventory[idx]);renderInv();updateWeaponHud();}
+    }
+  });
+  window.addEventListener('keyup',function(e){G.keys[e.code]=false;});
+  var cv=document.getElementById('gameCanvas');
+  var mouseLocked=false;
+  cv.addEventListener('mousedown',function(e){
+    if(e.button===0){
+      if(!mouseLocked){
+        // 第一次点击：锁定鼠标指针
+        cv.requestPointerLock();
+        mouseLocked=true;
+        document.getElementById('lockHint').classList.add('hidden');
+        document.getElementById('crosshair').classList.add('locked');
+        hint('光标已锁定! 移动鼠标瞄准, 再次左键攻击');
+        return;
+      }
+      G.mouse.down=true;
+      if(!G.dead&&!G.paused)Weapons.attack();
+    }
+  });
+  cv.addEventListener('mouseup',function(e){if(e.button===0)G.mouse.down=false;});
+  cv.addEventListener('mousemove',function(e){
+    if(!mouseLocked)return;
+    // 使用 movementX/Y 来控制角色朝向（指针锁定模式）
+    G.player.targetAngleY+=e.movementX*0.004;
+    G.player._mouseTargetAngle=G.player.targetAngleY;
+    // 准星也微调位置
+    var ch=document.getElementById('crosshair');
+    var ox=(e.movementX*0.5),oy=(e.movementY*0.5);
+    var curX=parseFloat(ch.style.marginLeft)||0,curY=parseFloat(ch.style.marginTop)||0;
+    curX+=ox;curY+=oy;
+    curX=U.clamp(curX,-100,100);curY=U.clamp(curY,-100,100);
+    ch.style.marginLeft=curX+'px';
+    ch.style.marginTop=curY+'px';
+  });
+  // ESC 或点击右键解除锁定
+  cv.addEventListener('contextmenu',function(e){e.preventDefault();});
+  document.addEventListener('pointerlockchange',function(){
+    if(document.pointerLockElement!==cv&&mouseLocked){
+      mouseLocked=false;
+      document.getElementById('lockHint').classList.remove('hidden');
+      document.getElementById('crosshair').classList.remove('locked');
+      document.getElementById('crosshair').style.marginLeft='0';
+      document.getElementById('crosshair').style.marginTop='0';
+    }
+  });
+  cv.addEventListener('wheel',function(e){
+    e.preventDefault();
+    if(G.player.inventory.length>1){
+      G.player.equippedIndex=(G.player.equippedIndex+(e.deltaY>0?1:-1)+G.player.inventory.length)%G.player.inventory.length;
+      G.player.equip(G.player.inventory[G.player.equippedIndex]);renderInv();updateWeaponHud();
+    }
+  },{passive:false});
+  window.addEventListener('resize',function(){
+    camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  });
+  // 小地图点击放大
+  document.getElementById('minimap').addEventListener('click',function(e){
+    if(G.paused&&!bigMapState.open)return;
+    if(bigMapState.open){closeBigMap();return;}
+    openBigMap();
+  });
+  // 关闭大地图按钮
+  document.getElementById('closeBigMap').addEventListener('click',closeBigMap);
+  // 大地图拖拽和缩放
+  var bmc=document.getElementById('bigMapContainer');
+  bmc.addEventListener('mousedown',function(e){
+    bigMapState.dragging=true;
+    bigMapState.dragStartX=e.clientX-bigMapState.offsetX;
+    bigMapState.dragStartY=e.clientY-bigMapState.offsetY;
+    bmc.style.cursor='grabbing';
+  });
+  window.addEventListener('mousemove',function(e){
+    if(!bigMapState.dragging||!bigMapState.open)return;
+    bigMapState.offsetX=e.clientX-bigMapState.dragStartX;
+    bigMapState.offsetY=e.clientY-bigMapState.dragStartY;
+    drawBigMap();
+  });
+  window.addEventListener('mouseup',function(){
+    bigMapState.dragging=false;
+    if(bmc)bmc.style.cursor='grab';
+  });
+  bmc.addEventListener('wheel',function(e){
+    if(!bigMapState.open)return;
+    e.preventDefault();
+    var delta=e.deltaY>0?0.9:1.1;
+    bigMapState.scale=U.clamp(bigMapState.scale*delta,0.5,4);
+    drawBigMap();
+  });
+  // ESC关闭大地图
+  document.addEventListener('keydown',function(e){
+    if(e.code==='Escape'&&bigMapState.open){closeBigMap();}
+  });
+}
+
+// ===== MAIN LOOP =====
+function loop(){
+  requestAnimationFrame(loop);
+  if(G.paused||G.dead){if(renderer&&scene&&camera)renderer.render(scene,camera);return;}
+  var dt=clock.getDelta();G.playTime+=dt;
+  if(G.inVehicle)G.inVehicle.update(dt);
+  else if(G.inBuilding){
+    // 建筑内部：不更新玩家移动，只更新UI
+    if(G.player)updateBuildingUI();
+  }
+  else if(G.player)G.player.update(dt);
+  for(var i=0;i<G.police.length;i++)G.police[i].update(dt);
+  for(var j=0;j<G.civilians.length;j++)G.civilians[j].update(dt);
+  Weapons.updateProjectiles();
+  drawMinimap();
+  renderer.render(scene,camera);
+}
+
+// ===== BOOT =====
+window.addEventListener('DOMContentLoaded',function(){
+  try{
+    initScene();
+    G.world=new World(scene);
+    G.player=new Player(scene,camera);
+    // 载具
+    [{x:100,z:50,t:'car'},{x:-150,z:80,t:'car'},{x:0,z:200,t:'car'},{x:-250,z:-250,t:'car'},{x:400,z:-150,t:'car'},{x:1000,z:1100,t:'plane'},{x:-1000,z:1000,t:'plane'}].forEach(function(c){G.vehicles.push(new Vehicle(scene,c.x,c.z,c.t));});
+    // 平民
+    for(var i=0;i<30;i++)G.civilians.push(new NPC(U.rand(-800,800),U.rand(-800,800),'civilian',null,30));
+    // UI
+    drawAvatar();updateBody();updateHp();updateWanted();updateWeaponHud();
+    // 按钮
+    document.getElementById('btnNewGame').onclick=startNewGame;
+    document.getElementById('btnLoadGame').onclick=function(){loadSavesUI();showScreen('saveMenu');};
+    document.getElementById('btnHelp').onclick=function(){showScreen('helpMenu');};
+    document.getElementById('btnBackFromSaves').onclick=function(){showScreen('mainMenu');};
+    document.getElementById('btnBackFromHelp').onclick=function(){showScreen('mainMenu');};
+    document.getElementById('btnResume').onclick=doResume;
+    document.getElementById('btnSaveQuit').onclick=saveAndQuit;
+    document.getElementById('closeInv').onclick=function(){document.getElementById('inventory').classList.add('hidden');};
+    document.getElementById('btnDeathBack').onclick=function(){G.dead=false;document.getElementById('deathScreen').classList.add('hidden');showScreen('mainMenu');};
+    bindInput();
+    loop();
+    loadSavesUI();
+  }catch(e){
+    alert('游戏初始化失败: '+e.message);
+    console.error(e);
+  }
+});
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>宠物模拟器 v2.3</title>
+<style>
+/* ============ 全局样式 ============ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--accent:#e94560;
+  --gold:#ffd700;--green:#4caf84;--blue:#5dade2;--purple:#a569bd;
+  --text:#e0e0e0;--text2:#aaa;--card:#1e2746;--border:#2a3a5c;
+  --danger:#e74c3c;--warn:#f39c12;--heal:#2ecc71;
+}
+body{
+  font-family:'Segoe UI',system-ui,sans-serif;
+  background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse at 50% 0%,#1a2744 0%,var(--bg) 70%);
+}
+
+/* ============ 布局 ============ */
+.app{max-width:900px;margin:0 auto;padding:10px 15px}
+header{
+  text-align:center;padding:15px 0;
+  background:linear-gradient(135deg,var(--bg3),var(--bg2));
+  border-radius:0 0 20px 20px;margin-bottom:15px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3);
+}
+header h1{
+  font-size:1.8em;background:linear-gradient(90deg,var(--gold),#ff6b6b,var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.gold-display{
+  display:inline-flex;align-items:center;gap:5px;
+  background:rgba(255,215,0,0.1);padding:5px 14px;
+  border-radius:20px;font-weight:bold;color:var(--gold);
+  font-size:0.95em;
+}
+
+/* ============ 导航 ============ */
+nav{
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+  margin-bottom:15px;
+}
+nav button{
+  padding:8px 18px;border:none;border-radius:20px;
+  background:var(--card);color:var(--text);
+  cursor:pointer;font-size:0.9em;transition:all 0.2s;
+  border:1px solid var(--border);
+}
+nav button:hover{background:var(--bg3);border-color:var(--accent)}
+nav button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ============ 视图容器 ============ */
+.view{display:none}
+.view.active{display:block}
+
+/* ============ 卡片 ============ */
+.card{
+  background:var(--card);border-radius:16px;
+  padding:20px;margin-bottom:15px;
+  border:1px solid var(--border);
+  box-shadow:0 2px 12px rgba(0,0,0,0.2);
+}
+.card h2{font-size:1.2em;margin-bottom:12px;color:var(--accent)}
+.card h3{font-size:1em;margin-bottom:8px;color:var(--text)}
+
+/* ============ 宠物选择 ============ */
+.pet-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:12px;
+}
+.pet-card{
+  background:var(--bg2);border-radius:14px;padding:15px;
+  text-align:center;cursor:pointer;transition:all 0.25s;
+  border:2px solid transparent;
+}
+.pet-card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 8px 25px rgba(233,68,96,0.2)}
+.pet-card.selected{border-color:var(--gold);box-shadow:0 0 20px rgba(255,215,0,0.3)}
+.pet-card .pet-name{font-weight:bold;margin-top:8px;font-size:0.95em}
+.pet-card .pet-desc{font-size:0.75em;color:var(--text2);margin-top:3px}
+
+/* ============ 宠物CSS形象核心 ============ */
+.pet-avatar{
+  position:relative;width:120px;height:120px;margin:0 auto;
+  display:block;
+}
+/* 写实风格图片 */
+.pet-avatar.has-image{background:transparent}
+.pet-avatar.has-image .pet-image{
+  width:100%;height:100%;object-fit:cover;border-radius:12px;
+  display:block;position:absolute;top:0;left:0;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+/* 不同进化阶段的外框装饰 */
+.pet-avatar.has-image.evo-baby .pet-image{border:2px solid rgba(255,255,255,0.3)}
+.pet-avatar.has-image.evo-adult .pet-image{
+  border:2px solid rgba(92,184,92,0.7);
+  box-shadow:0 4px 20px rgba(92,184,92,0.4);
+}
+.pet-avatar.has-image.evo-king .pet-image{
+  border:3px solid rgba(255,215,0,0.9);
+  box-shadow:0 4px 24px rgba(255,215,0,0.5);
+}
+/* 身体基础 */
+.pet-body{
+  position:absolute;width:66px;height:50px;border-radius:50%;
+  left:50%;bottom:30px;transform:translateX(-50%);
+  z-index:1;
+}
+/* 头部 */
+.pet-head{
+  position:absolute;width:50px;height:44px;border-radius:50%;
+  left:50%;bottom:65px;transform:translateX(-50%);
+  z-index:3;
+}
+/* 眼睛组 */
+.pet-eyes{
+  position:absolute;width:38px;height:12px;
+  left:50%;bottom:80px;transform:translateX(-50%);
+  display:flex;justify-content:space-between;align-items:center;
+  z-index:5;
+}
+.pet-eye{
+  width:8px;height:10px;background:#222;border-radius:50%;
+  transition:all 0.3s ease;
+}
+.pet-eye::after{
+  content:'';display:block;width:3px;height:3px;background:#fff;
+  border-radius:50%;margin:1px 0 0 1px;
+}
+/* 耳朵 */
+.pet-ear{position:absolute;z-index:4;transition:all 0.3s ease}
+/* 嘴巴 */
+.pet-mouth{position:absolute;z-index:5;transition:all 0.3s ease}
+/* 尾巴 */
+.pet-tail{position:absolute;z-index:0;transition:all 0.3s ease}
+/* 腿 */
+.pet-legs{
+  position:absolute;width:60px;height:20px;
+  left:50%;bottom:12px;transform:translateX(-50%);
+  display:flex;justify-content:space-between;align-items:flex-start;
+  z-index:2;
+}
+.pet-leg{width:10px;height:20px;border-radius:50% 50% 40% 40%;transition:all 0.3s ease}
+/* 粒子层 */
+.particles{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10}
+
+/* === 共享：三角形耳朵基础（猫/狐狸/龙） === */
+.pet-ear-triangle{
+  width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+  border-bottom:14px solid currentColor;
+}
+.pet-ear-triangle::after{
+  content:'';position:absolute;top:4px;left:-4px;
+  width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+  border-bottom:7px solid #fff;
+}
+
+/* === 猫咪 === */
+.pet-cat .pet-body{background:#ffb347}
+.pet-cat .pet-head{background:#ffb347}
+.pet-cat .pet-ear{
+  width:0;height:0;
+  border-left:10px solid transparent;border-right:10px solid transparent;
+  border-bottom:18px solid #ffb347;
+  top:22px;
+}
+.pet-cat .pet-ear.left{left:22px;transform:rotate(-15deg)}
+.pet-cat .pet-ear.right{left:78px;transform:rotate(15deg)}
+.pet-cat .pet-ear::after{
+  content:'';position:absolute;top:5px;left:-6px;
+  width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-bottom:10px solid #ffcc80;
+}
+.pet-cat .pet-mouth{
+  width:8px;height:4px;border-bottom:2px solid #c0392b;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-cat .pet-tail{
+  width:26px;height:6px;background:#ffb347;border-radius:10px;
+  right:8px;top:70px;transform:rotate(-30deg);transform-origin:left center;
+}
+.pet-cat .pet-leg{background:#ffb347}
+
+/* === 小狗 === */
+.pet-dog .pet-body{background:#c8956c}
+.pet-dog .pet-head{background:#c8956c}
+.pet-dog .pet-ear{
+  width:13px;height:20px;background:#8b5e3c;border-radius:50% 50% 40% 50%;
+  top:26px;
+}
+.pet-dog .pet-ear.left{left:22px;transform:rotate(-15deg)}
+.pet-dog .pet-ear.right{left:78px;transform:rotate(15deg)}
+.pet-dog .pet-mouth{
+  width:10px;height:5px;border-bottom:2px solid #5d2906;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-dog .pet-tail{
+  width:24px;height:6px;background:#c8956c;border-radius:10px;
+  right:10px;top:65px;transform:rotate(30deg);transform-origin:left center;
+}
+.pet-dog .pet-leg{background:#c8956c}
+
+/* === 狐狸 === */
+.pet-fox .pet-body{background:#e87532}
+.pet-fox .pet-head{background:#e87532}
+.pet-fox .pet-ear{
+  width:0;height:0;
+  border-left:9px solid transparent;border-right:9px solid transparent;
+  border-bottom:20px solid #e87532;
+  top:22px;
+}
+.pet-fox .pet-ear.left{left:22px;transform:rotate(-20deg)}
+.pet-fox .pet-ear.right{left:78px;transform:rotate(20deg)}
+.pet-fox .pet-ear::after{
+  content:'';position:absolute;top:6px;left:-5px;
+  width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+  border-bottom:10px solid #fff;
+}
+.pet-fox .pet-mouth{
+  width:6px;height:4px;border-bottom:2px solid #8b4513;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-fox .pet-tail{
+  width:30px;height:9px;background:#e87532;border-radius:50%;
+  right:6px;top:70px;transform:rotate(-40deg);transform-origin:left center;
+}
+.pet-fox .pet-tail::after{
+  content:'';position:absolute;right:-4px;top:-3px;
+  width:10px;height:13px;background:#fff;border-radius:50%;
+}
+.pet-fox .pet-leg{background:#e87532}
+
+/* === 小蛇 === */
+.pet-snake .pet-body{
+  width:24px;height:40px;background:linear-gradient(180deg,#4caf84,#2e7d32,#4caf84);
+  border-radius:45%;left:50%;bottom:42px;transform:translateX(-50%);
+}
+.pet-snake .pet-head{
+  width:26px;height:24px;background:#4caf84;border-radius:50%;
+  left:50%;bottom:78px;transform:translateX(-50%);
+  z-index:3;
+}
+.pet-snake .pet-eyes{bottom:84px;width:18px;gap:8px}
+.pet-snake .pet-eye{width:4px;height:6px;background:#222}
+.pet-snake .pet-mouth{
+  width:8px;height:2px;background:#c0392b;
+  border-radius:1px;left:50%;top:79px;transform:translateX(-50%);
+}
+.pet-snake .pet-mouth::after{
+  content:'';position:absolute;width:3px;height:5px;background:#e74c3c;
+  right:-4px;top:-1px;border-radius:1px;
+}
+.pet-snake .pet-tail{
+  width:5px;height:10px;background:#2e7d32;
+  border-radius:2px;left:50%;top:42px;transform:translateX(-50%);
+}
+.pet-snake .pet-legs{display:none}
+.pet-snake .pet-ear{display:none}
+
+/* === 兔子 === */
+.pet-bunny .pet-body{background:#f5f5f5}
+.pet-bunny .pet-head{background:#f5f5f5}
+.pet-bunny .pet-ear{
+  width:8px;height:26px;background:#f5f5f5;border-radius:50%;
+  top:17px;
+}
+.pet-bunny .pet-ear.left{left:32px;transform:rotate(-5deg)}
+.pet-bunny .pet-ear.right{left:74px;transform:rotate(5deg)}
+.pet-bunny .pet-ear::after{
+  content:'';display:block;width:8px;height:15px;background:#ffb6c1;
+  border-radius:50%;margin-top:2px;
+}
+.pet-bunny .pet-mouth{
+  width:6px;height:4px;border-bottom:2px solid #ff9999;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-bunny .pet-tail{
+  width:16px;height:16px;background:#fff;border-radius:50%;
+  right:10px;top:70px;border:1px solid #ddd;
+}
+.pet-bunny .pet-leg{background:#f5f5f5}
+
+/* === 小熊 === */
+.pet-bear .pet-body{background:#8b5e3c}
+.pet-bear .pet-head{background:#8b5e3c}
+.pet-bear .pet-ear{
+  width:16px;height:16px;background:#8b5e3c;border-radius:50%;
+  top:25px;
+}
+.pet-bear .pet-ear.left{left:22px}
+.pet-bear .pet-ear.right{left:78px}
+.pet-bear .pet-ear::after{
+  content:'';display:block;width:8px;height:8px;background:#d4a574;
+  border-radius:50%;margin:4px;
+}
+.pet-bear .pet-mouth{
+  width:10px;height:5px;border-bottom:2px solid #5d3a1a;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-bear .pet-tail{
+  width:10px;height:10px;background:#8b5e3c;border-radius:50%;
+  right:12px;top:70px;
+}
+.pet-bear .pet-leg{background:#8b5e3c;width:12px}
+
+/* === 小龙 === */
+.pet-dragon .pet-body{background:#27ae60}
+.pet-dragon .pet-head{background:#27ae60}
+.pet-dragon .pet-ear{
+  width:6px;height:10px;background:#27ae60;border-radius:50%;
+  top:26px;
+}
+.pet-dragon .pet-ear.left{left:27px;transform:rotate(-30deg)}
+.pet-dragon .pet-ear.right{left:80px;transform:rotate(30deg)}
+.pet-dragon .pet-mouth{
+  width:8px;height:4px;border-bottom:2px solid #1a6b3c;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-dragon .pet-tail{
+  width:28px;height:8px;background:#27ae60;border-radius:50%;
+  right:6px;top:70px;transform:rotate(-30deg);transform-origin:left center;
+}
+.pet-dragon .pet-tail::after{
+  content:'';position:absolute;right:-6px;top:-2px;
+  width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-bottom:12px solid #27ae60;
+}
+.pet-dragon .pet-leg{background:#27ae60}
+
+/* === 小鹿 === */
+.pet-deer .pet-body{background:#d4a574}
+.pet-deer .pet-head{background:#d4a574}
+.pet-deer .pet-body::before{
+  content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  width:24px;height:16px;background:#f5deb3;border-radius:50%;
+}
+.pet-deer .pet-ear{
+  width:9px;height:15px;background:#d4a574;border-radius:50%;
+  top:25px;
+}
+.pet-deer .pet-ear.left{left:25px;transform:rotate(-15deg)}
+.pet-deer .pet-ear.right{left:80px;transform:rotate(15deg)}
+.pet-deer .pet-mouth{
+  width:6px;height:4px;border-bottom:2px solid #8b6914;
+  border-radius:0 0 50% 50%;left:50%;top:75px;transform:translateX(-50%);
+}
+.pet-deer .pet-tail{
+  width:10px;height:10px;background:#f5deb3;border-radius:50%;
+  right:12px;top:70px;
+}
+.pet-deer .pet-leg{background:#d4a574;width:9px}
+
+/* ============ 动画状态 ============ */
+/* idle - 呼吸 */
+.state-idle .pet-body{animation:breathe 3s ease-in-out infinite}
+.state-idle .pet-head{animation:breathe-head 3s ease-in-out infinite}
+.state-idle .pet-tail{animation:sway 3s ease-in-out infinite}
+@keyframes breathe{
+  0%,100%{transform:scaleY(1)}
+  50%{transform:scaleY(1.04)}
+}
+@keyframes breathe-head{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-1px)}
+}
+@keyframes sway{
+  0%,100%{transform:rotate(-20deg)}
+  50%{transform:rotate(-25deg)}
+}
+
+/* eat - 吃东西 */
+.state-eat .pet-head{animation:nod 0.4s ease-in-out 3}
+.state-eat .pet-mouth{animation:chomp 0.4s ease-in-out 3}
+.state-eat .pet-body{animation:wiggle 0.3s ease-in-out 3}
+@keyframes nod{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(3px)}
+}
+@keyframes chomp{
+  0%,100%{transform:scaleY(1)}
+  50%{transform:scaleY(0.3)}
+}
+@keyframes wiggle{
+  0%,100%{transform:rotate(0)}
+  25%{transform:rotate(3deg)}
+  75%{transform:rotate(-3deg)}
+}
+
+/* play - 玩耍 */
+.state-play .pet-body{animation:bounce 0.5s ease-in-out infinite}
+.state-play .pet-tail{animation:wag 0.3s ease-in-out infinite}
+.state-play .pet-head{animation:tilt 0.6s ease-in-out infinite}
+@keyframes bounce{
+  0%,100%{transform:translateY(0)}
+  30%{transform:translateY(-8px)}
+  50%{transform:translateY(0)}
+  70%{transform:translateY(-4px)}
+}
+@keyframes wag{
+  0%,100%{transform:rotate(-20deg)}
+  50%{transform:rotate(20deg)}
+}
+@keyframes tilt{
+  0%,100%{transform:rotate(0)}
+  30%{transform:rotate(5deg)}
+  60%{transform:rotate(-5deg)}
+}
+
+/* pet - 被抚摸 */
+.state-pet .pet-body{animation:sink 1s ease-in-out infinite}
+.state-pet .pet-head{animation:sink-head 1s ease-in-out infinite}
+.state-pet .pet-eye{animation:squint 1s ease-in-out infinite}
+@keyframes sink{
+  0%,100%{transform:translateY(0) scaleY(1)}
+  50%{transform:translateY(2px) scaleY(0.95)}
+}
+@keyframes sink-head{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(3px)}
+}
+@keyframes squint{
+  0%,100%{transform:scaleY(1)}
+  50%{transform:scaleY(0.3)}
+}
+
+/* bath - 洗澡 */
+.state-bath .pet-body{animation:shake 0.15s ease-in-out 6}
+.state-bath .pet-head{animation:shake-head 0.15s ease-in-out 6}
+@keyframes shake{
+  0%,100%{transform:rotate(0)}
+  25%{transform:rotate(8deg)}
+  75%{transform:rotate(-8deg)}
+}
+@keyframes shake-head{
+  0%,100%{transform:rotate(0)}
+  25%{transform:rotate(-6deg)}
+  75%{transform:rotate(6deg)}
+}
+
+/* ============ 粒子效果 ============ */
+.particles{position:absolute;pointer-events:none;z-index:10}
+.particle{
+  position:absolute;animation:float-up 1s ease-out forwards;
+  font-size:16px;
+}
+@keyframes float-up{
+  0%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(-40px) scale(0.3)}
+}
+
+/* ============ 宠物状态条 ============ */
+.stat-bar{display:flex;align-items:center;gap:8px;margin:4px 0}
+.stat-bar .label{width:50px;font-size:0.8em;color:var(--text2)}
+.stat-bar .bar-bg{
+  flex:1;height:8px;background:rgba(255,255,255,0.1);
+  border-radius:4px;overflow:hidden;
+}
+.stat-bar .bar-fill{
+  height:100%;border-radius:4px;transition:width 0.5s ease;
+}
+.bar-hp .bar-fill{background:linear-gradient(90deg,#e74c3c,#e94560)}
+.bar-xp .bar-fill{background:linear-gradient(90deg,#5dade2,#3498db)}
+.bar-sat .bar-fill{background:linear-gradient(90deg,#f39c12,#ffd700)}
+
+/* ============ 按钮 ============ */
+.btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:8px 16px;border:none;border-radius:20px;
+  cursor:pointer;font-size:0.9em;font-weight:600;
+  transition:all 0.2s;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-gold{background:var(--gold);color:#222}
+.btn-purple{background:var(--purple);color:#fff}
+.btn-sm{padding:5px 12px;font-size:0.8em}
+.btn-lg{padding:12px 28px;font-size:1.1em}
+.btn-block{display:flex;width:100%;justify-content:center}
+
+/* ============ 互动按钮组 ============ */
+.action-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+
+/* ============ 弹窗 ============ */
+.modal-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.7);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn 0.2s ease;
+}
+.modal{
+  background:var(--card);border-radius:20px;
+  padding:25px;max-width:500px;width:90%;
+  max-height:80vh;overflow-y:auto;
+  border:1px solid var(--border);
+  animation:slideUp 0.3s ease;
+}
+.modal h3{text-align:center;margin-bottom:15px;color:var(--accent)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ============ 物品列表 ============ */
+.item-list{display:flex;flex-direction:column;gap:8px}
+.item-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg2);padding:10px 14px;border-radius:12px;
+  border:1px solid var(--border);
+}
+.item-row .item-icon{font-size:1.8em}
+.item-row .item-info{flex:1}
+.item-row .item-name{font-weight:bold;font-size:0.9em}
+.item-row .item-desc{font-size:0.75em;color:var(--text2)}
+
+/* ============ 战斗界面 ============ */
+.battle-arena{
+  display:flex;justify-content:space-around;align-items:center;
+  gap:20px;margin:15px 0;
+}
+.battle-pet{text-align:center;flex:1}
+.battle-vs{font-size:1.5em;font-weight:bold;color:var(--accent)}
+.battle-log{
+  background:rgba(0,0,0,0.3);border-radius:12px;
+  padding:12px;max-height:200px;overflow-y:auto;
+  font-size:0.85em;margin:10px 0;
+}
+.battle-log .log-entry{padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.battle-log .log-dmg{color:var(--danger)}
+.battle-log .log-heal{color:var(--heal)}
+.battle-log .log-info{color:var(--blue)}
+.battle-log .log-gold{color:var(--gold)}
+
+.skill-bar{display:flex;gap:6px;flex-wrap:wrap}
+.skill-btn{
+  flex:1;min-width:80px;padding:10px 8px;border-radius:12px;
+  border:2px solid var(--border);background:var(--bg2);
+  color:var(--text);cursor:pointer;text-align:center;
+  transition:all 0.2s;font-size:0.8em;
+}
+.skill-btn:hover{border-color:var(--accent)}
+.skill-btn.locked{opacity:0.4;cursor:not-allowed}
+.skill-btn .skill-name{font-weight:bold}
+.skill-btn .skill-cost{font-size:0.75em;color:var(--blue)}
+
+/* ============ 进化提示 ============ */
+.evolution-badge{
+  display:inline-block;padding:2px 8px;border-radius:10px;
+  font-size:0.7em;font-weight:bold;
+}
+.evo-stage1{background:rgba(255,255,255,0.15);color:#ccc}
+.evo-stage2{background:rgba(92,184,92,0.3);color:#5cb85c}
+.evo-stage3{background:rgba(255,215,0,0.3);color:var(--gold)}
+
+/* ============ 成就 ============ */
+.achievement-list{display:flex;flex-direction:column;gap:8px}
+.achievement{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;background:var(--bg2);border-radius:10px;
+  border:1px solid var(--border);
+}
+.achievement.earned{border-color:var(--gold)}
+.achievement.locked{opacity:0.5}
+.achievement .ach-icon{font-size:1.5em}
+
+/* ============ 消息提示 ============ */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);
+  background:var(--card);color:var(--text);
+  padding:10px 24px;border-radius:25px;z-index:200;
+  border:1px solid var(--accent);
+  animation:toastIn 0.3s ease,toastOut 0.3s ease 2s forwards;
+  font-weight:bold;
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0}}
+
+/* ============ 宠物详情 ============ */
+.pet-detail{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.pet-detail .pet-visual{text-align:center;min-width:120px}
+.pet-detail .pet-info{flex:1;min-width:200px}
+.element-badge{
+  display:inline-block;padding:2px 10px;border-radius:12px;
+  font-size:0.75em;font-weight:bold;margin:3px;
+}
+.elem-fire{background:rgba(231,76,60,0.3);color:#e74c3c}
+.elem-water{background:rgba(52,152,219,0.3);color:#3498db}
+.elem-grass{background:rgba(46,204,113,0.3);color:#2ecc71}
+.elem-dark{background:rgba(142,68,173,0.3);color:#9b59b6}
+.elem-light{background:rgba(241,196,15,0.3);color:#f1c40f}
+.elem-earth{background:rgba(211,84,0,0.3);color:#e67e22}
+.elem-ice{background:rgba(127,219,255,0.3);color:#7fdbff}
+
+.skill-list{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.skill-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 10px;background:rgba(0,0,0,0.2);border-radius:8px;
+  font-size:0.8em;
+}
+.skill-item.locked{opacity:0.4}
+
+/* ============ 响应式 ============ */
+@media(max-width:600px){
+  .pet-grid{grid-template-columns:repeat(2,1fr)}
+  .battle-arena{flex-direction:column}
+  .battle-vs{transform:rotate(90deg)}
+  .pet-detail{flex-direction:column;align-items:center}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <h1>🐾 宠物模拟器</h1>
+  <div class="gold-display">🪙 <span id="goldDisplay">0</span></div>
+</header>
+
+<nav>
+  <button onclick="switchView('home')" id="nav-home" class="active">🏠 首页</button>
+  <button onclick="switchView('battle')" id="nav-battle">⚔️ 对战</button>
+  <button onclick="switchView('gacha')" id="nav-gacha">🎰 抽奖</button>
+  <button onclick="switchView('daily')" id="nav-daily">📋 每日</button>
+  <button onclick="switchView('quests')" id="nav-quests">🎯 任务</button>
+  <button onclick="switchView('shop')" id="nav-shop">🛒 商店</button>
+  <button onclick="switchView('inventory')" id="nav-inventory">🎒 背包</button>
+  <button onclick="switchView('achievements')" id="nav-achievements">🏆 成就</button>
+</nav>
+
+<!-- 首页视图 -->
+<div id="view-home" class="view active"></div>
+
+<!-- 对战视图 -->
+<div id="view-battle" class="view"></div>
+
+<!-- 商店视图 -->
+<div id="view-shop" class="view"></div>
+
+<!-- 背包视图 -->
+<div id="view-inventory" class="view"></div>
+
+<!-- 成就视图 -->
+<div id="view-achievements" class="view"></div>
+
+<!-- 每日任务视图 -->
+<div id="view-daily" class="view"></div>
+
+<!-- 成就任务视图 -->
+<div id="view-quests" class="view"></div>
+
+<!-- 抽奖视图 -->
+<div id="view-gacha" class="view"></div>
+</div>
+
+<div id="modalContainer"></div>
+<div id="toastContainer"></div>
+
+<script>
+// ==================== 游戏数据配置 ====================
+
+// 宠物种类配置 (基础8种 × 7元素 = 56种，取前50种)
+const BASE_SPECIES = {
+  cat: { name:'小猫咪', type:'cat', baseStats:{hp:80,atk:18,def:10,spd:14},
+    skills:{s1:{name:'喵喵爪',desc:'快速抓击敌人',dmg:1.2,cost:0,level:1,type:'dmg'},
+      s2:{name:'暗影突袭',desc:'暗影中发动突袭，无视20%防御',dmg:1.6,cost:15,level:5,type:'dmg',ignoreDef:0.2},
+      s3:{name:'猫之优雅',desc:'提升自身速度2回合',dmg:0,cost:12,level:20,type:'buff',buff:'spd',buffVal:0.3,turns:2},
+      s4:{name:'九命猫',desc:'回复30%生命值并获得闪避',dmg:0,cost:25,level:50,type:'heal',healPct:0.3}}
+  },
+  dog: { name:'小狗狗', type:'dog', baseStats:{hp:100,atk:15,def:14,spd:11},
+    skills:{s1:{name:'汪汪撕咬',desc:'用力撕咬敌人',dmg:1.1,cost:0,level:1,type:'dmg'},
+      s2:{name:'守护之光',desc:'用光芒护盾提升防御2回合',dmg:0,cost:12,level:5,type:'buff',buff:'def',buffVal:0.4,turns:2},
+      s3:{name:'狂热连击',desc:'连续攻击2次',dmg:0.85,cost:18,level:20,type:'multi',hits:2},
+      s4:{name:'忠诚誓言',desc:'回复40%生命并清除负面状态',dmg:0,cost:28,level:50,type:'heal',healPct:0.4,cleanse:true}}
+  },
+  fox: { name:'小狐狸', type:'fox', baseStats:{hp:75,atk:22,def:8,spd:16},
+    skills:{s1:{name:'狐火弹',desc:'发射一枚火焰弹',dmg:1.15,cost:0,level:1,type:'dmg'},
+      s2:{name:'火焰漩涡',desc:'制造火焰漩涡，附加灼烧2回合',dmg:1.3,cost:16,level:5,type:'dot',dotDmg:8,dotTurns:2},
+      s3:{name:'魅惑之术',desc:'迷惑敌人降低其攻击力2回合',dmg:0,cost:14,level:20,type:'debuff',debuff:'atk',debuffVal:0.25,turns:2},
+      s4:{name:'九尾天火',desc:'召唤天火造成巨量伤害',dmg:2.2,cost:30,level:50,type:'dmg'}}
+  },
+  snake: { name:'小蛇', type:'snake', baseStats:{hp:85,atk:16,def:12,spd:13},
+    skills:{s1:{name:'毒牙',desc:'用毒牙攻击敌人',dmg:1.1,cost:0,level:1,type:'dmg'},
+      s2:{name:'缠绕',desc:'紧紧缠绕敌人，降低速度2回合',dmg:0.8,cost:10,level:5,type:'debuff',debuff:'spd',debuffVal:0.3,turns:2},
+      s3:{name:'剧毒喷射',desc:'喷射剧毒，持续伤害3回合',dmg:0.6,cost:18,level:20,type:'dot',dotDmg:12,dotTurns:3},
+      s4:{name:'蛇蜕重生',desc:'蜕皮重生回复50%生命',dmg:0,cost:30,level:50,type:'heal',healPct:0.5}}
+  },
+  bunny: { name:'小兔子', type:'bunny', baseStats:{hp:90,atk:14,def:16,spd:12},
+    skills:{s1:{name:'胡萝卜投掷',desc:'扔胡萝卜砸向敌人',dmg:1.05,cost:0,level:1,type:'dmg'},
+      s2:{name:'大地之盾',desc:'召唤大地护盾吸收伤害',dmg:0,cost:14,level:5,type:'buff',buff:'def',buffVal:0.5,turns:2},
+      s3:{name:'弹跳踢',desc:'借助弹跳力猛烈踢击',dmg:1.5,cost:16,level:20,type:'dmg'},
+      s4:{name:'丰收祝福',desc:'回复全队30%生命',dmg:0,cost:25,level:50,type:'heal',healPct:0.3}}
+  },
+  bear: { name:'小熊', type:'bear', baseStats:{hp:120,atk:20,def:15,spd:7},
+    skills:{s1:{name:'熊掌拍击',desc:'用巨大的熊掌拍打',dmg:1.2,cost:0,level:1,type:'dmg'},
+      s2:{name:'咆哮',desc:'发出怒吼降低敌人防御2回合',dmg:0,cost:10,level:5,type:'debuff',debuff:'def',debuffVal:0.3,turns:2},
+      s3:{name:'狂暴冲撞',desc:'全力冲撞造成高额伤害',dmg:1.8,cost:20,level:20,type:'dmg'},
+      s4:{name:'冬眠恢复',desc:'进入冬眠状态回复60%生命',dmg:0,cost:30,level:50,type:'heal',healPct:0.6,selfStun:1}}
+  },
+  dragon: { name:'小龙', type:'dragon', baseStats:{hp:95,atk:24,def:12,spd:10},
+    skills:{s1:{name:'龙息',desc:'吐出灼热龙息',dmg:1.2,cost:0,level:1,type:'dmg'},
+      s2:{name:'龙威',desc:'释放龙威震慑敌人，降低全属性',dmg:0,cost:15,level:5,type:'debuff',debuff:'atk',debuffVal:0.2,turns:2},
+      s3:{name:'龙之怒',desc:'愤怒一击，伤害提升50%',dmg:1.8,cost:22,level:20,type:'dmg'},
+      s4:{name:'龙神降临',desc:'变身龙神形态造成毁灭性伤害',dmg:2.5,cost:35,level:50,type:'dmg',selfDmg:0.1}}
+  },
+  deer: { name:'小鹿', type:'deer', baseStats:{hp:88,atk:13,def:13,spd:15},
+    skills:{s1:{name:'鹿角冲撞',desc:'用鹿角顶撞敌人',dmg:1.1,cost:0,level:1,type:'dmg'},
+      s2:{name:'治愈之光',desc:'用圣光回复25%生命',dmg:0,cost:14,level:5,type:'heal',healPct:0.25},
+      s3:{name:'净化之角',desc:'净化负面状态并提升速度',dmg:0,cost:12,level:20,type:'buff',buff:'spd',buffVal:0.3,turns:2,cleanse:true},
+      s4:{name:'生命之泉',desc:'召唤生命之泉持续回复3回合',dmg:0,cost:25,level:50,type:'regen',regenPct:0.1,regenTurns:3}}
+  }
+};
+
+const ELEMENT_BONUSES = {
+  fire: { name:'烈焰', el:'fire', descTpl:'掌握火焰之力', hp:0, atk:3, def:0, spd:0 },
+  water: { name:'深海', el:'water', descTpl:'深海之力守护', hp:15, atk:0, def:0, spd:0 },
+  grass: { name:'翠林', el:'grass', descTpl:'自然之力加持', hp:0, atk:0, def:3, spd:0 },
+  dark: { name:'暗影', el:'dark', descTpl:'暗影中潜行', hp:0, atk:0, def:0, spd:2 },
+  light: { name:'圣光', el:'light', descTpl:'圣光庇护', hp:1, atk:1, def:1, spd:1 },
+  ice: { name:'冰霜', el:'ice', descTpl:'极寒之力', hp:0, atk:0, def:2, spd:2 },
+  thunder: { name:'雷霆', el:'thunder', descTpl:'雷霆万钧', hp:0, atk:4, def:0, spd:1 }
+};
+
+function buildSpeciesConfig() {
+  const config = {};
+  const baseKeys = Object.keys(BASE_SPECIES);
+  const elemKeys = Object.keys(ELEMENT_BONUSES);
+  const elemMap = {thunder:'thunder'}; // thunder maps to its own element
+  let count = 0;
+  for (const elemKey of elemKeys) {
+    for (const baseKey of baseKeys) {
+      if (count >= 50) break;
+      const base = BASE_SPECIES[baseKey];
+      const elem = ELEMENT_BONUSES[elemKey];
+      const id = elemKey + '_' + baseKey;
+      // deep clone skills with prefixed names
+      const skills = {};
+      for (const [sk, sv] of Object.entries(base.skills)) {
+        skills[sk] = Object.assign({}, sv, {name: elem.name + sv.name});
+      }
+      config[id] = {
+        name: elem.name + base.name || id,
+        type: base.type,
+        element: elem.el,
+        desc: elem.descTpl,
+        baseStats: {
+          hp: base.baseStats.hp + elem.hp,
+          atk: base.baseStats.atk + elem.atk,
+          def: base.baseStats.def + elem.def,
+          spd: base.baseStats.spd + elem.spd
+        },
+        skills: skills
+      };
+      count++;
+    }
+  }
+  return config;
+}
+
+const SPECIES_CONFIG = buildSpeciesConfig();
+
+// 隐藏宠物配置（仅抽奖获得）
+const HIDDEN_PETS = {
+  angel_cat: { name:'天使猫', type:'cat', element:'light', desc:'传说中的天使之猫，神圣不可侵犯',
+    baseStats:{hp:150,atk:30,def:25,spd:22},
+    skills:{
+      s1:{name:'神圣爪击',desc:'神圣之力攻击',dmg:1.4,cost:0,level:1,type:'dmg'},
+      s2:{name:'天使守护',desc:'无敌护盾2回合',dmg:0,cost:18,level:5,type:'buff',buff:'def',buffVal:0.8,turns:2},
+      s3:{name:'审判之光',desc:'光之审判造成巨额伤害',dmg:2.0,cost:25,level:20,type:'dmg'},
+      s4:{name:'天堂之门',desc:'回复60%HP并清除所有负面',dmg:0,cost:35,level:50,type:'heal',healPct:0.6,cleanse:true}
+    }
+  },
+  demon_dog: { name:'恶魔犬', type:'dog', element:'dark', desc:'来自深渊的恶魔之犬',
+    baseStats:{hp:140,atk:35,def:20,spd:18},
+    skills:{
+      s1:{name:'深渊撕咬',desc:'撕裂敌人灵魂',dmg:1.5,cost:0,level:1,type:'dmg'},
+      s2:{name:'恐惧嚎叫',desc:'降低敌人攻击30%',dmg:0,cost:14,level:5,type:'debuff',debuff:'atk',debuffVal:0.3,turns:3},
+      s3:{name:'地狱火',desc:'地狱烈焰灼烧3回合',dmg:1.0,cost:22,level:20,type:'dot',dotDmg:20,dotTurns:3},
+      s4:{name:'恶魔契约',desc:'牺牲20%HP造成3倍伤害',dmg:3.0,cost:40,level:50,type:'dmg',selfDmg:0.2}
+    }
+  },
+  nine_tail_fox: { name:'九尾狐', type:'fox', element:'fire', desc:'修炼千年的九尾妖狐',
+    baseStats:{hp:130,atk:38,def:18,spd:28},
+    skills:{
+      s1:{name:'天火弹',desc:'九尾天火弹',dmg:1.3,cost:0,level:1,type:'dmg'},
+      s2:{name:'狐火结界',desc:'火焰护盾+灼烧反击',dmg:0,cost:16,level:5,type:'buff',buff:'def',buffVal:0.4,turns:2},
+      s3:{name:'魅惑天下',desc:'魅惑敌人2回合无法行动',dmg:0,cost:20,level:20,type:'debuff',debuff:'atk',debuffVal:0.5,turns:2},
+      s4:{name:'九尾灭世',desc:'毁灭性九尾火焰',dmg:2.8,cost:38,level:50,type:'dmg'}
+    }
+  },
+  crystal_dragon: { name:'水晶龙', type:'dragon', element:'ice', desc:'水晶洞窟中的远古巨龙',
+    baseStats:{hp:160,atk:32,def:28,spd:14},
+    skills:{
+      s1:{name:'冰晶吐息',desc:'极寒龙息',dmg:1.3,cost:0,level:1,type:'dmg'},
+      s2:{name:'水晶护甲',desc:'水晶护甲提升防御60%',dmg:0,cost:15,level:5,type:'buff',buff:'def',buffVal:0.6,turns:3},
+      s3:{name:'冰河世纪',desc:'冰冻全场造成伤害+减速',dmg:1.6,cost:22,level:20,type:'debuff',debuff:'spd',debuffVal:0.4,turns:2},
+      s4:{name:'水晶风暴',desc:'水晶碎片风暴造成毁灭伤害',dmg:2.5,cost:35,level:50,type:'dmg'}
+    }
+  },
+  unicorn_deer: { name:'独角鹿', type:'deer', element:'light', desc:'森林中的神圣独角兽',
+    baseStats:{hp:145,atk:25,def:26,spd:24},
+    skills:{
+      s1:{name:'圣角冲撞',desc:'神圣独角冲撞',dmg:1.2,cost:0,level:1,type:'dmg'},
+      s2:{name:'治愈之泉',desc:'回复40%HP',dmg:0,cost:16,level:5,type:'heal',healPct:0.4},
+      s3:{name:'净化光环',desc:'清除负面+全队回复15%',dmg:0,cost:18,level:20,type:'heal',healPct:0.15,cleanse:true},
+      s4:{name:'生命赞歌',desc:'全队满血复活+持续回复',dmg:0,cost:35,level:50,type:'regen',regenPct:0.15,regenTurns:3}
+    }
+  }
+};
+
+// 获取宠物配置（包含隐藏宠物）
+function getBaseTypeFromSpecies(species) {
+  if (!species) return 'cat';
+  // 格式: element_animal 或 animal，提取基础类型
+  const parts = String(species).split('_');
+  const last = parts[parts.length - 1];
+  return BASE_SPECIES[last] ? last : 'cat';
+}
+
+function getPetConfig(species) {
+  const cfg = SPECIES_CONFIG[species] || HIDDEN_PETS[species];
+  if (cfg) return cfg;
+  // 兜底：根据基础类型生成一个默认配置，避免渲染崩溃
+  const baseType = getBaseTypeFromSpecies(species);
+  const base = BASE_SPECIES[baseType];
+  const elem = ELEMENT_BONUSES.fire;
+  return {
+    name: base.name, type: base.type, element: elem.el, desc: elem.descTpl,
+    baseStats: {
+      hp: base.baseStats.hp + elem.hp,
+      atk: base.baseStats.atk + elem.atk,
+      def: base.baseStats.def + elem.def,
+      spd: base.baseStats.spd + elem.spd
+    },
+    skills: base.skills
+  };
+}
+
+// 元素克制关系
+const ELEMENTS = {
+  fire:  { name: '火', strong: ['grass','ice'], weak: ['water','earth'], color: '#e74c3c' },
+  water: { name: '水', strong: ['fire','earth'], weak: ['grass','ice'], color: '#3498db' },
+  grass: { name: '草', strong: ['water','earth'], weak: ['fire','ice'], color: '#2ecc71' },
+  earth: { name: '土', strong: ['fire','light'], weak: ['water','grass'], color: '#e67e22' },
+  light: { name: '光', strong: ['dark'], weak: ['earth'], color: '#f1c40f' },
+  dark:  { name: '暗', strong: ['light'], weak: ['light'], color: '#9b59b6' },
+  ice:   { name: '冰', strong: ['grass','earth'], weak: ['fire','dark'], color: '#7fdbff' },
+  thunder: { name: '雷', strong: ['water','ice'], weak: ['earth'], color: '#ffdd00' }
+};
+
+// 饲料物品
+const FEED_ITEMS = [
+  { id: 'feed1', name: '普通饲料', desc: '基础宠物食品', icon: '🦴', xp: 15, price: 20, sat: 5 },
+  { id: 'feed2', name: '优质饲料', desc: '营养丰富的饲料', icon: '🥩', xp: 35, price: 60, sat: 10 },
+  { id: 'feed3', name: '高级饲料', desc: '精心调制的饲料', icon: '🍗', xp: 70, price: 150, sat: 18 },
+  { id: 'feed4', name: '传说饲料', desc: '传说中的神级饲料', icon: '🍖', xp: 150, price: 400, sat: 30 }
+];
+
+// 药品
+const MEDICINE_ITEMS = [
+  { id: 'med1', name: '初级药水', desc: '治疗轻微疾病', icon: '🧪', cureChance: 0.4, price: 30 },
+  { id: 'med2', name: '中级药水', desc: '治疗中度疾病', icon: '💊', cureChance: 0.7, price: 80 },
+  { id: 'med3', name: '高级药水', desc: '治疗严重疾病', icon: '💉', cureChance: 1.0, price: 200 }
+];
+
+// 特殊物品
+const SPECIAL_ITEMS = [
+  { id: 'toy1', name: '毛线球', desc: '让宠物开心玩耍', icon: '🧶', price: 40, sat: 15, action: 'play' },
+  { id: 'toy2', name: '洗澡香波', desc: '给宠物洗个舒服的澡', icon: '🧴', price: 50, sat: 20, action: 'bath' },
+  { id: 'toy3', name: '按摩刷', desc: '温柔地抚摸宠物', icon: '🪮', price: 35, sat: 12, action: 'pet' },
+  { id: 'gacha_ticket', name: '抽奖券', desc: '用于抽奖机抽奖', icon: '🎫', price: 10, action: 'gacha' }
+];
+
+// 抽奖奖品池
+const GACHA_POOL = [
+  {type:'gold', amount:5, weight:15, name:'5金币'},
+  {type:'gold', amount:20, weight:10, name:'20金币'},
+  {type:'gold', amount:100, weight:4, name:'100金币'},
+  {type:'gold', amount:500, weight:1, name:'500金币'},
+  {type:'item', itemId:'feed1', qty:2, weight:12, name:'普通饲料x2'},
+  {type:'item', itemId:'feed2', qty:1, weight:10, name:'优质饲料x1'},
+  {type:'item', itemId:'feed3', qty:1, weight:6, name:'高级饲料x1'},
+  {type:'item', itemId:'med1', qty:1, weight:8, name:'初级药水x1'},
+  {type:'item', itemId:'med2', qty:1, weight:5, name:'中级药水x1'},
+  {type:'item', itemId:'toy1', qty:1, weight:4, name:'毛线球x1'},
+  {type:'pet_egg', rarity:'normal', weight:15, name:'普通宠物蛋'},
+  {type:'pet_egg', rarity:'rare', weight:4, name:'稀有宠物蛋'},
+  {type:'pet_egg', rarity:'hidden', weight:1, name:'传说宠物蛋'},
+];
+
+// 进化阶段
+const EVO_STAGES = [
+  { level: 1, name: '幼年', suffix: '宝宝', statMult: 1.0 },
+  { level: 20, name: '成长', suffix: '', statMult: 1.3 },
+  { level: 50, name: '完全体', suffix: '王', statMult: 1.7 }
+];
+
+// 疾病类型
+const DISEASES = [
+  { id: 'cold', name: '感冒', desc: '宠物打喷嚏流鼻涕', healCost: 60, satPenalty: -10 },
+  { id: 'fever', name: '发烧', desc: '宠物体温升高无精打采', healCost: 100, satPenalty: -20 },
+  { id: 'allergy', name: '过敏', desc: '宠物皮肤发痒不适', healCost: 80, satPenalty: -15 },
+  { id: 'parasite', name: '寄生虫', desc: '宠物被寄生虫困扰', healCost: 120, satPenalty: -25 }
+];
+
+// 成就
+const ACHIEVEMENTS = [
+  { id: 'first_pet', name: '初遇伙伴', desc: '获得第一只宠物', icon: '🐾', check: g => g.pets.length >= 1 },
+  { id: 'level10', name: '小有成就', desc: '任意宠物达到10级', icon: '⭐', check: g => g.pets.some(p => p.level >= 10) },
+  { id: 'level50', name: '登峰造极', desc: '任意宠物达到50级', icon: '🌟', check: g => g.pets.some(p => p.level >= 50) },
+  { id: 'evo2', name: '初次进化', desc: '宠物进化到成长阶段', icon: '🦋', check: g => g.pets.some(p => p.level >= 20) },
+  { id: 'evo3', name: '完全体', desc: '宠物进化到完全体', icon: '👑', check: g => g.pets.some(p => p.level >= 50) },
+  { id: 'battle10', name: '战斗新手', desc: '赢得10场战斗', icon: '⚔️', check: g => g.battlesWon >= 10 },
+  { id: 'battle50', name: '身经百战', desc: '赢得50场战斗', icon: '🏆', check: g => g.battlesWon >= 50 },
+  { id: 'rich', name: '腰缠万贯', desc: '拥有1000金币', icon: '💰', check: g => g.gold >= 1000 },
+  { id: 'collector', name: '收藏家', desc: '拥有4只以上宠物', icon: '🎪', check: g => g.pets.length >= 4 },
+  { id: 'all_pets', name: '宠物大师', desc: '收集50种宠物', icon: '🌈', check: g => {
+    const species = new Set(g.pets.map(p => p.species));
+    return species.size >= 50;
+  }}
+];
+
+// ==================== 游戏状态 ====================
+let game = {
+  pets: [],
+  gold: 100,
+  totalGoldEarned: 0,
+  activePetIdx: 0,
+  inventory: {},
+  achievementsEarned: [],
+  battlesWon: 0,
+  currentView: 'home',
+  cooldowns: {},
+  dailyTasks: {},
+  questProgress: {},
+  gachaTicketsBought: 0,
+  gachaBoughtDate: '',
+  gachaPity: 0
+};
+
+// ==================== 存档系统 ====================
+function saveGame() {
+  localStorage.setItem('pet_simulator_save', JSON.stringify(game));
+}
+
+function loadGame() {
+  const saved = localStorage.getItem('pet_simulator_save');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      game = { ...game, ...data };
+      sanitizeGameData();
+      return true;
+    } catch(e) { return false; }
+  }
+  return false;
+}
+
+// 存档数据兼容性修复：确保所有宠物配置有效，避免渲染崩溃
+function sanitizeGameData() {
+  if (!Array.isArray(game.pets)) game.pets = [];
+  game.pets = game.pets.filter(p => p && typeof p === 'object');
+  // 修复无效species：如果配置不存在，替换为有效的默认物种
+  game.pets.forEach(p => {
+    if (!getPetConfig(p.species)) {
+      p.species = 'fire_cat';
+    }
+    // 补全缺失的必需字段
+    if (typeof p.level !== 'number' || p.level < 1) p.level = 1;
+    if (typeof p.xp !== 'number') p.xp = 0;
+    if (typeof p.happiness !== 'number') p.happiness = 50;
+    if (typeof p.health !== 'number' || p.health <= 0) p.health = 100;
+    if (typeof p.energy !== 'number') p.energy = 100;
+    if (typeof p.hunger !== 'number') p.hunger = 0;
+    if (typeof p.cleanliness !== 'number') p.cleanliness = 100;
+    if (typeof p.attack !== 'number') p.attack = 10;
+    if (typeof p.defense !== 'number') p.defense = 5;
+    if (!p.id) p.id = 'pet_' + Math.random().toString(36).slice(2, 8);
+    if (!p.name) { try { p.name = getPetConfig(p.species).name; } catch(e) { p.name = '宠物'; } }
+    if (!Array.isArray(p.skillsUnlocked)) p.skillsUnlocked = [];
+  });
+  if (typeof game.activePetIdx !== 'number' || game.activePetIdx >= game.pets.length) game.activePetIdx = 0;
+  if (typeof game.gold !== 'number') game.gold = 100;
+  if (!game.cooldowns || typeof game.cooldowns !== 'object') game.cooldowns = {};
+  saveGame();
+}
+
+function resetGame() {
+  if (confirm('确定要删除所有存档重新开始吗？此操作不可撤销！')) {
+    localStorage.removeItem('pet_simulator_save');
+    location.reload();
+  }
+}
+
+// ==================== 工具函数 ====================
+function getEvoStage(level) {
+  if (level >= 50) return EVO_STAGES[2];
+  if (level >= 20) return EVO_STAGES[1];
+  return EVO_STAGES[0];
+}
+
+function getPetStats(pet) {
+  const cfg = getPetConfig(pet.species);
+  const evo = getEvoStage(pet.level);
+  return {
+    hp: Math.floor(cfg.baseStats.hp * evo.statMult),
+    atk: Math.floor(cfg.baseStats.atk * evo.statMult),
+    def: Math.floor(cfg.baseStats.def * evo.statMult),
+    spd: Math.floor(cfg.baseStats.spd * evo.statMult)
+  };
+}
+
+function getActivePet() {
+  if (game.pets.length === 0) return null;
+  return game.pets[game.activePetIdx];
+}
+
+function getPetDisplayName(pet) {
+  const cfg = getPetConfig(pet.species);
+  const evo = getEvoStage(pet.level);
+  if (evo.suffix) return cfg.name + evo.suffix;
+  return cfg.name;
+}
+
+// 领养价格计算
+function getAdoptCost() {
+  const owned = game.pets.length;
+  if (owned === 0) return 0;
+  if (owned === 1) return 50;
+  if (owned === 2) return 150;
+  if (owned === 3) return 300;
+  if (owned === 4) return 500;
+  return Math.floor(100 * owned * owned / 2);
+}
+
+function showToast(msg) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+function addGold(amount) {
+  game.gold += amount;
+  game.totalGoldEarned = (game.totalGoldEarned || 0) + amount;
+  updateGoldDisplay();
+  // 更新成就任务进度
+  if (game.questProgress) {
+    game.questProgress.gold_5000 = game.totalGoldEarned;
+  }
+}
+
+function spendGold(amount) {
+  if (game.gold >= amount) {
+    game.gold -= amount;
+    updateGoldDisplay();
+    return true;
+  }
+  return false;
+}
+
+function addToInventory(itemId, qty = 1) {
+  game.inventory[itemId] = (game.inventory[itemId] || 0) + qty;
+}
+
+function removeFromInventory(itemId, qty = 1) {
+  if ((game.inventory[itemId] || 0) >= qty) {
+    game.inventory[itemId] -= qty;
+    if (game.inventory[itemId] <= 0) delete game.inventory[itemId];
+    return true;
+  }
+  return false;
+}
+
+function getItemCount(itemId) {
+  return game.inventory[itemId] || 0;
+}
+
+function updateGoldDisplay() {
+  document.getElementById('goldDisplay').textContent = game.gold;
+}
+
+function checkAchievements() {
+  let newAch = false;
+  for (const ach of ACHIEVEMENTS) {
+    if (!game.achievementsEarned.includes(ach.id) && ach.check(game)) {
+      game.achievementsEarned.push(ach.id);
+      showToast('🏆 解锁成就：' + ach.name + '！');
+      newAch = true;
+    }
+  }
+  if (newAch) saveGame();
+}
+
+function getElementAdvantage(attackerElem, defenderElem) {
+  const elem = ELEMENTS[attackerElem];
+  if (!elem) return 1.0;
+  if (elem.strong.includes(defenderElem)) return 1.5;
+  if (elem.weak.includes(defenderElem)) return 0.7;
+  return 1.0;
+}
+
+// ==================== 粒子效果 ====================
+function spawnParticles(container, emoji, count = 6) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('span');
+    p.className = 'particle';
+    p.textContent = emoji;
+    p.style.left = (30 + Math.random() * 40) + '%';
+    p.style.top = (20 + Math.random() * 30) + '%';
+    p.style.animationDelay = (Math.random() * 0.4) + 's';
+    p.style.fontSize = (12 + Math.random() * 14) + 'px';
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 1500);
+  }
+}
+
+// ==================== 宠物动画 ====================
+function setPetAnimation(container, state, duration = 2000) {
+  container.className = container.className.replace(/state-\w+/g, '');
+  container.classList.add('state-' + state);
+  if (duration > 0) {
+    setTimeout(() => {
+      container.classList.remove('state-' + state);
+      container.classList.add('state-idle');
+    }, duration);
+  }
+}
+
+// ==================== 宠物形象生成 ====================
+// 写实风格图片配置（用户提供后可扩展）
+const PET_IMAGES = {
+  cat: { baby: 'images/cat_realistic.png', adult: 'images/cat_realistic.png', king: 'images/cat_realistic.png' }
+};
+
+function createPetAvatar(species, size = 80, level = 1) {
+  const div = document.createElement('div');
+  div.className = 'pet-avatar pet-' + (species || 'cat') + ' state-idle';
+
+  // 如果该宠物有写实图片，使用图片（从species提取基础类型匹配）
+  const baseType = getBaseTypeFromSpecies(species);
+  const imgConfig = PET_IMAGES[baseType];
+  if (imgConfig) {
+    const stage = level >= 50 ? 'king' : level >= 20 ? 'adult' : 'baby';
+    div.classList.add('has-image', 'evo-' + stage);
+    const stageSize = level >= 50 ? size + 20 : level >= 20 ? size + 10 : size;
+    div.style.width = stageSize + 'px';
+    div.style.height = stageSize + 'px';
+    div.innerHTML = `
+      <img class="pet-image" src="${imgConfig[stage]}" alt="${species}">
+      <div class="particles"></div>
+    `;
+    return div;
+  }
+
+  // 否则使用 CSS 卡通形象
+  div.style.width = size + 'px';
+  div.style.height = size + 'px';
+  div.innerHTML = `
+    <div class="pet-body"></div>
+    <div class="pet-head"></div>
+    <div class="pet-ear left"></div>
+    <div class="pet-ear right"></div>
+    <div class="pet-eyes">
+      <div class="pet-eye"></div>
+      <div class="pet-eye"></div>
+    </div>
+    <div class="pet-mouth"></div>
+    <div class="pet-tail"></div>
+    <div class="pet-legs">
+      <div class="pet-leg"></div>
+      <div class="pet-leg"></div>
+    </div>
+    <div class="particles"></div>
+  `;
+  return div;
+}
+
+// ==================== 视图切换 ====================
+function switchView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+
+  const viewEl = document.getElementById('view-' + view);
+  if (viewEl) viewEl.classList.add('active');
+  const navBtn = document.getElementById('nav-' + view);
+  if (navBtn) navBtn.classList.add('active');
+
+  game.currentView = view;
+  renderView(view);
+}
+
+function renderView(view) {
+  switch(view) {
+    case 'home': renderHome(); break;
+    case 'battle': renderBattle(); break;
+    case 'gacha': renderGacha(); break;
+    case 'daily': renderDaily(); break;
+    case 'quests': renderQuests(); break;
+    case 'shop': renderShop(); break;
+    case 'inventory': renderInventory(); break;
+    case 'achievements': renderAchievements(); break;
+  }
+}
+
+// ==================== 首页渲染 ====================
+function renderHome() {
+  const view = document.getElementById('view-home');
+  try {
+    renderHomeInner(view);
+  } catch(e) {
+    view.innerHTML = `<div class="card" style="text-align:center;padding:30px">
+      <div style="font-size:40px">🤖</div>
+      <h2>首页渲染出错了</h2>
+      <p style="color:var(--text2);margin:10px 0">${e.message}</p>
+      <button class="btn btn-primary" onclick="resetGame()">🗑️ 重置存档</button>
+    </div>`;
+    console.error('renderHome error:', e);
+  }
+}
+
+function renderHomeInner(view) {
+  if (game.pets.length === 0) {
+    view.innerHTML = `
+      <div class="card" style="text-align:center">
+        <h2>🎉 欢迎来到宠物模拟器！</h2>
+        <p style="margin:15px 0;color:var(--text2)">你还没有宠物，快来选择你的第一个伙伴吧！</p>
+        <button class="btn btn-primary btn-lg" onclick="showPetSelection()">✨ 选择宠物</button>
+        <button class="btn btn-blue" style="margin-left:8px" onclick="loadGame();switchView('home')">📂 读取存档</button>
+        <button class="btn btn-sm" style="margin-top:10px;display:block;margin:10px auto 0;background:var(--danger);color:#fff" onclick="resetGame()">🗑️ 删除存档</button>
+      </div>`;
+    return;
+  }
+
+  const pet = getActivePet();
+  if (!pet) return;
+  const cfg = getPetConfig(pet.species);
+  const stats = getPetStats(pet);
+  const evo = getEvoStage(pet.level);
+  const evoClass = pet.level >= 50 ? 'evo-stage3' : pet.level >= 20 ? 'evo-stage2' : 'evo-stage1';
+  const xpNeeded = pet.level * 50;
+  const xpPct = Math.min(100, (pet.xp / xpNeeded) * 100);
+
+  let diseaseHTML = '';
+  if (pet.disease) {
+    const d = DISEASES.find(dd => dd.id === pet.disease);
+    diseaseHTML = `<div style="background:rgba(231,76,60,0.2);padding:8px 14px;border-radius:10px;margin-top:8px;color:var(--danger)">
+      🤒 状态：<b>${d ? d.name : '生病'}</b> — ${d ? d.desc : ''}
+      <button class="btn btn-sm btn-green" style="margin-left:10px" onclick="showHealModal()">💊 治疗</button>
+    </div>`;
+  }
+
+  // 冷却时间计算（按宠物独立）
+  const nowCD = Date.now();
+  const petCD = game.cooldowns[pet.id] || {};
+  const cdFeed = petCD.feed ? Math.max(0, Math.ceil((30000 - (nowCD - petCD.feed)) / 1000)) : 0;
+  const cdPlay = petCD.play ? Math.max(0, Math.ceil((30000 - (nowCD - petCD.play)) / 1000)) : 0;
+  const cdPet = petCD.pet ? Math.max(0, Math.ceil((30000 - (nowCD - petCD.pet)) / 1000)) : 0;
+  const cdBath = petCD.bath ? Math.max(0, Math.ceil((30000 - (nowCD - petCD.bath)) / 1000)) : 0;
+
+  // 宠物切换
+  let petTabs = '';
+  game.pets.forEach((p, i) => {
+    const active = i === game.activePetIdx ? 'active' : '';
+    petTabs += `<button class="btn btn-sm ${active}" style="margin:2px"
+      onclick="game.activePetIdx=${i};renderHome();saveGame()">${getPetConfig(p.species).name}</button>`;
+  });
+
+  // 技能列表
+  let skillsHTML = '';
+  Object.entries(cfg.skills).forEach(([key, skill]) => {
+    const unlocked = pet.level >= skill.level;
+    const cls = unlocked ? '' : 'locked';
+    skillsHTML += `<div class="skill-item ${cls}">
+      <span><b>${skill.name}</b> ${unlocked ? '' : '🔒 Lv.'+skill.level}</span>
+      <span style="color:var(--text2);font-size:0.85em">${skill.desc} ${skill.cost > 0 ? '🔵'+skill.cost : ''}</span>
+    </div>`;
+  });
+
+  view.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:bold">我的宠物：</span>
+          ${petTabs}
+          <button class="btn btn-sm btn-primary" onclick="showPetSelection()">➕</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="pet-detail">
+        <div class="pet-visual" id="homePetVisual"></div>
+        <div class="pet-info">
+          <h2>${getPetDisplayName(pet)} <span class="evolution-badge ${evoClass}">${evo.name}</span></h2>
+          <div>
+            <span class="element-badge elem-${cfg.element}">${ELEMENTS[cfg.element].name}系</span>
+            <span style="font-size:0.85em;color:var(--text2)">Lv.${pet.level}</span>
+          </div>
+          ${diseaseHTML}
+          <div style="margin-top:8px">
+            <div class="stat-bar bar-hp"><span class="label">生命</span><div class="bar-bg"><div class="bar-fill" style="width:100%"></div></div><span style="font-size:0.8em">${stats.hp}</span></div>
+            <div class="stat-bar"><span class="label">攻击</span><span style="font-size:0.85em">${stats.atk}</span></div>
+            <div class="stat-bar"><span class="label">防御</span><span style="font-size:0.85em">${stats.def}</span></div>
+            <div class="stat-bar"><span class="label">速度</span><span style="font-size:0.85em">${stats.spd}</span></div>
+            <div class="stat-bar bar-xp"><span class="label">经验</span><div class="bar-bg"><div class="bar-fill" style="width:${xpPct}%"></div></div><span style="font-size:0.8em">${pet.xp}/${xpNeeded}</span></div>
+            <div class="stat-bar bar-sat"><span class="label">满意</span><div class="bar-bg"><div class="bar-fill" style="width:${pet.happiness}%"></div></div><span style="font-size:0.8em">${pet.happiness}/100</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-btns">
+        <button id="btn-feed" class="btn btn-primary" onclick="showFeedModal()" ${cdFeed > 0 ? 'disabled' : ''}>🍖 喂食${cdFeed > 0 ? ' ('+cdFeed+'秒)' : ''}</button>
+        <button id="btn-play" class="btn btn-blue" onclick="doPlay()" ${cdPlay > 0 ? 'disabled' : ''}>🎾 玩耍${cdPlay > 0 ? ' ('+cdPlay+'秒)' : ''}</button>
+        <button id="btn-pet" class="btn btn-purple" onclick="doPet()" ${cdPet > 0 ? 'disabled' : ''}>🤚 抚摸${cdPet > 0 ? ' ('+cdPet+'秒)' : ''}</button>
+        <button id="btn-bath" class="btn btn-green" onclick="doBath()" ${cdBath > 0 ? 'disabled' : ''}>🛁 洗澡${cdBath > 0 ? ' ('+cdBath+'秒)' : ''}</button>
+      </div>
+
+      <div style="margin-top:15px">
+        <h3>⚡ 技能</h3>
+        <div class="skill-list">${skillsHTML}</div>
+      </div>
+    </div>`;
+
+  // 渲染宠物CSS形象
+  setTimeout(() => {
+    const visual = document.getElementById('homePetVisual');
+    if (visual) {
+      visual.innerHTML = '';
+      const avatar = createPetAvatar(pet.species, 110, pet.level);
+      visual.appendChild(avatar);
+    }
+  }, 50);
+}
+
+// ==================== 宠物选择弹窗 ====================
+function showPetSelection() {
+  const maxPets = 50;
+  if (game.pets.length >= maxPets) {
+    showToast('你已经拥有所有宠物了！');
+    return;
+  }
+
+  const cost = getAdoptCost();
+  let gridHTML = '';
+  Object.entries(SPECIES_CONFIG).forEach(([key, cfg]) => {
+    const owned = game.pets.some(p => p.species === key);
+    gridHTML += `<div class="pet-card" style="${owned ? 'opacity:0.4' : ''}"
+      onclick="${owned ? '' : "selectPet('"+key+"',"+cost+")"}">
+      <div id="sel-avatar-${key}" style="min-height:80px"></div>
+      <div class="pet-name">${cfg.name}</div>
+      <div class="pet-desc">${cfg.desc}</div>
+      <span class="element-badge elem-${cfg.element}">${ELEMENTS[cfg.element] ? ELEMENTS[cfg.element].name : cfg.element}</span>
+      ${owned ? '<div style="color:var(--green);font-size:0.8em">✓已拥有</div>'
+        : '<div style="color:var(--gold);font-size:0.85em;font-weight:bold">🪙'+cost+'</div>'}
+    </div>`;
+  });
+
+  showModal(`
+    <h3>✨ 领养宠物伙伴</h3>
+    <p style="text-align:center;color:var(--text2);margin-bottom:5px">已有 ${game.pets.length}/50 只宠物</p>
+    <p style="text-align:center;color:var(--gold);margin-bottom:15px;font-weight:bold">本次领养费用：🪙${cost}${cost===0?' (免费)':''}</p>
+    <div class="pet-grid" style="max-height:55vh;overflow-y:auto">${gridHTML}</div>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-sm" onclick="closeModal()">取消</button>
+    </div>
+  `);
+
+  // 渲染宠物形象
+  setTimeout(() => {
+    Object.keys(SPECIES_CONFIG).forEach(key => {
+      const el = document.getElementById('sel-avatar-' + key);
+      if (el) {
+        el.innerHTML = '';
+        el.appendChild(createPetAvatar(key, 70));
+      }
+    });
+  }, 100);
+}
+
+function selectPet(species, cost) {
+  if (!spendGold(cost)) {
+    showToast('💰 金币不足！需要 🪙' + cost);
+    return;
+  }
+
+  const cfg = getPetConfig(species);
+  const pet = {
+    id: Date.now(),
+    species: species,
+    name: cfg.name,
+    level: 1,
+    xp: 0,
+    happiness: 50,
+    hp: cfg.baseStats.hp,
+    maxHp: cfg.baseStats.hp,
+    disease: null,
+    diseaseTimer: 0
+  };
+  game.pets.push(pet);
+  game.activePetIdx = game.pets.length - 1;
+  updateQuestProgressSet('collect_8', game.pets.length);
+  saveGame();
+  checkAchievements();
+  closeModal();
+  showToast('🎉 恭喜获得新伙伴：' + cfg.name + '！');
+  renderHome();
+}
+
+// ==================== 喂食弹窗 ====================
+function showFeedModal() {
+  const pet = getActivePet();
+  if (!pet) return;
+
+  let itemsHTML = '';
+  FEED_ITEMS.forEach(item => {
+    const count = getItemCount(item.id);
+    itemsHTML += `<div class="item-row">
+      <span class="item-icon">${item.icon}</span>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-desc">+${item.xp}经验 +${item.sat}满意度 | 库存: ${count}</div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="doFeed('${item.id}')" ${count <= 0 ? 'disabled' : ''}>喂食</button>
+    </div>`;
+  });
+
+  showModal(`
+    <h3>🍖 喂食 ${getPetDisplayName(pet)}</h3>
+    <p style="text-align:center;color:var(--text2);margin-bottom:10px">背包中没有饲料？去<a href="javascript:void(0)" onclick="closeModal();switchView('shop')" style="color:var(--accent)">商店</a>购买</p>
+    <div class="item-list">${itemsHTML}</div>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-sm" onclick="closeModal()">关闭</button>
+    </div>
+  `);
+}
+
+function doFeed(itemId) {
+  const pet = getActivePet();
+  if (!pet) return;
+
+  // 冷却检查（按宠物独立）
+  const now = Date.now();
+  if (!game.cooldowns[pet.id]) game.cooldowns[pet.id] = {};
+  if (game.cooldowns[pet.id].feed && now - game.cooldowns[pet.id].feed < 30000) {
+    const remaining = Math.ceil((30000 - (now - game.cooldowns[pet.id].feed)) / 1000);
+    showToast('⏰ 喂食冷却中，还需等待 ' + remaining + ' 秒');
+    return;
+  }
+
+  if (!removeFromInventory(itemId)) {
+    showToast('背包中没有该物品！');
+    return;
+  }
+
+  const item = FEED_ITEMS.find(f => f.id === itemId);
+  if (!item) return;
+
+  // 满意度加成
+  const satBonus = pet.happiness >= 80 ? 1.5 : pet.happiness >= 50 ? 1.2 : 1.0;
+  const xpGain = Math.floor(item.xp * satBonus);
+
+  pet.xp += xpGain;
+  pet.happiness = Math.min(100, pet.happiness + item.sat);
+
+  // 检查升级
+  checkLevelUp(pet);
+
+  // 动画
+  const visual = document.querySelector('#homePetVisual .pet-avatar');
+  if (visual) {
+    setPetAnimation(visual, 'eat', 1500);
+    spawnParticles(visual.querySelector('.particles'), '✨', 5);
+  }
+
+  // 每日任务和成就追踪
+  checkDailyTask('feed');
+  updateQuestProgress('feed_100');
+  game.cooldowns[pet.id].feed = now;
+
+  saveGame();
+  checkAchievements();
+  closeModal();
+  renderHome();
+  showToast(`🍖 ${pet.name}吃了${item.name}，获得${xpGain}经验！`);
+}
+
+// ==================== 玩耍 ====================
+function doPlay() {
+  const pet = getActivePet();
+  if (!pet) return;
+
+  // 冷却检查（按宠物独立）
+  const now = Date.now();
+  if (!game.cooldowns[pet.id]) game.cooldowns[pet.id] = {};
+  if (game.cooldowns[pet.id].play && now - game.cooldowns[pet.id].play < 30000) {
+    const remaining = Math.ceil((30000 - (now - game.cooldowns[pet.id].play)) / 1000);
+    showToast('⏰ 玩耍冷却中，还需等待 ' + remaining + ' 秒');
+    return;
+  }
+
+  pet.happiness = Math.min(100, pet.happiness + 10);
+  pet.xp += 5;
+
+  const visual = document.querySelector('#homePetVisual .pet-avatar');
+  if (visual) {
+    setPetAnimation(visual, 'play', 2000);
+    spawnParticles(visual.querySelector('.particles'), '💫', 6);
+  }
+
+  checkLevelUp(pet);
+  maybeGetSick(pet);
+
+  // 每日任务和成就追踪
+  checkDailyTask('play');
+  updateQuestProgress('play_200');
+  game.cooldowns[pet.id].play = now;
+
+  saveGame();
+  checkAchievements();
+  renderHome();
+  showToast('🎾 ' + pet.name + '玩得很开心！满意度+10');
+}
+
+// ==================== 抚摸 ====================
+function doPet() {
+  const pet = getActivePet();
+  if (!pet) return;
+
+  // 冷却检查（按宠物独立）
+  const now = Date.now();
+  if (!game.cooldowns[pet.id]) game.cooldowns[pet.id] = {};
+  if (game.cooldowns[pet.id].pet && now - game.cooldowns[pet.id].pet < 30000) {
+    const remaining = Math.ceil((30000 - (now - game.cooldowns[pet.id].pet)) / 1000);
+    showToast('⏰ 抚摸冷却中，还需等待 ' + remaining + ' 秒');
+    return;
+  }
+
+  pet.happiness = Math.min(100, pet.happiness + 8);
+  pet.xp += 3;
+
+  const visual = document.querySelector('#homePetVisual .pet-avatar');
+  if (visual) {
+    setPetAnimation(visual, 'pet', 2000);
+    spawnParticles(visual.querySelector('.particles'), '❤️', 5);
+  }
+
+  checkLevelUp(pet);
+  maybeGetSick(pet);
+
+  // 每日任务追踪
+  checkDailyTask('pet');
+  game.cooldowns[pet.id].pet = now;
+
+  saveGame();
+  checkAchievements();
+  renderHome();
+  showToast('🤚 ' + pet.name + '享受你的抚摸~满意度+8');
+}
+
+// ==================== 洗澡 ====================
+function doBath() {
+  const pet = getActivePet();
+  if (!pet) return;
+
+  // 冷却检查（按宠物独立）
+  const now = Date.now();
+  if (!game.cooldowns[pet.id]) game.cooldowns[pet.id] = {};
+  if (game.cooldowns[pet.id].bath && now - game.cooldowns[pet.id].bath < 30000) {
+    const remaining = Math.ceil((30000 - (now - game.cooldowns[pet.id].bath)) / 1000);
+    showToast('⏰ 洗澡冷却中，还需等待 ' + remaining + ' 秒');
+    return;
+  }
+
+  pet.happiness = Math.min(100, pet.happiness + 12);
+  pet.xp += 8;
+  // 洗澡有几率治愈疾病
+  if (pet.disease && Math.random() < 0.3) {
+    pet.disease = null;
+    showToast('🛁 洗澡意外治愈了' + pet.name + '的疾病！');
+  }
+
+  const visual = document.querySelector('#homePetVisual .pet-avatar');
+  if (visual) {
+    setPetAnimation(visual, 'bath', 2000);
+    spawnParticles(visual.querySelector('.particles'), '💧', 6);
+  }
+
+  checkLevelUp(pet);
+
+  // 每日任务追踪
+  checkDailyTask('bath');
+  game.cooldowns[pet.id].bath = now;
+
+  saveGame();
+  checkAchievements();
+  renderHome();
+  showToast('🛁 ' + pet.name + '洗完澡干干净净！满意度+12');
+}
+
+// ==================== 治疗弹窗 ====================
+function showHealModal() {
+  const pet = getActivePet();
+  if (!pet || !pet.disease) return;
+
+  const disease = DISEASES.find(d => d.id === pet.disease);
+
+  let itemsHTML = '';
+  MEDICINE_ITEMS.forEach(item => {
+    const count = getItemCount(item.id);
+    itemsHTML += `<div class="item-row">
+      <span class="item-icon">${item.icon}</span>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-desc">治愈率: ${Math.floor(item.cureChance*100)}% | 库存: ${count}</div>
+      </div>
+      <button class="btn btn-sm btn-green" onclick="doHeal('${item.id}')" ${count <= 0 ? 'disabled' : ''}>使用</button>
+    </div>`;
+  });
+
+  showModal(`
+    <h3>💊 治疗 ${pet.name}</h3>
+    <p style="text-align:center;color:var(--danger);margin-bottom:10px">
+      疾病：<b>${disease ? disease.name : '未知'}</b> — ${disease ? disease.desc : ''}
+    </p>
+    <div class="item-list">${itemsHTML}</div>
+    <p style="text-align:center;color:var(--text2);margin-top:10px;font-size:0.8em">
+      也可以去<a href="javascript:void(0)" onclick="closeModal();switchView('shop')" style="color:var(--accent)">商店</a>购买药品
+    </p>
+    <div style="text-align:center;margin-top:15px">
+      <button class="btn btn-sm" onclick="closeModal()">关闭</button>
+    </div>
+  `);
+}
+
+function doHeal(itemId) {
+  const pet = getActivePet();
+  if (!pet || !pet.disease) return;
+  if (!removeFromInventory(itemId)) {
+    showToast('背包中没有该药品！');
+    return;
+  }
+
+  const med = MEDICINE_ITEMS.find(m => m.id === itemId);
+  if (!med) return;
+
+  if (Math.random() < med.cureChance) {
+    pet.disease = null;
+    showToast('💊 成功治愈了' + pet.name + '！');
+  } else {
+    showToast('💊 治疗效果不佳，' + pet.name + '仍然生病...');
+  }
+
+  saveGame();
+  closeModal();
+  renderHome();
+}
+
+// ==================== 升级检查 ====================
+function checkLevelUp(pet) {
+  const xpNeeded = pet.level * 50;
+  while (pet.xp >= xpNeeded) {
+    pet.xp -= xpNeeded;
+    pet.level++;
+    const cfg = getPetConfig(pet.species);
+    pet.maxHp = Math.floor(cfg.baseStats.hp * getEvoStage(pet.level).statMult);
+    pet.hp = pet.maxHp;
+
+    showToast('🎉 ' + pet.name + '升级到 Lv.' + pet.level + '！');
+
+    // 成就任务追踪
+    if (pet.level >= 30) updateQuestProgressSet('level_30', 1);
+    if (pet.level >= 50) updateQuestProgressSet('evo_3', 1);
+
+    // 检查进化
+    if (pet.level === 20) {
+      showToast('🦋 ' + pet.name + '进化到成长阶段！');
+    } else if (pet.level === 50) {
+      showToast('👑 ' + pet.name + '进化到完全体！');
+    }
+
+    // 解锁技能提示
+    Object.values(cfg.skills).forEach(skill => {
+      if (skill.level === pet.level) {
+        showToast('⚡ ' + pet.name + '解锁新技能：' + skill.name + '！');
+      }
+    });
+
+    checkAchievements();
+  }
+}
+
+// ==================== 疾病系统 ====================
+function maybeGetSick(pet) {
+  if (pet.disease) return;
+  // 满意度越低越容易生病
+  const sickChance = pet.happiness < 20 ? 0.15 : pet.happiness < 40 ? 0.08 : pet.happiness < 60 ? 0.03 : 0.01;
+  if (Math.random() < sickChance) {
+    const disease = DISEASES[Math.floor(Math.random() * DISEASES.length)];
+    pet.disease = disease.id;
+    showToast('🤒 ' + pet.name + '生病了：' + disease.name + '！');
+  }
+}
+
+// ==================== 弹窗系统 ====================
+function showModal(html) {
+  const container = document.getElementById('modalContainer');
+  container.innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">${html}</div>
+  </div>`;
+}
+
+function closeModal() {
+  document.getElementById('modalContainer').innerHTML = '';
+}
+
+// ==================== 商店渲染 ====================
+let shopTab = 'feed';
+
+function renderShop() {
+  const view = document.getElementById('view-shop');
+  if (game.pets.length === 0) {
+    view.innerHTML = '<div class="card" style="text-align:center"><p>请先选择一只宠物！</p></div>';
+    return;
+  }
+
+  let items = shopTab === 'feed' ? FEED_ITEMS : shopTab === 'medicine' ? MEDICINE_ITEMS : SPECIAL_ITEMS;
+  let itemsHTML = '';
+  const today = getToday();
+
+  items.forEach(item => {
+    // 抽奖券每日限购
+    let limitInfo = '';
+    if (item.id === 'gacha_ticket') {
+      if (game.gachaBoughtDate !== today) {
+        game.gachaTicketsBought = 0;
+        game.gachaBoughtDate = today;
+      }
+      const remaining = Math.max(0, 10 - game.gachaTicketsBought);
+      limitInfo = `<span style="font-size:0.75em;color:var(--text2);margin-right:8px">今日剩余:${remaining}/10</span>`;
+      if (remaining <= 0) {
+        itemsHTML += `<div class="item-row" style="opacity:0.5">
+          <span class="item-icon">${item.icon}</span>
+          <div class="item-info">
+            <div class="item-name">${item.name}</div>
+            <div class="item-desc">${item.desc} | 今日已售罄</div>
+          </div>
+          <span style="color:var(--gold);font-weight:bold;margin-right:8px">🪙${item.price}</span>
+          <button class="btn btn-sm btn-gold" disabled>已售罄</button>
+        </div>`;
+        return;
+      }
+    }
+    itemsHTML += `<div class="item-row">
+      <span class="item-icon">${item.icon}</span>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-desc">${item.desc}</div>
+      </div>
+      ${limitInfo}
+      <span style="color:var(--gold);font-weight:bold;margin-right:8px">🪙${item.price}</span>
+      <button class="btn btn-sm btn-gold" onclick="buyItem('${item.id}')">购买</button>
+    </div>`;
+  });
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>🛒 商店</h2>
+      <div style="display:flex;gap:6px;margin-bottom:15px">
+        <button class="btn btn-sm ${shopTab==='feed'?'btn-primary':''}" onclick="shopTab='feed';renderShop()">🍖 饲料</button>
+        <button class="btn btn-sm ${shopTab==='medicine'?'btn-primary':''}" onclick="shopTab='medicine';renderShop()">💊 药品</button>
+        <button class="btn btn-sm ${shopTab==='special'?'btn-primary':''}" onclick="shopTab='special';renderShop()">🎁 特殊</button>
+      </div>
+      <div class="item-list">${itemsHTML || '<p style="text-align:center;color:var(--text2)">暂无商品</p>'}</div>
+    </div>`;
+}
+
+function buyItem(itemId) {
+  const allItems = [...FEED_ITEMS, ...MEDICINE_ITEMS, ...SPECIAL_ITEMS];
+  const item = allItems.find(i => i.id === itemId);
+  if (!item) return;
+
+  // 抽奖券每日限购检查
+  if (itemId === 'gacha_ticket') {
+    const today = getToday();
+    if (game.gachaBoughtDate !== today) {
+      game.gachaTicketsBought = 0;
+      game.gachaBoughtDate = today;
+    }
+    if (game.gachaTicketsBought >= 10) {
+      showToast('🎫 今日抽奖券已售罄，明天再来吧！');
+      return;
+    }
+  }
+
+  if (spendGold(item.price)) {
+    addToInventory(itemId);
+    if (itemId === 'gacha_ticket') {
+      game.gachaTicketsBought++;
+    }
+    saveGame();
+    renderShop();
+    showToast('🛒 购买了' + item.name + '！');
+  } else {
+    showToast('💰 金币不足！');
+  }
+}
+
+// ==================== 背包渲染 ====================
+let inventoryFilter = 'all';
+
+function renderInventory() {
+  const view = document.getElementById('view-inventory');
+  if (game.pets.length === 0) {
+    view.innerHTML = '<div class="card" style="text-align:center"><p>请先选择一只宠物！</p></div>';
+    return;
+  }
+
+  const allItems = [...FEED_ITEMS, ...MEDICINE_ITEMS, ...SPECIAL_ITEMS];
+  let itemsHTML = '';
+
+  allItems.forEach(item => {
+    const count = getItemCount(item.id);
+    if (count <= 0) return;
+    const cat = FEED_ITEMS.find(f => f.id === item.id) ? 'feed' :
+                MEDICINE_ITEMS.find(m => m.id === item.id) ? 'medicine' : 'special';
+    if (inventoryFilter !== 'all' && inventoryFilter !== cat) return;
+
+    const action = FEED_ITEMS.find(f => f.id === item.id) ? 'feed' :
+                   MEDICINE_ITEMS.find(m => m.id === item.id) ? 'use' : 'use';
+    const actionLabel = action === 'feed' ? '喂食' : '使用';
+    const actionFn = action === 'feed' ? "doFeedFromInv('" + item.id + "')" :
+                     MEDICINE_ITEMS.find(m => m.id === item.id) ? "doHealFromInv('" + item.id + "')" :
+                     "useSpecialItem('" + item.id + "')";
+
+    itemsHTML += `<div class="item-row">
+      <span class="item-icon">${item.icon}</span>
+      <div class="item-info">
+        <div class="item-name">${item.name} x${count}</div>
+        <div class="item-desc">${item.desc}</div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="${actionFn}">${actionLabel}</button>
+    </div>`;
+  });
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>🎒 背包</h2>
+      <div style="display:flex;gap:6px;margin-bottom:15px">
+        <button class="btn btn-sm ${inventoryFilter==='all'?'btn-primary':''}" onclick="inventoryFilter='all';renderInventory()">全部</button>
+        <button class="btn btn-sm ${inventoryFilter==='feed'?'btn-primary':''}" onclick="inventoryFilter='feed';renderInventory()">🍖 饲料</button>
+        <button class="btn btn-sm ${inventoryFilter==='medicine'?'btn-primary':''}" onclick="inventoryFilter='medicine';renderInventory()">💊 药品</button>
+        <button class="btn btn-sm ${inventoryFilter==='special'?'btn-primary':''}" onclick="inventoryFilter='special';renderInventory()">🎁 特殊</button>
+      </div>
+      <div class="item-list">${itemsHTML || '<p style="text-align:center;color:var(--text2)">背包空空如也~</p>'}</div>
+    </div>`;
+}
+
+function doFeedFromInv(itemId) {
+  closeModal();
+  const pet = getActivePet();
+  if (!pet) return;
+  if (!removeFromInventory(itemId)) {
+    showToast('物品不足！');
+    return;
+  }
+  const item = FEED_ITEMS.find(f => f.id === itemId);
+  if (!item) return;
+
+  const satBonus = pet.happiness >= 80 ? 1.5 : pet.happiness >= 50 ? 1.2 : 1.0;
+  const xpGain = Math.floor(item.xp * satBonus);
+  pet.xp += xpGain;
+  pet.happiness = Math.min(100, pet.happiness + item.sat);
+  checkLevelUp(pet);
+  saveGame();
+  checkAchievements();
+  renderHome();
+  switchView('home');
+  showToast('🍖 ' + pet.name + '吃了' + item.name + '，获得' + xpGain + '经验！');
+}
+
+function doHealFromInv(itemId) {
+  closeModal();
+  const pet = getActivePet();
+  if (!pet || !pet.disease) {
+    showToast('宠物没有生病！');
+    return;
+  }
+  if (!removeFromInventory(itemId)) {
+    showToast('物品不足！');
+    return;
+  }
+  const med = MEDICINE_ITEMS.find(m => m.id === itemId);
+  if (!med) return;
+  if (Math.random() < med.cureChance) {
+    pet.disease = null;
+    showToast('💊 成功治愈了' + pet.name + '！');
+  } else {
+    showToast('💊 治疗效果不佳...');
+  }
+  saveGame();
+  renderHome();
+  switchView('home');
+}
+
+function useSpecialItem(itemId) {
+  const pet = getActivePet();
+  if (!pet) return;
+  if (!removeFromInventory(itemId)) {
+    showToast('物品不足！');
+    return;
+  }
+  const item = SPECIAL_ITEMS.find(s => s.id === itemId);
+  if (!item) return;
+
+  pet.happiness = Math.min(100, pet.happiness + item.sat);
+  pet.xp += 5;
+
+  const visual = document.querySelector('#homePetVisual .pet-avatar');
+  if (visual) {
+    setPetAnimation(visual, item.action, 2000);
+    const emoji = item.action === 'play' ? '💫' : item.action === 'bath' ? '💧' : '❤️';
+    spawnParticles(visual.querySelector('.particles'), emoji, 6);
+  }
+
+  checkLevelUp(pet);
+  maybeGetSick(pet);
+  saveGame();
+  checkAchievements();
+  renderHome();
+  switchView('home');
+  showToast('🎁 使用了' + item.name + '！满意度+' + item.sat);
+}
+
+// ==================== 成就渲染 ====================
+function renderAchievements() {
+  const view = document.getElementById('view-achievements');
+  let listHTML = '';
+  ACHIEVEMENTS.forEach(ach => {
+    const earned = game.achievementsEarned.includes(ach.id);
+    listHTML += `<div class="achievement ${earned ? 'earned' : 'locked'}">
+      <span class="ach-icon">${earned ? ach.icon : '🔒'}</span>
+      <div style="flex:1">
+        <div style="font-weight:bold">${ach.name}</div>
+        <div style="font-size:0.8em;color:var(--text2)">${ach.desc}</div>
+      </div>
+      ${earned ? '<span style="color:var(--gold)">✅</span>' : ''}
+    </div>`;
+  });
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>🏆 成就 (${game.achievementsEarned.length}/${ACHIEVEMENTS.length})</h2>
+      <div class="achievement-list">${listHTML}</div>
+    </div>`;
+}
+
+// ==================== 每日任务系统 ====================
+const DAILY_TASKS = [
+  { id: 'feed', name: '喂食一次', desc: '给宠物喂食', icon: '🍖', reward: 30 },
+  { id: 'play', name: '玩耍一次', desc: '陪宠物玩耍', icon: '🎾', reward: 25 },
+  { id: 'pet', name: '抚摸一次', desc: '温柔抚摸宠物', icon: '🤚', reward: 20 },
+  { id: 'bath', name: '洗澡一次', desc: '给宠物洗澡', icon: '🛁', reward: 35 },
+  { id: 'battle', name: '战斗一次', desc: '参加一场对战', icon: '⚔️', reward: 50 }
+];
+
+function getToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function checkDailyTask(taskId) {
+  const today = getToday();
+  if (game.dailyTasks[taskId] === today) return false;
+  game.dailyTasks[taskId] = today;
+  const task = DAILY_TASKS.find(t => t.id === taskId);
+  if (task) {
+    addGold(task.reward);
+    showToast('📋 每日任务完成：' + task.name + '！获得 🪙' + task.reward);
+  }
+  saveGame();
+  return true;
+}
+
+function renderDaily() {
+  const view = document.getElementById('view-daily');
+  const today = getToday();
+
+  if (game.pets.length === 0) {
+    view.innerHTML = '<div class="card" style="text-align:center"><p>请先选择一只宠物！</p></div>';
+    return;
+  }
+
+  let tasksHTML = '';
+  DAILY_TASKS.forEach(task => {
+    const done = game.dailyTasks[task.id] === today;
+    tasksHTML += `<div class="achievement ${done ? 'earned' : ''}">
+      <span class="ach-icon">${task.icon}</span>
+      <div style="flex:1">
+        <div style="font-weight:bold">${task.name}</div>
+        <div style="font-size:0.8em;color:var(--text2)">${task.desc} | 奖励: 🪙${task.reward}</div>
+      </div>
+      <span style="color:${done ? 'var(--gold)' : 'var(--text2)'}">${done ? '✅' : '⏳'}</span>
+    </div>`;
+  });
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>📋 每日任务 (${today})</h2>
+      <p style="color:var(--text2);margin-bottom:12px;font-size:0.85em">每天0点重置，完成操作后自动领取奖励</p>
+      <div class="achievement-list">${tasksHTML}</div>
+    </div>`;
+}
+
+// ==================== 成就任务系统 ====================
+const QUEST_TASKS = [
+  { id: 'battle_50', name: '身经百战', desc: '累计参加50场对战', icon: '⚔️', target: 50, reward: 200, progressKey: 'battle_50' },
+  { id: 'win_100', name: '百战百胜', desc: '在对战中获胜100次', icon: '🏆', target: 100, reward: 500, progressKey: 'win_100' },
+  { id: 'feed_100', name: '美食家', desc: '累计喂食100次', icon: '🍖', target: 100, reward: 300, progressKey: 'feed_100' },
+  { id: 'play_200', name: '玩耍达人', desc: '累计玩耍200次', icon: '🎾', target: 200, reward: 300, progressKey: 'play_200' },
+  { id: 'level_30', name: '训练大师', desc: '任意宠物达到30级', icon: '⭐', target: 1, reward: 400, progressKey: 'level_30' },
+  { id: 'gold_5000', name: '大富翁', desc: '累计获得5000金币', icon: '💰', target: 5000, reward: 800, progressKey: 'gold_5000' },
+  { id: 'evo_3', name: '完全进化', desc: '任意宠物进化到完全体(Lv.50)', icon: '👑', target: 1, reward: 1000, progressKey: 'evo_3' },
+  { id: 'collect_8', name: '宠物大师', desc: '收集50种宠物', icon: '🌈', target: 50, reward: 1500, progressKey: 'collect_8' }
+];
+
+function updateQuestProgress(key, amount = 1) {
+  if (!game.questProgress) game.questProgress = {};
+  game.questProgress[key] = (game.questProgress[key] || 0) + amount;
+
+  const quest = QUEST_TASKS.find(q => q.progressKey === key);
+  if (quest && game.questProgress[key] >= quest.target && !game.achievementsEarned.includes('quest_' + quest.id)) {
+    game.achievementsEarned.push('quest_' + quest.id);
+    addGold(quest.reward);
+    showToast('🎯 成就任务完成：' + quest.name + '！获得 🪙' + quest.reward);
+  }
+  saveGame();
+}
+
+function updateQuestProgressSet(key, value) {
+  if (!game.questProgress) game.questProgress = {};
+  game.questProgress[key] = value;
+  const quest = QUEST_TASKS.find(q => q.progressKey === key);
+  if (quest && value >= quest.target && !game.achievementsEarned.includes('quest_' + quest.id)) {
+    game.achievementsEarned.push('quest_' + quest.id);
+    addGold(quest.reward);
+    showToast('🎯 成就任务完成：' + quest.name + '！获得 🪙' + quest.reward);
+  }
+  saveGame();
+}
+
+function renderQuests() {
+  const view = document.getElementById('view-quests');
+  if (game.pets.length === 0) {
+    view.innerHTML = '<div class="card" style="text-align:center"><p>请先选择一只宠物！</p></div>';
+    return;
+  }
+
+  if (!game.questProgress) game.questProgress = {};
+
+  // 同步累计金币进度
+  game.questProgress.gold_5000 = game.totalGoldEarned || 0;
+
+  let questsHTML = '';
+  QUEST_TASKS.forEach(quest => {
+    const progress = game.questProgress[quest.progressKey] || 0;
+    const done = game.achievementsEarned.includes('quest_' + quest.id);
+    const pct = Math.min(100, Math.floor(progress / quest.target * 100));
+
+    // 检查是否达到目标
+    if (!done && progress >= quest.target) {
+      game.achievementsEarned.push('quest_' + quest.id);
+      addGold(quest.reward);
+      showToast('🎯 成就任务完成：' + quest.name + '！获得 🪙' + quest.reward);
+      saveGame();
+    }
+
+    questsHTML += `<div class="achievement ${done ? 'earned' : ''}">
+      <span class="ach-icon">${quest.icon}</span>
+      <div style="flex:1">
+        <div style="font-weight:bold">${quest.name}</div>
+        <div style="font-size:0.8em;color:var(--text2)">${quest.desc}</div>
+        <div class="stat-bar" style="margin-top:4px">
+          <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,#a569bd,#e94560)"></div></div>
+          <span style="font-size:0.75em;color:var(--text2)">${progress}/${quest.target}</span>
+        </div>
+      </div>
+      <span style="color:${done ? 'var(--gold)' : 'var(--text2)'};font-size:0.85em">🪙${quest.reward}</span>
+    </div>`;
+  });
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>🎯 成就任务</h2>
+      <p style="color:var(--text2);margin-bottom:12px;font-size:0.85em">累计性任务，每项只能完成一次</p>
+      <div class="achievement-list">${questsHTML}</div>
+    </div>`;
+}
+
+// ==================== 战斗系统 ====================
+let battleState = null;
+
+function renderBattle() {
+  const view = document.getElementById('view-battle');
+  try {
+    renderBattleInner(view);
+  } catch(e) {
+    view.innerHTML = `<div class="card" style="text-align:center;padding:30px">
+      <div style="font-size:40px">⚔️</div>
+      <h2>对战界面渲染出错了</h2>
+      <p style="color:var(--text2);margin:10px 0">${e.message}</p>
+      <button class="btn btn-primary" onclick="resetGame()">🗑️ 重置存档</button>
+    </div>`;
+    console.error('renderBattle error:', e);
+  }
+}
+
+function renderBattleInner(view) {
+  if (game.pets.length === 0) {
+    view.innerHTML = '<div class="card" style="text-align:center"><p>请先选择一只宠物！</p></div>';
+    return;
+  }
+
+  const pet = getActivePet();
+  if (!pet) return;
+  const cfg = getPetConfig(pet.species);
+  const stats = getPetStats(pet);
+
+  // 宠物选择
+  let petOptions = '';
+  game.pets.forEach((p, i) => {
+    const sel = i === game.activePetIdx ? 'active' : '';
+    petOptions += `<button class="btn btn-sm ${sel}" style="margin:2px"
+      onclick="game.activePetIdx=${i};renderBattle()">${getPetConfig(p.species).name} Lv.${p.level}</button>`;
+  });
+
+  if (battleState && !battleState.ended) {
+    // 战斗中
+    renderBattleActive(view, pet, cfg, stats, petOptions);
+  } else {
+    view.innerHTML = `
+      <div class="card">
+        <h2>⚔️ 对战竞技场</h2>
+        <p style="color:var(--text2);margin-bottom:10px">选择出战宠物，挑战随机对手赢取金币！</p>
+        <div style="margin-bottom:12px">${petOptions}</div>
+        <div style="text-align:center">
+          <button class="btn btn-primary btn-lg" onclick="startBattle()">⚔️ 寻找对手</button>
+        </div>
+        <p style="text-align:center;color:var(--text2);font-size:0.8em;margin-top:10px">
+          已获胜：${game.battlesWon} 场
+        </p>
+      </div>`;
+  }
+}
+
+function startBattle() {
+  const pet = getActivePet();
+  if (!pet) return;
+  if (pet.disease) {
+    showToast('🤒 宠物生病了，无法战斗！请先治疗。');
+    return;
+  }
+  if (pet.hp <= 0) {
+    showToast('💔 宠物生命值不足，请先休息恢复。');
+    return;
+  }
+
+  // 生成对手
+  const enemySpecies = Object.keys(SPECIES_CONFIG)[Math.floor(Math.random() * Object.keys(SPECIES_CONFIG).length)];
+  const enemyCfg = getPetConfig(enemySpecies);
+  const enemyLevel = Math.max(1, pet.level + Math.floor(Math.random() * 5) - 2);
+  const enemyEvo = getEvoStage(enemyLevel);
+  const enemyStats = {
+    hp: Math.floor(enemyCfg.baseStats.hp * enemyEvo.statMult),
+    atk: Math.floor(enemyCfg.baseStats.atk * enemyEvo.statMult),
+    def: Math.floor(enemyCfg.baseStats.def * enemyEvo.statMult),
+    spd: Math.floor(enemyCfg.baseStats.spd * enemyEvo.statMult)
+  };
+
+  const playerStats = getPetStats(pet);
+
+  battleState = {
+    playerPet: pet,
+    enemy: {
+      species: enemySpecies,
+      name: enemyCfg.name,
+      level: enemyLevel,
+      hp: enemyStats.hp,
+      maxHp: enemyStats.hp,
+      atk: enemyStats.atk,
+      def: enemyStats.def,
+      spd: enemyStats.spd,
+      element: enemyCfg.element,
+      buffs: {},
+      debuffs: {},
+      dots: []
+    },
+    player: {
+      hp: pet.hp,
+      maxHp: playerStats.hp,
+      atk: playerStats.atk,
+      def: playerStats.def,
+      spd: playerStats.spd,
+      buffs: {},
+      debuffs: {},
+      dots: [],
+      mp: 50
+    },
+    log: ['⚔️ 战斗开始！对手：' + enemyCfg.name + ' Lv.' + enemyLevel],
+    ended: false,
+    turn: 0
+  };
+
+  renderBattle();
+  updateQuestProgress('battle_50');
+}
+
+function renderBattleActive(view, pet, cfg, stats, petOptions) {
+  const bs = battleState;
+  const enemyCfg = getPetConfig(bs.enemy.species);
+
+  // 元素克制
+  const adv = getElementAdvantage(cfg.element, bs.enemy.element);
+  const advText = adv > 1 ? '💪 克制!' : adv < 1 ? '😰 被克制' : '⚖️ 均势';
+
+  // 技能栏
+  let skillsHTML = '';
+  Object.entries(cfg.skills).forEach(([key, skill]) => {
+    const unlocked = pet.level >= skill.level;
+    const canUse = unlocked && bs.player.mp >= skill.cost;
+    const cls = !unlocked ? 'locked' : !canUse ? 'locked' : '';
+    const clickFn = unlocked && canUse ? "useSkill('" + key + "')" : '';
+    skillsHTML += `<button class="skill-btn ${cls}" onclick="${clickFn}" ${!canUse || !unlocked ? 'disabled' : ''}>
+      <div class="skill-name">${skill.name}</div>
+      <div class="skill-cost">🔵${skill.cost} | ${skill.desc}</div>
+    </button>`;
+  });
+
+  // 战斗日志
+  let logHTML = '';
+  bs.log.slice(-20).forEach(entry => {
+    let cls = 'log-info';
+    if (entry.includes('伤害') || entry.includes('HP')) cls = 'log-dmg';
+    if (entry.includes('回复') || entry.includes('治疗')) cls = 'log-heal';
+    if (entry.includes('金币')) cls = 'log-gold';
+    logHTML += `<div class="log-entry ${cls}">${entry}</div>`;
+  });
+
+  // 状态显示
+  let playerStatusHTML = '';
+  if (bs.player.buffs.def) playerStatusHTML += '<span style="color:var(--blue);font-size:0.7em">🛡️防↑ </span>';
+  if (bs.player.buffs.spd) playerStatusHTML += '<span style="color:var(--blue);font-size:0.7em">💨速↑ </span>';
+  if (bs.player.debuffs.atk) playerStatusHTML += '<span style="color:var(--danger);font-size:0.7em">⚔️攻↓ </span>';
+  if (bs.player.debuffs.def) playerStatusHTML += '<span style="color:var(--danger);font-size:0.7em">🛡️防↓ </span>';
+  if (bs.player.debuffs.spd) playerStatusHTML += '<span style="color:var(--danger);font-size:0.7em">💨速↓ </span>';
+  if (bs.player.dots.length > 0) playerStatusHTML += '<span style="color:var(--danger);font-size:0.7em">🔥灼烧 </span>';
+
+  let enemyStatusHTML = '';
+  if (bs.enemy.buffs.def) enemyStatusHTML += '<span style="color:var(--blue);font-size:0.7em">🛡️防↑ </span>';
+  if (bs.enemy.debuffs.atk) enemyStatusHTML += '<span style="color:var(--danger);font-size:0.7em">⚔️攻↓ </span>';
+  if (bs.enemy.debuffs.def) enemyStatusHTML += '<span style="color:var(--danger);font-size:0.7em">🛡️防↓ </span>';
+  if (bs.enemy.debuffs.spd) enemyStatusHTML += '<span style="color:var(--danger);font-size:0.7em">💨速↓ </span>';
+  if (bs.enemy.dots.length > 0) enemyStatusHTML += '<span style="color:var(--danger);font-size:0.7em">🔥灼烧 </span>';
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>⚔️ 对战竞技场 ${advText}</h2>
+      <div style="margin-bottom:10px">${petOptions}</div>
+      <div class="battle-arena">
+        <div class="battle-pet">
+          <div id="battlePlayerVisual"></div>
+          <h3>${getPetDisplayName(pet)}</h3>
+          <span class="element-badge elem-${cfg.element}">${ELEMENTS[cfg.element].name}</span>
+          <div class="stat-bar bar-hp" style="margin-top:5px">
+            <div class="bar-bg"><div class="bar-fill" style="width:${Math.max(0, bs.player.hp/bs.player.maxHp*100)}%"></div></div>
+          </div>
+          <div style="font-size:0.8em">HP ${bs.player.hp}/${bs.player.maxHp} | 🔵${bs.player.mp}</div>
+          <div>${playerStatusHTML}</div>
+        </div>
+        <div class="battle-vs">VS</div>
+        <div class="battle-pet">
+          <div id="battleEnemyVisual"></div>
+          <h3>${bs.enemy.name} Lv.${bs.enemy.level}</h3>
+          <span class="element-badge elem-${bs.enemy.element}">${ELEMENTS[bs.enemy.element].name}</span>
+          <div class="stat-bar bar-hp" style="margin-top:5px">
+            <div class="bar-bg"><div class="bar-fill" style="width:${Math.max(0, bs.enemy.hp/bs.enemy.maxHp*100)}%"></div></div>
+          </div>
+          <div style="font-size:0.8em">HP ${bs.enemy.hp}/${bs.enemy.maxHp}</div>
+          <div>${enemyStatusHTML}</div>
+        </div>
+      </div>
+
+      <div class="skill-bar">${skillsHTML}</div>
+
+      <div class="battle-log"><h4 style="font-size:0.9em;margin-bottom:5px">📜 战斗日志</h4>${logHTML}</div>
+
+      ${bs.ended ? `<div style="text-align:center;margin-top:15px">
+        <button class="btn btn-primary" onclick="battleState=null;renderBattle()">继续战斗</button>
+      </div>` : ''}
+    </div>`;
+
+  // 渲染宠物形象
+  setTimeout(() => {
+    const pv = document.getElementById('battlePlayerVisual');
+    const ev = document.getElementById('battleEnemyVisual');
+    if (pv) { pv.innerHTML = ''; pv.appendChild(createPetAvatar(pet.species, 80, pet.level)); }
+    if (ev) { ev.innerHTML = ''; ev.appendChild(createPetAvatar(bs.enemy.species, 80, bs.enemy.level)); }
+  }, 50);
+}
+
+function useSkill(skillKey) {
+  if (!battleState || battleState.ended) return;
+
+  const bs = battleState;
+  const pet = bs.playerPet;
+  const cfg = getPetConfig(pet.species);
+  const skill = cfg.skills[skillKey];
+  if (!skill || pet.level < skill.level) return;
+  if (bs.player.mp < skill.cost) return;
+
+  bs.player.mp -= skill.cost;
+  bs.turn++;
+
+  // 计算实际攻击力
+  let atk = bs.player.atk;
+  if (bs.player.buffs.atk) atk = Math.floor(atk * (1 + bs.player.buffs.atk));
+  if (bs.player.debuffs.atk) atk = Math.floor(atk * (1 - bs.player.debuffs.atk));
+
+  let def = bs.enemy.def;
+  if (bs.enemy.buffs.def) def = Math.floor(def * (1 + bs.enemy.buffs.def));
+  if (bs.enemy.debuffs.def) def = Math.floor(def * (1 - bs.enemy.debuffs.def));
+
+  const elemAdv = getElementAdvantage(cfg.element, bs.enemy.element);
+
+  // 处理技能
+  if (skill.type === 'dmg') {
+    let dmg = Math.floor(atk * skill.dmg * elemAdv * (1 - def / (def + 80)));
+    if (skill.ignoreDef) dmg = Math.floor(atk * skill.dmg * elemAdv * (1 - def * (1 - skill.ignoreDef) / (def + 80)));
+    dmg = Math.max(1, dmg + Math.floor(Math.random() * 5));
+    bs.enemy.hp -= dmg;
+    bs.log.push(`⚔️ ${pet.name}使用【${skill.name}】造成 ${dmg} 伤害！`);
+    if (skill.selfDmg) {
+      const selfDmg = Math.floor(bs.player.maxHp * skill.selfDmg);
+      bs.player.hp -= selfDmg;
+      bs.log.push(`💔 反噬伤害 ${selfDmg}！`);
+    }
+
+    // 攻击动画
+    animateBattlePlayer('play');
+  } else if (skill.type === 'heal') {
+    const healAmt = Math.floor(bs.player.maxHp * skill.healPct);
+    bs.player.hp = Math.min(bs.player.maxHp, bs.player.hp + healAmt);
+    bs.log.push(`💚 ${pet.name}使用【${skill.name}】回复 ${healAmt} HP！`);
+    if (skill.cleanse) {
+      bs.player.debuffs = {};
+      bs.player.dots = [];
+      bs.log.push(`✨ 清除所有负面状态！`);
+    }
+  } else if (skill.type === 'buff') {
+    bs.player.buffs[skill.buff] = (bs.player.buffs[skill.buff] || 0) + skill.buffVal;
+    bs.log.push(`⬆️ ${pet.name}使用【${skill.name}】提升${skill.buff === 'spd' ? '速度' : '防御'}！`);
+    if (skill.cleanse) {
+      bs.player.debuffs = {};
+      bs.player.dots = [];
+    }
+  } else if (skill.type === 'debuff') {
+    bs.enemy.debuffs[skill.debuff] = (bs.enemy.debuffs[skill.debuff] || 0) + skill.debuffVal;
+    bs.log.push(`⬇️ ${pet.name}使用【${skill.name}】降低敌人${skill.debuff === 'atk' ? '攻击' : skill.debuff === 'def' ? '防御' : '速度'}！`);
+  } else if (skill.type === 'dot') {
+    let dmg = Math.floor(atk * skill.dmg * elemAdv * 0.5);
+    dmg = Math.max(1, dmg);
+    bs.enemy.hp -= dmg;
+    bs.enemy.dots.push({ dmg: skill.dotDmg, turns: skill.dotTurns });
+    bs.log.push(`🔥 ${pet.name}使用【${skill.name}】造成 ${dmg} 伤害并附加灼烧${skill.dotTurns}回合！`);
+    animateBattlePlayer('play');
+  } else if (skill.type === 'multi') {
+    let totalDmg = 0;
+    for (let i = 0; i < skill.hits; i++) {
+      let dmg = Math.floor(atk * skill.dmg * elemAdv * (1 - def / (def + 80)));
+      dmg = Math.max(1, dmg);
+      bs.enemy.hp -= dmg;
+      totalDmg += dmg;
+    }
+    bs.log.push(`⚔️ ${pet.name}使用【${skill.name}】${skill.hits}连击共 ${totalDmg} 伤害！`);
+    animateBattlePlayer('play');
+  } else if (skill.type === 'regen') {
+    bs.player.dots.push({ dmg: -Math.floor(bs.player.maxHp * skill.regenPct), turns: skill.regenTurns });
+    bs.log.push(`💚 ${pet.name}使用【${skill.name}】获得${skill.regenTurns}回合持续回复！`);
+  }
+
+  // 检查敌人是否死亡
+  if (bs.enemy.hp <= 0) {
+    bs.enemy.hp = 0;
+    endBattle(true);
+    return;
+  }
+
+  // 敌人回合
+  setTimeout(() => enemyTurn(), 800);
+}
+
+function enemyTurn() {
+  if (!battleState || battleState.ended) return;
+  const bs = battleState;
+
+  // 处理玩家dot
+  processDots(bs.player, 'player');
+
+  if (bs.player.hp <= 0) {
+    bs.player.hp = 0;
+    endBattle(false);
+    return;
+  }
+
+  // 处理敌人dot
+  processDots(bs.enemy, 'enemy');
+
+  if (bs.enemy.hp <= 0) {
+    bs.enemy.hp = 0;
+    endBattle(true);
+    return;
+  }
+
+  // 敌人攻击
+  let enemyAtk = bs.enemy.atk;
+  if (bs.enemy.buffs.atk) enemyAtk = Math.floor(enemyAtk * (1 + bs.enemy.buffs.atk));
+  if (bs.enemy.debuffs.atk) enemyAtk = Math.floor(enemyAtk * (1 - bs.enemy.debuffs.atk));
+
+  let playerDef = bs.player.def;
+  if (bs.player.buffs.def) playerDef = Math.floor(playerDef * (1 + bs.player.buffs.def));
+  if (bs.player.debuffs.def) playerDef = Math.floor(playerDef * (1 - bs.player.debuffs.def));
+
+  const elemAdv = getElementAdvantage(bs.enemy.element, getPetConfig(bs.playerPet.species).element);
+
+  // 随机选择技能
+  const enemyCfg = getPetConfig(bs.enemy.species);
+  const availableSkills = Object.values(enemyCfg.skills).filter(s => bs.enemy.level >= s.level);
+  const skill = availableSkills[Math.floor(Math.random() * Math.min(3, availableSkills.length))];
+
+  if (skill && skill.type === 'dmg' && Math.random() < 0.7) {
+    let dmg = Math.floor(enemyAtk * skill.dmg * elemAdv * (1 - playerDef / (playerDef + 80)));
+    dmg = Math.max(1, dmg + Math.floor(Math.random() * 4));
+    bs.player.hp -= dmg;
+    bs.log.push(`💥 ${bs.enemy.name}使用【${skill.name}】造成 ${dmg} 伤害！`);
+    animateBattleEnemy('play');
+  } else if (skill && skill.type === 'dot' && Math.random() < 0.5) {
+    let dmg = Math.floor(enemyAtk * 0.5 * elemAdv);
+    dmg = Math.max(1, dmg);
+    bs.player.hp -= dmg;
+    bs.player.dots.push({ dmg: skill.dotDmg || 6, turns: skill.dotTurns || 2 });
+    bs.log.push(`🔥 ${bs.enemy.name}使用【${skill.name}】附加灼烧！`);
+  } else {
+    let dmg = Math.floor(enemyAtk * 1.0 * elemAdv * (1 - playerDef / (playerDef + 80)));
+    dmg = Math.max(1, dmg + Math.floor(Math.random() * 5));
+    bs.player.hp -= dmg;
+    bs.log.push(`💥 ${bs.enemy.name}攻击造成 ${dmg} 伤害！`);
+    animateBattleEnemy('play');
+  }
+
+  // 减少buff/debuff回合
+  tickBuffs(bs.player);
+  tickBuffs(bs.enemy);
+
+  // 回复MP
+  bs.player.mp = Math.min(100, bs.player.mp + 8);
+
+  if (bs.player.hp <= 0) {
+    bs.player.hp = 0;
+    endBattle(false);
+  }
+
+  renderBattle();
+}
+
+function processDots(entity, side) {
+  entity.dots = entity.dots.filter(dot => {
+    if (dot.dmg > 0) {
+      // 伤害型dot
+      entity.hp -= dot.dmg;
+      battleState.log.push(`🔥 ${side === 'player' ? '你' : '敌人'}受到灼烧伤害 ${dot.dmg}！`);
+    } else {
+      // 回复型dot
+      entity.hp = Math.min(entity.maxHp, entity.hp - dot.dmg);
+      battleState.log.push(`💚 ${side === 'player' ? '你' : '敌人'}回复 ${-dot.dmg} HP！`);
+    }
+    dot.turns--;
+    return dot.turns > 0;
+  });
+}
+
+function tickBuffs(entity) {
+  Object.keys(entity.buffs).forEach(key => {
+    entity.buffs[key] -= 0.5;
+    if (entity.buffs[key] <= 0) delete entity.buffs[key];
+  });
+  Object.keys(entity.debuffs).forEach(key => {
+    entity.debuffs[key] -= 0.5;
+    if (entity.debuffs[key] <= 0) delete entity.debuffs[key];
+  });
+}
+
+function endBattle(won) {
+  if (!battleState) return;
+  battleState.ended = true;
+
+  const pet = battleState.playerPet;
+  if (won) {
+    const goldReward = 30 + Math.floor(Math.random() * 40) + battleState.enemy.level * 3;
+    const xpReward = 20 + battleState.enemy.level * 5;
+
+    addGold(goldReward);
+    pet.xp += xpReward;
+    pet.hp = pet.maxHp;
+    battleState.log.push(`🎉 胜利！获得 🪙${goldReward} 金币，+${xpReward}经验！`);
+    game.battlesWon++;
+
+    // 每日任务和成就追踪
+    checkDailyTask('battle');
+    updateQuestProgress('win_100');
+
+    checkLevelUp(pet);
+    maybeGetSick(pet);
+  } else {
+    pet.hp = pet.maxHp;
+    pet.happiness = Math.max(0, pet.happiness - 15);
+    battleState.log.push('💔 战斗失败...宠物失去了一些满意度');
+  }
+
+  saveGame();
+  checkAchievements();
+  renderBattle();
+}
+
+function animateBattlePlayer(state) {
+  const el = document.getElementById('battlePlayerVisual');
+  if (el) {
+    const avatar = el.querySelector('.pet-avatar');
+    if (avatar) setPetAnimation(avatar, state, 800);
+  }
+}
+
+function animateBattleEnemy(state) {
+  const el = document.getElementById('battleEnemyVisual');
+  if (el) {
+    const avatar = el.querySelector('.pet-avatar');
+    if (avatar) setPetAnimation(avatar, state, 800);
+  }
+}
+
+// ==================== 抽奖系统 ====================
+function renderGacha() {
+  const view = document.getElementById('view-gacha');
+  if (game.pets.length === 0) {
+    view.innerHTML = '<div class="card" style="text-align:center"><p>请先选择一只宠物！</p></div>';
+    return;
+  }
+
+  const tickets = getItemCount('gacha_ticket');
+  const pityText = game.gachaPity >= 49 ? ' (保底触发！)' : '';
+  const pityBar = Math.min(100, game.gachaPity / 50 * 100);
+
+  // 展示奖品池
+  let poolHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+  GACHA_POOL.forEach(item => {
+    const pct = (item.weight / GACHA_POOL.reduce((s,i)=>s+i.weight,0) * 100).toFixed(1);
+    poolHTML += `<span style="background:var(--bg2);padding:3px 8px;border-radius:8px;font-size:0.75em;border:1px solid var(--border)">${item.name} (${pct}%)</span>`;
+  });
+  poolHTML += '</div>';
+
+  view.innerHTML = `
+    <div class="card">
+      <h2>🎰 幸运抽奖机</h2>
+      <p style="color:var(--text2);margin-bottom:5px">使用抽奖券进行抽奖，奖品包含金币、物品和宠物蛋！</p>
+      <p style="color:var(--text2);margin-bottom:10px;font-size:0.85em">抽奖券在商店购买，每天限购10张 | 50抽保底隐藏宠物${pityText}</p>
+
+      <div style="display:flex;align-items:center;gap:15px;margin:15px 0;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px;text-align:center;background:var(--bg2);border-radius:16px;padding:20px;border:1px solid var(--border)">
+          <div style="font-size:2em">🎫</div>
+          <div style="font-size:1.5em;font-weight:bold;color:var(--gold)">${tickets}</div>
+          <div style="color:var(--text2);font-size:0.85em">抽奖券</div>
+        </div>
+        <div style="flex:2;min-width:200px">
+          <button class="btn btn-primary btn-lg btn-block" onclick="doGacha()" ${tickets <= 0 ? 'disabled' : ''}>
+            🎰 开始抽奖（消耗1张抽奖券）
+          </button>
+          <div style="margin-top:8px">
+            <button class="btn btn-sm btn-gold" onclick="switchView('shop')">🛒 去商店购买抽奖券</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-bar" style="margin:10px 0">
+        <span class="label" style="color:var(--text2);font-size:0.8em">保底</span>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pityBar}%;background:linear-gradient(90deg,#a569bd,#e94560)"></div></div>
+        <span style="font-size:0.8em;color:var(--text2)">${game.gachaPity}/50</span>
+      </div>
+
+      <h3 style="margin-top:15px;font-size:0.95em">奖品池</h3>
+      ${poolHTML}
+    </div>`;
+}
+
+function doGacha() {
+  if (!removeFromInventory('gacha_ticket')) {
+    showToast('🎫 没有抽奖券！去商店购买吧~');
+    return;
+  }
+
+  game.gachaPity = (game.gachaPity || 0) + 1;
+
+  // 保底机制：50抽必出隐藏
+  let forcedHidden = false;
+  if (game.gachaPity >= 50) {
+    forcedHidden = true;
+    game.gachaPity = 0;
+  }
+
+  let prize;
+  if (forcedHidden) {
+    prize = GACHA_POOL.find(p => p.type === 'pet_egg' && p.rarity === 'hidden');
+  } else {
+    // 权重随机
+    const totalWeight = GACHA_POOL.reduce((s, i) => s + i.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const item of GACHA_POOL) {
+      roll -= item.weight;
+      if (roll <= 0) { prize = item; break; }
+    }
+  }
+
+  if (!prize) return;
+
+  // 处理奖品
+  if (prize.type === 'gold') {
+    addGold(prize.amount);
+    showToast('🎰 抽中了 ' + prize.name + '！');
+  } else if (prize.type === 'item') {
+    addToInventory(prize.itemId, prize.qty);
+    showToast('🎰 抽中了 ' + prize.name + '！');
+  } else if (prize.type === 'pet_egg') {
+    // 宠物蛋需要打开
+    openPetEgg(prize.rarity);
+    saveGame();
+    renderGacha();
+    return;
+  }
+
+  // 如果抽到隐藏，重置保底
+  if (prize.type === 'pet_egg' && prize.rarity === 'hidden') {
+    game.gachaPity = 0;
+  }
+
+  saveGame();
+  renderGacha();
+}
+
+function openPetEgg(rarity) {
+  closeModal();
+
+  if (rarity === 'hidden') {
+    // 随机给一个隐藏宠物
+    const hiddenKeys = Object.keys(HIDDEN_PETS);
+    const key = hiddenKeys[Math.floor(Math.random() * hiddenKeys.length)];
+    const cfg = HIDDEN_PETS[key];
+
+    // 检查是否已拥有
+    if (game.pets.some(p => p.species === key)) {
+      // 已拥有则给金币补偿
+      addGold(500);
+      showToast('🎉 抽中隐藏宠物但已拥有，补偿 🪙500！');
+      return;
+    }
+
+    const pet = {
+      id: Date.now(),
+      species: key,
+      name: cfg.name,
+      level: 1,
+      xp: 0,
+      happiness: 80,
+      hp: cfg.baseStats.hp,
+      maxHp: cfg.baseStats.hp,
+      disease: null,
+      diseaseTimer: 0
+    };
+    game.pets.push(pet);
+    game.activePetIdx = game.pets.length - 1;
+    showToast('🌟 传说宠物蛋孵化了！获得【' + cfg.name + '】！');
+  } else if (rarity === 'rare') {
+    // 稀有蛋：优先给未拥有的稀有元素宠物
+    const allSpecies = Object.keys(SPECIES_CONFIG);
+    const ownedSet = new Set(game.pets.map(p => p.species));
+    const unowned = allSpecies.filter(s => !ownedSet.has(s));
+
+    if (unowned.length === 0) {
+      addGold(200);
+      showToast('🎉 稀有蛋但已收集全部普通宠物，补偿 🪙200！');
+      return;
+    }
+
+    // 优先选择攻击高的
+    const species = unowned[Math.floor(Math.random() * unowned.length)];
+    const cfg = SPECIES_CONFIG[species];
+    const pet = {
+      id: Date.now(), species: species, name: cfg.name,
+      level: 5, xp: 0, happiness: 70,
+      hp: cfg.baseStats.hp, maxHp: cfg.baseStats.hp,
+      disease: null, diseaseTimer: 0
+    };
+    game.pets.push(pet);
+    game.activePetIdx = game.pets.length - 1;
+    showToast('🥚 稀有宠物蛋孵化了！获得【' + cfg.name + '】！初始Lv.5');
+  } else {
+    // 普通蛋：随机给一个未拥有的宠物
+    const allSpecies = Object.keys(SPECIES_CONFIG);
+    const ownedSet = new Set(game.pets.map(p => p.species));
+    const unowned = allSpecies.filter(s => !ownedSet.has(s));
+
+    if (unowned.length === 0) {
+      addGold(100);
+      showToast('🎉 普通蛋但已收集全部宠物，补偿 🪙100！');
+      return;
+    }
+
+    const species = unowned[Math.floor(Math.random() * unowned.length)];
+    const cfg = SPECIES_CONFIG[species];
+    const pet = {
+      id: Date.now(), species: species, name: cfg.name,
+      level: 1, xp: 0, happiness: 60,
+      hp: cfg.baseStats.hp, maxHp: cfg.baseStats.hp,
+      disease: null, diseaseTimer: 0
+    };
+    game.pets.push(pet);
+    game.activePetIdx = game.pets.length - 1;
+    showToast('🥚 宠物蛋孵化了！获得【' + cfg.name + '】！');
+  }
+
+  updateQuestProgressSet('collect_8', game.pets.length);
+  saveGame();
+  checkAchievements();
+  renderHome();
+}
+
+// ==================== 冷却倒计时实时刷新 ====================
+// 每秒更新首页的4个动作按钮冷却倒计时，不重渲染整个页面（避免动画中断）
+function updateCooldownButtons() {
+  // 只在首页且有活跃宠物时执行
+  if (game.currentView !== 'home') return;
+  const pet = getActivePet();
+  if (!pet) return;
+  const homeVisible = document.getElementById('view-home') && document.getElementById('view-home').classList.contains('active');
+  if (!homeVisible) return;
+
+  const now = Date.now();
+  const petCD = game.cooldowns[pet.id] || {};
+  const defs = [
+    { id: 'btn-feed', key: 'feed', label: '🍖 喂食' },
+    { id: 'btn-play', key: 'play', label: '🎾 玩耍' },
+    { id: 'btn-pet', key: 'pet', label: '🤚 抚摸' },
+    { id: 'btn-bath', key: 'bath', label: '🛁 洗澡' }
+  ];
+
+  let anyCooling = false;
+  defs.forEach(def => {
+    const btn = document.getElementById(def.id);
+    if (!btn) return;
+    let remain = 0;
+    if (petCD[def.key]) {
+      remain = Math.max(0, Math.ceil((30000 - (now - petCD[def.key])) / 1000));
+    }
+    if (remain > 0) {
+      anyCooling = true;
+      btn.disabled = true;
+      btn.textContent = def.label + ' (' + remain + '秒)';
+    } else {
+      btn.disabled = false;
+      btn.textContent = def.label;
+      // 冷却刚结束，重新渲染以显示完整状态
+      if (petCD[def.key]) delete petCD[def.key];
+    }
+  });
+  return anyCooling;
+}
+
+// 全局冷却刷新定时器（每秒一次）
+let cooldownTimer = null;
+function startCooldownTimer() {
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  cooldownTimer = setInterval(() => {
+    const hadCooling = updateCooldownButtons();
+    // 当冷却全部结束且之前有冷却，则重新渲染首页以恢复完整界面
+    if (typeof window.__wasCooling === 'undefined') window.__wasCooling = false;
+    if (window.__wasCooling && !hadCooling) {
+      window.__wasCooling = false;
+      renderHome();
+    }
+    if (hadCooling) window.__wasCooling = true;
+  }, 1000);
+}
+
+// ==================== 初始化 ====================
+function init() {
+  const loaded = loadGame();
+  if (loaded && game.pets.length > 0) {
+    updateGoldDisplay();
+    switchView('home');
+    showToast('📂 存档已加载！欢迎回来~');
+  } else {
+    updateGoldDisplay();
+    switchView('home');
+  }
+  startCooldownTimer();
+}
+
+// 启动游戏
+document.addEventListener('DOMContentLoaded', init);
+</script>

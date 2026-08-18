@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚖️ 法官模拟器</title>
+<style>
+  :root{
+    --wood-dark:#4a2e18;
+    --wood:#6d4628;
+    --wood-light:#9a6b3f;
+    --maroon:#7b1f1f;
+    --gold:#d4af37;
+    --ink:#2b2b2b;
+    --paper:#f5efe0;
+    --dark-bg:#1a1410;
+    --panel:#fdf6e3;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;}
+  body{
+    background:#1a1410;min-height:100vh;display:flex;flex-direction:column;align-items:center;
+    color:var(--ink);overflow-x:hidden;
+  }
+
+  /* ====== 开始界面 ====== */
+  #startScreen{
+    position:fixed;inset:0;z-index:100;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center, #3d2c1a 0%, #0f0a06 80%);
+    text-align:center;padding:30px;transition:opacity .6s;
+  }
+  #startScreen.hidden{opacity:0;pointer-events:none;}
+  .start-title{font-size:clamp(42px,8vw,82px);color:var(--gold);letter-spacing:6px;
+    text-shadow:0 0 25px rgba(212,175,55,.5),0 4px 10px rgba(0,0,0,.6);font-weight:800;}
+  .start-sub{color:#d4c8a8;margin:18px 0 40px;font-size:18px;letter-spacing:2px;opacity:.9;}
+  .start-btn{
+    background:linear-gradient(180deg,#c49a3a,#8a5a1f);color:#fff;border:none;
+    padding:18px 60px;font-size:24px;font-weight:700;border-radius:50px;cursor:pointer;
+    box-shadow:0 6px 0 #5a3a12,0 10px 25px rgba(0,0,0,.5);letter-spacing:4px;
+    transition:transform .1s, box-shadow .1s;position:relative;overflow:hidden;
+  }
+  .start-btn:hover{transform:translateY(-2px);box-shadow:0 8px 0 #5a3a12,0 14px 30px rgba(0,0,0,.6);}
+  .start-btn:active{transform:translateY(3px);box-shadow:0 3px 0 #5a3a12;}
+  .start-rules{margin-top:30px;color:#c9bb9a;font-size:13px;line-height:1.9;max-width:560px;background:rgba(0,0,0,.3);padding:18px 26px;border-radius:10px;}
+  .gavel{font-size:48px;display:inline-block;animation:gavel .8s infinite alternate;transform-origin:bottom right;}
+  @keyframes gavel{from{transform:rotate(-15deg)}to{transform:rotate(5deg)}}
+
+  /* ====== 游戏主界面 ====== */
+  #gameScreen{display:none;width:100%;height:100vh;flex-direction:column;position:relative;}
+  #gameScreen.active{display:flex;}
+
+  /* 顶部信息栏 */
+  #topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 24px;background:linear-gradient(180deg,#2a1c10,#1c1108);
+    color:#f0e6c8;border-bottom:3px solid var(--gold);z-index:10;
+  }
+  .topbar-title{font-size:22px;font-weight:800;color:var(--gold);letter-spacing:3px;}
+  .topbar-right{display:flex;align-items:center;gap:18px;}
+  .stat{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;}
+  .stat .val{color:#fff;min-width:24px;text-align:center;background:rgba(255,255,255,.12);padding:3px 8px;border-radius:6px;}
+  .exit-btn{background:rgba(255,255,255,.1);color:#e0c8a0;border:1px solid rgba(212,175,55,.4);
+    padding:6px 14px;border-radius:6px;cursor:pointer;font-size:14px;}
+  .exit-btn:hover{background:rgba(255,255,255,.2);}
+  .verdict-top-btn{
+    background:linear-gradient(180deg,#b8862d,#8a5a1f);color:#fff;font-weight:700;
+    border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:15px;
+    box-shadow:0 4px 0 #5a3a12;transition:all .15s;letter-spacing:2px;
+  }
+  .verdict-top-btn:hover{filter:brightness(1.15);transform:translateY(-1px);}
+  .verdict-top-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #5a3a12;}
+
+  /* ====== 法庭场景 ====== */
+  #court{
+    flex:1;position:relative;display:flex;flex-direction:column;
+    background:linear-gradient(180deg,#3d2c1c 0%,#4a3520 100%);overflow:hidden;
+  }
+  #courtSvg{width:100%;flex:1;display:block;}
+
+  /* 对话气泡 */
+  .speech-bubble{
+    position:absolute;background:var(--paper);border-radius:16px;padding:14px 18px;
+    box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:340px;font-size:15px;line-height:1.6;
+    border:3px solid var(--gold);z-index:20;animation:pop .3s ease;
+  }
+  .speech-bubble::after{content:'';position:absolute;bottom:-14px;left:40px;
+    border:14px solid transparent;border-top-color:var(--gold);border-bottom:0;}
+  .speech-bubble.defendant{top:14%;left:50%;transform:translateX(-50%);}
+  @keyframes pop{from{transform:translateX(-50%) scale(.8);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+
+  /* 语音朗读按钮 */
+  .bubble-sound{
+    position:absolute;top:8px;right:8px;background:rgba(138,90,31,.15);border:1px solid #8a5a1f;
+    border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:28px;
+    text-align:center;transition:all .2s;z-index:2;
+  }
+  .bubble-sound:hover{background:rgba(212,175,55,.35);}
+  .bubble-sound.playing{background:rgba(212,175,55,.5);animation:soundPulse .6s infinite alternate;}
+  @keyframes soundPulse{from{transform:scale(1)}to{transform:scale(1.15)}}
+  .speech-bubble.speaking{border-color:#e8a23a;box-shadow:0 0 18px rgba(232,162,58,.4);}
+
+  /* 顶部语音开关 */
+  .voice-toggle{
+    background:rgba(255,255,255,.12);border:1px solid rgba(212,175,55,.4);color:#e0c8a0;
+    border-radius:8px;cursor:pointer;font-size:15px;width:42px;height:36px;transition:all .15s;
+    position:relative;
+  }
+  .voice-toggle:hover{background:rgba(255,255,255,.2);}
+  .voice-toggle.on{background:rgba(76,175,80,.25);border-color:rgba(76,175,80,.7);color:#a5d6a7;}
+  .voice-toggle.off{background:rgba(192,57,43,.25);border-color:rgba(192,57,43,.7);color:#ef9a9a;}
+  .voice-toggle .v-slash{position:absolute;top:0;left:0;width:100%;height:100%;
+    display:none;justify-content:center;align-items:center;font-size:18px;color:#ff6a5a;font-weight:900;}
+  .voice-toggle.off .v-slash{display:flex;}
+
+  /* 对话选项区 */
+  #dialogPanel{
+    background:linear-gradient(180deg,#241708,#1c1108);
+    border-top:3px solid var(--gold);padding:14px 24px 16px;z-index:15;
+  }
+  .dialog-label{color:var(--gold);font-size:13px;letter-spacing:2px;margin-bottom:10px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .dialog-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .dialog-btn{
+    background:linear-gradient(180deg,#3a2a1a,#2a1c10);color:#e8dcc0;border:1px solid #5a4a30;
+    padding:12px 14px;border-radius:10px;cursor:pointer;font-size:14px;line-height:1.5;text-align:left;
+    transition:all .15s;position:relative;min-height:56px;
+  }
+  .dialog-btn:hover{border-color:var(--gold);background:linear-gradient(180deg,#4a3520,#3a2a1a);transform:translateY(-2px);box-shadow:0 4px 12px rgba(212,175,55,.15);}
+  .dialog-btn:active{transform:translateY(0);}
+  .dialog-btn .key{position:absolute;top:4px;left:8px;font-size:10px;color:var(--gold);font-weight:700;}
+  .custom-input-row{display:flex;gap:10px;margin-top:12px;}
+  .custom-input{
+    flex:1;background:#fdf6e3;border:none;border-radius:10px;padding:12px 16px;font-size:15px;color:#333;
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.2);outline:none;
+  }
+  .custom-input:focus{border:2px solid var(--gold);padding:10px 14px;}
+  .send-btn{
+    background:linear-gradient(180deg,#b8862d,#8a5a1f);color:#fff;border:none;padding:0 28px;
+    border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;letter-spacing:2px;
+  }
+  .send-btn:hover{filter:brightness(1.1);}
+  .send-btn:active{transform:scale(.97);}
+
+  /* ====== 宣判面板 ====== */
+  #verdictPanel{
+    position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);
+    display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(3px);
+  }
+  #verdictPanel.active{display:flex;}
+  .verdict-box{
+    background:var(--panel);border-radius:20px;padding:36px 44px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);border:4px solid var(--gold);max-width:480px;width:92%;
+    animation:popup .35s ease;
+  }
+  @keyframes popup{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+  .verdict-title{font-size:24px;font-weight:800;margin-bottom:16px;color:var(--maroon);letter-spacing:3px;}
+  .verdict-sub{font-size:15px;color:#555;margin-bottom:20px;line-height:1.7;}
+  .verdict-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+  .vbtn{padding:16px 10px;border:none;border-radius:12px;font-size:17px;font-weight:800;cursor:pointer;color:#fff;transition:transform .15s;}
+  .vbtn:hover{transform:scale(1.05);}
+  .vbtn.guilty{background:linear-gradient(180deg,#c0392b,#8e1f14);box-shadow:0 5px 0 #6b1610;}
+  .vbtn.innocent{background:linear-gradient(180deg,#27ae60,#1e8449);box-shadow:0 5px 0 #145a33;}
+  .penalty-area{margin-top:16px;border-top:2px dashed #cbb;padding-top:16px;display:none;}
+  .penalty-area.show{display:block;}
+  .penalty-label{font-size:14px;color:#888;margin-bottom:10px;letter-spacing:1px;}
+  .penalty-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+  .pbtn{background:linear-gradient(180deg,#6d4a2f,#5a3a22);color:#fff;border:none;padding:14px 8px;
+    border-radius:10px;font-size:14px;cursor:pointer;font-weight:700;transition:all .15s;}
+  .pbtn:hover{filter:brightness(1.15);transform:scale(1.02);}
+  .pbtn.death-btn{background:linear-gradient(180deg,#8e1f14,#5a1208);border:1px solid #ff8a7a;}
+  .pbtn.death-btn:hover{background:linear-gradient(180deg,#a52a1a,#6b1610);}
+  .cancel-btn{margin-top:14px;background:transparent;border:none;color:#999;cursor:pointer;font-size:14px;}
+  .cancel-btn:hover{color:#333;}
+
+  /* ====== 自定义数量输入面板 ====== */
+  #numPanel{
+    position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);
+    display:none;align-items:center;justify-content:center;z-index:60;backdrop-filter:blur(3px);
+  }
+  #numPanel.active{display:flex;}
+  .num-box{
+    background:var(--panel);border-radius:20px;padding:34px 40px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);border:4px solid var(--gold);max-width:400px;width:90%;
+    animation:popup .35s ease;
+  }
+  .num-title{font-size:22px;font-weight:800;margin-bottom:10px;color:var(--maroon);letter-spacing:2px;}
+  .num-sub{font-size:14px;color:#777;margin-bottom:18px;}
+  .num-input-wrap{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:20px;}
+  .num-input{
+    width:180px;text-align:center;font-size:30px;font-weight:800;color:#8a5a1f;
+    background:#fff;border:3px solid #8a5a1f;border-radius:12px;padding:10px;
+    outline:none;
+  }
+  .num-input:focus{border-color:var(--gold);}
+  .num-unit{font-size:18px;color:#555;font-weight:700;}
+  .num-helper{font-size:12px;color:#aaa;margin-bottom:16px;}
+  .num-btns{display:flex;gap:12px;justify-content:center;}
+  .num-ok{background:linear-gradient(180deg,#c0392b,#8e1f14);color:#fff;border:none;
+    padding:12px 34px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 0 #6b1610;transition:all .15s;}
+  .num-ok:hover{filter:brightness(1.15);}
+  .num-ok:active{transform:translateY(2px);box-shadow:0 2px 0 #6b1610;}
+  .num-cancel{background:#e0d3b8;color:#666;border:none;padding:12px 24px;border-radius:10px;font-size:16px;cursor:pointer;}
+
+  /* ====== 磔刑确认 ====== */
+  #deathConfirm{
+    position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);
+    display:none;align-items:center;justify-content:center;z-index:60;backdrop-filter:blur(3px);
+  }
+  #deathConfirm.active{display:flex;}
+  .death-box{
+    background:#2a1a12;border:4px solid #8e1f14;border-radius:20px;padding:36px 46px;text-align:center;
+    color:#e8dcc0;box-shadow:0 20px 60px rgba(0,0,0,.7);max-width:420px;width:90%;animation:popup .35s ease;
+  }
+  .death-title{font-size:26px;font-weight:900;color:#ff6a5a;letter-spacing:4px;margin-bottom:14px;}
+  .death-desc{font-size:15px;color:#c9b8a0;line-height:1.8;margin-bottom:24px;}
+  .death-btns{display:flex;gap:14px;justify-content:center;}
+  .death-yes{background:linear-gradient(180deg,#a52a1a,#6b1610);color:#fff;border:1px solid #ff8a7a;
+    padding:14px 36px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;transition:all .15s;}
+  .death-yes:hover{filter:brightness(1.2);}
+  .death-no{background:#4a3520;color:#c9b8a0;border:none;padding:14px 28px;border-radius:10px;font-size:16px;cursor:pointer;}
+
+  /* 已选惩罚列表与确认 */
+  .chosen-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+  .chosen-item{
+    display:flex;justify-content:space-between;align-items:center;
+    background:#f0e6d0;border:1px solid #cbb;border-radius:8px;padding:9px 12px;
+    font-size:14px;color:#5a3a22;
+  }
+  .chosen-item.death-chosen{border-color:#e0a898;background:#f7e4de;color:#8e1f14;font-weight:700;}
+  .chosen-item .rm{
+    background:transparent;border:none;color:#c0392b;font-size:15px;cursor:pointer;font-weight:800;margin-left:8px;
+  }
+  .chosen-item .rm:hover{color:#8e1f14;}
+  .confirm-verdict{
+    width:100%;background:linear-gradient(180deg,#c49a3a,#8a5a1f);color:#fff;border:none;
+    padding:13px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;letter-spacing:2px;
+    box-shadow:0 4px 0 #5a3a12;transition:all .15s;margin-top:6px;
+  }
+  .confirm-verdict:hover{filter:brightness(1.15);transform:translateY(-1px);}
+  .confirm-verdict:active{transform:translateY(2px);box-shadow:0 2px 0 #5a3a12;}
+  .confirm-verdict:disabled{background:#b0a68e;box-shadow:none;cursor:not-allowed;transform:none;}
+  .penalty-hint{font-size:12px;color:#999;margin-top:10px;line-height:1.6;}
+
+  /* ====== 法官辞职 (Game Over) 界面 ====== */
+  #fireScreen{
+    position:fixed;top:0;left:0;right:0;bottom:0;z-index:95;
+    display:none;align-items:center;justify-content:center;flex-direction:column;
+    background:radial-gradient(ellipse at center,#4a241a 0%,#1a0a06 80%);text-align:center;
+    padding:40px;
+  }
+  #fireScreen.active{display:flex;}
+  .fire-icon{font-size:90px;margin-bottom:16px;animation:gavel 1s infinite alternate;}
+  .fire-title{font-size:44px;font-weight:900;color:#ff6a5a;letter-spacing:6px;text-shadow:0 0 25px rgba(255,106,90,.5);margin-bottom:14px;}
+  .fire-sub{font-size:20px;color:#e8dcc0;margin-bottom:26px;max-width:560px;line-height:1.8;}
+  .fire-stats{background:rgba(0,0,0,.4);padding:18px 30px;border-radius:14px;border:1px solid rgba(212,175,55,.3);margin-bottom:30px;color:#e8dcc0;font-size:16px;line-height:2;}
+  .fire-stats b{color:var(--gold);}
+  .fire-btn{background:linear-gradient(180deg,#c49a3a,#8a5a1f);color:#fff;border:none;padding:16px 50px;
+    border-radius:50px;font-size:20px;font-weight:800;cursor:pointer;letter-spacing:3px;
+    box-shadow:0 6px 0 #5a3a12;transition:all .15s;}
+  .fire-btn:hover{filter:brightness(1.15);transform:translateY(-2px);}
+  .fire-btn:active{transform:translateY(2px);box-shadow:0 3px 0 #5a3a12;}
+
+  /* ====== 宣判结果横幅 ====== */
+  #resultBanner{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+    z-index:70;background:var(--panel);border-radius:24px;padding:40px 60px;text-align:center;
+    border:5px solid var(--gold);box-shadow:0 20px 80px rgba(0,0,0,.7);transition:transform .4s ease;
+    max-width:500px;width:90%;
+  }
+  #resultBanner.show{transform:translate(-50%,-50%) scale(1);}
+  .result-gavel{font-size:64px;margin-bottom:10px;}
+  .result-verdict{font-size:34px;font-weight:900;letter-spacing:5px;margin-bottom:8px;}
+  .result-gty{color:var(--maroon);}
+  .result-innc{color:#1e8449;}
+  .result-penalty{font-size:18px;font-weight:800;color:#8a5a1f;margin:6px 0 8px;}
+  .result-detail{font-size:15px;color:#555;margin-bottom:8px;line-height:1.7;}
+  .result-score{font-size:20px;color:var(--gold);font-weight:800;margin:12px 0;}
+  .next-btn{margin-top:16px;background:linear-gradient(180deg,#b8862d,#8a5a1f);color:#fff;border:none;
+    padding:14px 44px;border-radius:50px;font-size:18px;font-weight:700;cursor:pointer;letter-spacing:2px;
+    box-shadow:0 5px 0 #5a3a12;transition:all .15s;}
+  .next-btn:hover{transform:translateY(-2px);}
+  .next-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #5a3a12;}
+
+  /* 信息提示 */
+  #infoToast{
+    position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(30,20,10,.9);
+    color:#f0e6c8;padding:10px 24px;border-radius:30px;border:1px solid var(--gold);
+    font-size:14px;z-index:80;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
+  }
+  #infoToast.show{opacity:1;}
+
+  /* 案件卡 */
+  #caseCard{
+    position:absolute;top:50%;left:20px;transform:translateY(-50%);
+    background:var(--paper);border:3px solid #8a5a1f;border-radius:12px;padding:14px 18px;
+    width:190px;box-shadow:0 8px 25px rgba(0,0,0,.45);z-index:25;font-size:13px;
+  }
+  #caseCard h4{margin-bottom:8px;color:var(--maroon);border-bottom:2px solid #e0d3b8;padding-bottom:6px;font-size:15px;}
+  #caseCard p{margin:5px 0;color:#444;line-height:1.5;}
+  #caseCard .case-title{font-weight:700;color:#7a4e2d;font-size:14px;}
+
+  /* 法庭场景右下角法典按钮 */
+  #lawBtn{
+    position:absolute;right:24px;bottom:24px;z-index:45;
+    background:linear-gradient(180deg,#8a5a1f,#6d4628);color:var(--gold);border:2px solid var(--gold);
+    padding:14px 18px;border-radius:14px;font-size:18px;font-weight:800;letter-spacing:2px;
+    cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);transition:all .2s;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+  }
+  #lawBtn:hover{transform:translateY(-3px);box-shadow:0 10px 25px rgba(212,175,55,.3);filter:brightness(1.1);}
+  #lawBtn .law-sub{font-size:11px;color:#e0c8a0;letter-spacing:1px;font-weight:400;}
+  #lawBtn.glow{animation:glowPulse 1.6s ease-in-out infinite;}
+  @keyframes glowPulse{0%,100%{box-shadow:0 6px 20px rgba(0,0,0,.5);}50%{box-shadow:0 6px 30px rgba(212,175,55,.6);}}
+
+  /* ====== 法典界面 ====== */
+  #lawPanel{
+    position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.78);
+    display:none;align-items:center;justify-content:center;z-index:90;backdrop-filter:blur(4px);
+  }
+  #lawPanel.active{display:flex;}
+  .law-box{
+    background:var(--panel);border-radius:16px;width:min(900px,94vw);height:min(700px,90vh);
+    display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 80px rgba(0,0,0,.7);
+    border:4px solid var(--gold);
+  }
+  .law-head{
+    background:linear-gradient(180deg,#8a5a1f,#6d4628);padding:16px 24px;color:#fff;
+    display:flex;justify-content:space-between;align-items:center;flex-shrink:0;
+  }
+  .law-head h2{font-size:22px;letter-spacing:3px;font-weight:800;}
+  .law-head .law-count{font-size:13px;background:rgba(0,0,0,.25);padding:4px 12px;border-radius:20px;}
+  .law-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;
+    border-radius:50%;font-size:18px;cursor:pointer;}
+  .law-close:hover{background:rgba(255,255,255,.3);}
+  .law-toolbar{padding:12px 20px;border-bottom:2px solid #e0d3b8;background:#f0e6d0;flex-shrink:0;}
+  .law-search{width:100%;padding:10px 16px;border:2px solid #cbb;border-radius:10px;font-size:15px;outline:none;}
+  .law-search:focus{border-color:var(--gold);}
+  .law-body{flex:1;overflow-y:auto;padding:8px 20px 24px;background:#fbf6e8;}
+  .law-book{margin-top:18px;}
+  .law-book-title{font-size:19px;font-weight:800;color:var(--maroon);border-left:6px solid var(--gold);
+    padding:6px 12px;margin-bottom:10px;background:rgba(212,175,55,.1);}
+  .law-chapter{margin:14px 0 4px;font-size:16px;font-weight:700;color:#6d4628;padding:4px 0;border-bottom:1px solid #e0d3b8;}
+  .law-item{padding:7px 8px 7px 16px;font-size:14px;color:#444;line-height:1.7;border-radius:6px;}
+  .law-item:nth-child(odd){background:rgba(0,0,0,.02);}
+  .law-item:hover{background:rgba(212,175,55,.12);}
+  .law-item .art{color:#8a5a1f;font-weight:700;margin-right:6px;}
+  .law-empty{padding:40px;text-align:center;color:#999;font-size:15px;}
+
+  /* 滚动条 */
+  ::-webkit-scrollbar{width:10px;}
+  ::-webkit-scrollbar-track{background:#e8dcc0;}
+  ::-webkit-scrollbar-thumb{background:#8a5a1f;border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover{background:#6d4628;}
+
+  @media(max-width:700px){
+    .dialog-options{grid-template-columns:1fr;}
+    #caseCard{display:none;}
+    .dialog-btn{min-height:44px;}
+    .stat:nth-child(2),.stat:nth-child(3){font-size:13px;gap:4px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== 开始界面 ====== -->
+<div id="startScreen">
+  <div class="gavel">⚖️</div>
+  <div class="start-title">法官模拟器</div>
+  <div class="start-sub">—— 正义与你只差一锤 ——</div>
+  <button class="start-btn" id="startBtn">🔨 开始审判</button>
+  <div class="start-rules">
+    <div style="font-size:24px;color:var(--gold);margin-bottom:8px">📜 玩法说明</div>
+    你正坐在审判席上，法警会不断押送犯人上场（<b>共240个案件</b>）。<br>
+    · 点击 <b>3个对话框</b> 之一与犯人对话，或自己输入任意话语<br>
+    · <b>🔊 犯人说话时会有语音朗读</b>（右上角可开关）<br>
+    · 随时点击右上角 <b>⚖️ 宣判</b>，选择有罪 / 无罪<br>
+    · 判有罪后可叠加：<b>罚款、赔偿、有期徒刑、磔刑</b><br>
+    · 罚款/赔偿金额、有期徒刑年数 <b>由你亲自裁定</b><br>
+    · 点击右下角 <b>📖 法典</b> 可查阅 <b>2807条法律</b><br>
+    · 若对<b>无罪之人</b>误施磔刑，你将被<b>革职</b>！<br>
+    · 每个案件结束后会获得 <b>公正度评分</b>
+  </div>
+</div>
+
+<!-- ====== 游戏主界面 ====== -->
+<div id="gameScreen">
+  <div id="topbar">
+    <div class="topbar-title">⚖️ 法官模拟器</div>
+    <div class="topbar-right">
+      <button class="verdict-top-btn" id="verdictBtn">⚖️ 宣判</button>
+      <div class="stat">📊 公正度 <span class="val" id="scoreVal">0</span></div>
+      <div class="stat">🕵️ 已审判 <span class="val" id="caseCount">0</span></div>
+      <button class="voice-toggle on" id="voiceToggle" title="语音朗读开关">
+        <span>🔊</span><span class="v-slash">🔇</span>
+      </button>
+      <button class="exit-btn" id="restartBtn">↩ 重开</button>
+    </div>
+  </div>
+
+  <div id="court">
+    <svg id="courtSvg" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid meet"></svg>
+    <div id="defendantBubble" class="speech-bubble defendant" style="display:none;">
+      <button class="bubble-sound" id="bubbleSound" title="朗读这段话">🔊</button>
+      <span id="bubbleText" style="padding-right:32px;"></span>
+    </div>
+    <div id="caseCard">
+      <h4>📋 案件卷宗</h4>
+      <div id="caseContent"></div>
+    </div>
+    <!-- 右下角法典按钮 -->
+    <button id="lawBtn" title="查阅法典">
+      <span>📖</span>
+      <span style="font-size:15px;">法典</span>
+      <span class="law-sub">上千条法律</span>
+    </button>
+  </div>
+
+  <div id="dialogPanel">
+    <div class="dialog-label">🎙️ 请选择对犯人的问话（或在下方向犯人说话）：</div>
+    <div class="dialog-options" id="dialogOptions"></div>
+    <div class="custom-input-row">
+      <input type="text" class="custom-input" id="customInput" placeholder="输入你想对犯人说/问的任何话..." maxlength="80">
+      <button class="send-btn" id="sendBtn">说话</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 宣判面板 ====== -->
+<div id="verdictPanel">
+  <div class="verdict-box">
+    <div class="verdict-title">⚖️ 宣布判决</div>
+    <div class="verdict-sub" id="verdictSub">请对你的审判对象作出裁决：有罪 or 无罪？</div>
+    <div class="verdict-btns">
+      <button class="vbtn guilty" id="gtyBtn">有罪</button>
+      <button class="vbtn innocent" id="innBtn">无罪</button>
+    </div>
+    <div class="penalty-area" id="penaltyArea">
+      <div class="penalty-label">⚡ 选择惩罚措施（<b>可叠加多项</b>）：</div>
+      <div class="penalty-btns" id="penaltyBtns"></div>
+      <div class="penalty-chosen" id="penaltyChosen" style="margin-top:14px;display:none;">
+        <div class="penalty-label" style="margin-bottom:8px;">📋 已判决惩罚：</div>
+        <div class="chosen-list" id="chosenList"></div>
+      </div>
+      <button class="confirm-verdict" id="confirmVerdictBtn">✅ 确认宣判</button>
+    </div>
+    <button class="cancel-btn" id="cancelVerdict">取消，继续审判</button>
+  </div>
+</div>
+
+<!-- ====== 自定义数量输入面板（金额/年数） ====== -->
+<div id="numPanel">
+  <div class="num-box">
+    <div class="num-title" id="numTitle">输入金额</div>
+    <div class="num-sub" id="numSub"></div>
+    <div class="num-input-wrap">
+      <input type="number" id="numInput" class="num-input" min="0" value="0">
+      <span class="num-unit" id="numUnit">元</span>
+    </div>
+    <div class="num-helper" id="numHelper"></div>
+    <div class="num-btns">
+      <button class="num-cancel" id="numCancel">返回</button>
+      <button class="num-ok" id="numOk">确认宣判</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 磔刑确认 ====== -->
+<div id="deathConfirm">
+  <div class="death-box">
+    <div class="death-title">⚔️ 磔刑</div>
+    <div class="death-desc" id="deathDesc">你确定要对被告处以磔刑吗？此刑罚一锤定音，立即执行，不可挽回。</div>
+    <div class="death-btns">
+      <button class="death-no" id="deathNo">收回</button>
+      <button class="death-yes" id="deathYes">确认行刑 🔨</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 法官辞职 (Game Over) ====== -->
+<div id="fireScreen">
+  <div class="fire-icon">📛</div>
+  <div class="fire-title">法官被革职！</div>
+  <div class="fire-sub" id="fireSub">你因误判，将一位清白之人处以磔刑。舆论哗然，正义荡然无存，你被当场革职查办！</div>
+  <div class="fire-stats" id="fireStats"></div>
+  <button class="fire-btn" id="fireRestartBtn">↩ 回到主菜单</button>
+</div>
+
+<!-- ====== 宣判结果横幅 ====== -->
+<div id="resultBanner">
+  <div class="result-gavel" id="resultGavel">🔨</div>
+  <div class="result-verdict" id="resultVerdict">有罪</div>
+  <div class="result-penalty" id="resultPenalty"></div>
+  <div class="result-detail" id="resultDetail"></div>
+  <div class="result-score" id="resultScore"></div>
+  <button class="next-btn" id="nextBtn">下一位犯人 →</button>
+</div>
+
+<!-- ====== 法典界面 ====== -->
+<div id="lawPanel">
+  <div class="law-box">
+    <div class="law-head">
+      <h2>📖 中华法典总览</h2>
+      <div class="law-count" id="lawCount">共 0 条</div>
+      <button class="law-close" id="lawClose">✕</button>
+    </div>
+    <div class="law-toolbar">
+      <input type="text" class="law-search" id="lawSearch" placeholder="🔍 搜索法律条文 / 章节 / 罪名...">
+    </div>
+    <div class="law-body" id="lawBody"></div>
+  </div>
+</div>
+
+<div id="infoToast"></div>
+
+<script>
+/* ==================================================================
+ * 法官模拟器 — 完整版
+ * 176个案件 | 混合有罪/无罪 | 上千条法典 | 自定义宣判
+ * ================================================================== */
+const courtSvg = document.getElementById('courtSvg');
+const defendantBubble = document.getElementById('defendantBubble');
+const dialogOptions = document.getElementById('dialogOptions');
+const customInput = document.getElementById('customInput');
+const sendBtn = document.getElementById('sendBtn');
+const verdictBtn = document.getElementById('verdictBtn');
+const verdictPanel = document.getElementById('verdictPanel');
+const penaltyArea = document.getElementById('penaltyArea');
+const penaltyBtns = document.getElementById('penaltyBtns');
+const penaltyChosen = document.getElementById('penaltyChosen');
+const chosenList = document.getElementById('chosenList');
+const confirmVerdictBtn = document.getElementById('confirmVerdictBtn');
+const resultBanner = document.getElementById('resultBanner');
+const caseCard = document.getElementById('caseCard');
+const caseContent = document.getElementById('caseContent');
+const scoreVal = document.getElementById('scoreVal');
+const caseCount = document.getElementById('caseCount');
+const infoToast = document.getElementById('infoToast');
+
+let score = 0;
+let caseNum = 0;
+let currentCase = null;
+let currentPenalty = null; // 当前正在输入数量的惩罚类型
+let penaltyList = [];      // 已叠加的惩罚列表 [{type,value,text}]
+let pendingVerdict = null; // 待执行的最终判决
+
+/* ==================================================================
+ * 案件生成引擎 — 176个案件
+ * ================================================================== */
+const surnames=['张','李','王','赵','刘','陈','杨','黄','周','吴','徐','孙','马','朱','胡','郭','何','林','罗','郑','梁','谢','宋','唐','许','邓','冯','韩','曹','彭','曾','肖','田','董','袁','潘','于','蒋','蔡','余','杜','叶','程','苏','魏','吕','丁','任','沈','姚','白','万','秦','纪'];
+const given=['伟','芳','娜','敏','静','丽','强','磊','军','洋','勇','杰','娟','涛','明','超','霞','平','刚','志强','建国','秀英','桂芳','文博','雨桐','子轩','欣怡','浩然','诗涵','宇轩','梓萱','一诺','晨曦','若曦','煜城','语嫣','天翊','思远','嘉豪','梦琪'];
+
+const TEMPLATES=[];
+function add(title,crime,G,I,diag){TEMPLATES.push({title,crime,G,I,diag});}
+add('偷窃案','在超市偷窃{amt}元商品，被人赃并获。','监控清晰拍下他顺手牵羊的全过程。','监控显示他挑完商品后确实到收银台付了钱，疑为误会。',{s:'我就是一时糊涂……',q:[['为什么要偷？','我……我没想那么多'],['你不知道这是犯法？','我知道错了，以后再不敢了'],['你愿意悔过吗？','愿意，求您给个机会']]});
+add('偷窃案','潜入居民家中盗走现金与首饰，价值{amt}元。','现场提取的指纹与足迹与他的完全吻合。','真正的窃贼是他人，他恰好在案发时间路过该小区。',{s:'我冤枉啊，我那天根本没去那家！',q:[['案发时你在哪？','我在朋友家打牌，有证人'],['那为什么紧张？','我从没进过派出所，害怕'],['指纹怎么解释？','我不知道，肯定是陷害']]});
+add('偷窃案','在公交车上扒窃乘客钱包。','钱包内翻出他随身携带的私人物品。','钱包被真正扒手偷走，他被乘客误认抓错。',{s:'我没偷！那人一上来就抓我',q:[['钱包里的东西怎么解释？','那本来就是我的钱包！'],['有人看见你伸手吗？','那是我在扶扶手！'],['你愿意当面对质吗？','愿意，我身正不怕影子斜']]});
+add('偷窃案','偷走工地上的钢筋等建材变卖。','销赃记录与收货老板指证他多次送货。','钢筋是被工头私自挪用，与他无关。',{s:'我只是路过工地啊大人',q:[['为何销赃点有你签名？','那是别人冒签的！'],['你认识收货老板？','从没见过面'],['有不在场证明？','我那天在老家']]});
+add('偷窃案','深夜潜入服装店盗取衣物。','店铺监控拍下他撬门入内的过程。','监控中的身影戴帽子口罩，无法确认是他。',{s:'那不是我，我那天在加班',q:[['监控里身形像你？','像我的人多了'],['你有同事作证？','有，主管能证明'],['店门是你撬的？','我根本不会撬锁']]});
+add('诈骗案','冒充客服骗取老人{amt}元积蓄。','通话录音与转账记录铁证如山。','他实为被犯罪团伙利用的工具人，毫不知情。',{s:'我就是接了个电话……',q:[['你为何骗老人？','是老板让我打的'],['你收了多少钱？','一分没到我手里'],['你知道这是犯罪？','现在我知道了，后悔死']]});
+add('诈骗案','以高回报投资理财为名集资诈骗。','他虚构项目，吸纳资金后卷款潜逃。','投资项目本身合法，只是经营失败出现亏损。',{s:'我的项目是真有前景的！',q:[['为何无法兑付？','市场行情崩了'],['你卷走了多少？','我没卷款，钱都在账上'],['受害者怎么办？','我砸锅卖铁也还']]});
+add('诈骗案','网上冒充熟人借钱{amt}元。','多名受害人指认他的社交账号与收款账户。','他的账号被人盗用，真正行骗者另有其人。',{s:'那不是我发的消息！',q:[['账号是你的？','是被盗了'],['钱转到哪了？','不是我收的'],['你报警了吗？','报了，有回执']]});
+add('诈骗案','以"中奖"名义骗取手续费。','他制作假中奖页面，收款记录指向他。','页面是他人制作，他账号被利用收款。',{s:'那是别人做的网页！',q:[['收款是你账号？','我账号被借走了'],['你知道借给谁？','网上的"朋友"'],['你能证明？','有聊天记录']]});
+add('抢劫案','夜间在偏僻路段持刀抢劫行人。','受害人与多名目击者当场指认他。','案发时他正在外地出差，有车票和同事作证。',{s:'我那天根本不在本地啊！',q:[['有谁能作证？','我有火车票和同事'],['受害人认出了你','他认错人了'],['你紧张什么？','被冤枉谁不紧张']]});
+add('抢劫案','闯入便利店实施抢劫。','店内高清监控拍下他的清晰面容。','监控中的劫匪戴面具，身形相似但并非他。',{s:'那不是我！监控里那人蒙着脸',q:[['身形为何相似？','长得像的人多了'],['有不在场证明？','我在上夜班'],['指纹呢？','我是店里常客']]});
+add('斗殴案','在夜市与人口角后升级为斗殴伤人。','目击者一致指认他先动手打人。','他实为劝架拉架的一方，反被误认为主犯。',{s:'我是去拉架的呀大人！',q:[['为何大家都指你？','他们看错了'],['你动手了吗？','我只拉架没打人'],['谁先动手？','是那个光头先打的']]});
+add('斗殴案','在球场争执后挥拳伤人。','现场监控拍下他挥拳打人的画面。','对方先动手，他属于正当防卫。',{s:'是他先动的手！',q:[['监控里是你挥拳？','我是自卫反击'],['你伤得重吗？','我也被打了好几拳'],['对方先动手证据？','好多人都看到']]});
+add('斗殴案','在酒吧与人冲突致人轻伤。','多名顾客指证他持酒瓶砸人。','他被人下药激怒，情绪失控并非本意。',{s:'我脑子一热，真没想伤人',q:[['为何带凶器？','随手拿的'],['你知道后果？','现在后悔死了'],['愿意赔偿？','愿意，全赔']]});
+add('醉驾案','酒后驾驶车辆撞坏路边护栏。','呼气检测酒精浓度超标{times}倍。','他滴酒未沾，是副驾的朋友喝醉后误报。',{s:'我真没喝酒啊',q:[['检测报告怎么说？','那仪器出错了'],['副驾喝酒了？','是他喝的不是我'],['愿意再测？','愿意，随时！']]});
+add('醉驾案','酒后驾驶与摩托车相撞致人轻伤。','行车记录仪与现场酒精测试证实。','事故因对方逆行所致，与他无关。',{s:'是对方逆行撞我！',q:[['你的酒精测试？','我完全清醒'],['对方伤情？','轻微擦伤'],['你超速了吗？','我开得很慢']]});
+add('职务侵占案','挪用公司资金{amt}万元用于个人挥霍。','公司账目与银行流水完全吻合。','资金被上级私自挪用，他只是背锅者。',{s:'钱不是我挪的！',q:[['银行流水是你操作？','是领导让我办的'],['你拿了钱吗？','我一分没拿'],['你敢对质？','敢！']]});
+add('职务侵占案','私自收受客户回扣。','客户证词与转账记录齐全。','款项是正常业务提成，有合同依据。',{s:'那是我的业务提成！',q:[['有合同依据？','有，我带来了'],['金额为何这么大？','我那单做了几百万'],['公司知道吗？','人事都知道']]});
+add('造谣案','散布虚假信息引发公众恐慌。','后台IP与发帖记录锁定他的账号。','他只是转发并非谣言源头。',{s:'我是转发的！',q:[['原帖谁发的？','看热门就转了'],['你核实过真假？','没有，我错了'],['知道后果了？','我删帖澄清']]});
+add('造谣案','编造谣言恶意中伤他人名誉。','造谣帖从他的账号发出。','他的账号被黑客盗用发布谣言。',{s:'那不是我发的！',q:[['密码你改过？','我账号被黑了'],['IP怎么在你家？','黑客能用代理'],['报案了吗？','报了，有回执']]});
+add('交通肇事案','疲劳驾驶追尾前车致人受伤。','交警认定他负事故全部责任。','前车突然急刹，他反应不及但无责。',{s:'是前车突然急刹！',q:[['你疲劳吗？','我开了8小时'],['为何不停车？','赶着交货'],['有记录仪？','有，前车确实急刹']]});
+add('交通肇事案','闯红灯撞伤过马路的行人。','路口监控记录下事发全过程。','当时信号灯故障，黄灯闪烁导致误判。',{s:'当时灯是坏的！',q:[['监控怎么说？','灯在闪黄'],['你看到行人？','太突然了'],['有证据？','有监控记录']]});
+add('走私案','随身携带大量违禁品入境。','海关X光与开箱检查人赃并获。','他的行李箱被人调包，他完全不知情。',{s:'那包不是我的！',q:[['行李牌是你的？','被人换了'],['你检查过包？','过海关前没检查'],['谁碰过包？','托运时有人碰']]});
+add('走私案','通过地下通道运输私货。','监控拍下他的车辆与接头全过程。','他只是受雇开车送货，不知货物为走私品。',{s:'我只是送货的！',q:[['你不知道货是啥？','老板说正常货'],['接头人认识吗？','网上雇的'],['收了多少？','就两百块']]});
+add('敲诈案','以隐私照片威胁他人勒索钱财。','勒索短信与收款账户记录齐全。','短信系被冒充号码发出，与他无关。',{s:'那号码不是我的！',q:[['怎么证明？','我号码被克隆'],['收款账户？','骗子冒名的'],['报案了？','早就报了']]});
+add('敲诈案','以举报相要挟强索财物。','受害人录音与转账记录完整。','他才是被敲诈的受害者，反被诬告。',{s:'我才是被勒索的！',q:[['那转账给你？','是我转给他'],['他威胁你？','拿我把柄'],['有证据？','有聊天记录']]});
+add('伤害案','与人争执后持械伤人。','凶器上的指纹与目击证词吻合。','对方先持械，他夺刀自卫时误伤。',{s:'是他先拿刀的！',q:[['指纹在刀上？','我夺刀自卫'],['你伤重吗？','我也被砍了'],['有人作证？','好几个人']]});
+add('伤害案','聚众斗殴致人重伤。','多个角度的监控完整记录。','他试图制止斗殴，被误判为参与者。',{s:'我是去劝架的！',q:[['监控里你在场？','我在拉人'],['你动手了？','没有，我被打'],['谁打的？','那帮混混']]});
+add('非法经营案','无证经营食品加工。','作坊没有任何卫生与经营许可。','他有合法证照，只是被同行诬告。',{s:'我有营业执照！',q:[['证照在哪？','挂在店里'],['卫生合格？','有卫生许可'],['谁告我？','同行竞争']]});
+add('非法经营案','私自倒卖管制物品。','当场查获大量违禁库存。','货品被人调包，他是受害者。',{s:'我进的是正品！',q:[['那违禁品哪来？','被换货了'],['能证明？','有进货发票'],['谁调包？','物流环节']]});
+add('伪造案','制作假身份证件出售。','制假设备与半成品当场查获。','他实为正规证件代办，被误解。',{s:'我办的是真证！',q:[['那设备呢？','是普通复印机'],['证章是真的？','官方发的'],['能证明？','有委托书']]});
+add('伪造案','伪造公司印章与合同。','笔迹鉴定与印章比对一致。','印章被他人冒用，他毫不知情。',{s:'那章不是我刻的！',q:[['合同谁签的？','别人冒我名'],['你知道伪造？','事后才知道'],['有监控？','我那天在外地']]});
+add('破坏财物案','故意砸毁他人车辆。','监控拍下他砸车的全过程。','车辆是被大风刮落的树枝砸坏，与他无关。',{s:'那车不是我砸的！',q:[['监控有人像你？','那不是我'],['当晚在哪？','在家睡觉'],['有证人？','我老婆能作证']]});
+add('破坏财物案','蓄意纵火烧毁店铺。','纵火点残留物与他衣物纤维一致。','火灾系电路老化引发，他被冤枉。',{s:'那火不是我放的！',q:[['残留物怎么解释？','巧合'],['与店主有仇？','从无交集'],['有目击者？','有人看到电线起火']]});
+add('危险驾驶案','在公路上与同伴飙车，严重超速。','监控记录他多次超速闯红灯。','他当时在副驾，开车的另有其人。',{s:'开车的不是我！',q:[['行车记录是你？','那是我朋友'],['你为何在驾驶位？','停车换人而已'],['你超速了吗？','我开得规矩']]});
+add('生产伪劣案','生产并销售假冒伪劣食品。','查封仓库中查获大量劣质原料。','他销售的合格品被人替换成假货。',{s:'我卖的是正品！',q:[['仓库假货哪来？','被掉包了'],['有进货单？','有正规发票'],['谁做的？','要查仓库保管']]});
+add('侵权案','未经许可复制销售他人作品。','查获盗版制品及刻录设备。','他销售的是有授权的正版。',{s:'我有正版授权！',q:[['授权书呢？','有，公司盖章'],['盗版哪来？','是别人寄卖'],['你能证明？','有合同']]});
+add('遗弃案','遗弃年老体弱的父母。','邻居证词与生活记录显示长期不赡养。','父母有退休金，是被人挑拨诬告。',{s:'我每个月都给钱！',q:[['转账记录？','有，十几年了'],['为何告你？','亲戚争房产'],['父母在哪？','跟我住一起']]});
+add('虐待案','虐待家庭成员致其受伤。','医院验伤报告与邻居证词一致。','伤者是自行跌倒，并非虐待。',{s:'她是自己摔的！',q:[['验伤报告？','磕碰而已'],['你打过她？','从没有'],['邻居怎么说？','他们看错了']]});
+add('吸毒容留案','容留他人在家中吸毒。','现场查获吸毒工具与残留物。','他不知情，是被朋友陷害。',{s:'我不知道他们吸毒！',q:[['工具哪来？','朋友留下的'],['你吸了吗？','我从不碰'],['有证据？','我检测是阴性']]});
+add('非法持枪案','家中藏有管制枪支弹药。','搜查中查获枪支若干。','枪支是父辈遗留，他不知情。',{s:'那是祖上传下来的！',q:[['你不知道藏枪违法？','我真不知道'],['用过吗？','从没用过'],['愿意上交？','愿意，早就该交']]});
+add('危害公共安全案','在人群密集处投放危险物品。','监控拍下他投放物品的过程。','他投放的是无害宣传品。',{s:'我放的是传单！',q:[['那粉末是什么？','面粉而已'],['为何要放？','做广告'],['有检验报告？','有，无害']]});
+add('非法拘禁案','非法限制他人人身自由。','受害人证词与现场监控吻合。','他是在制止受害人偷窃时短暂扣留。',{s:'他偷东西我才拦他！',q:[['拦了多久？','就几分钟'],['你报警了吗？','报了'],['他伤了吗？','没有']]});
+add('保健品诈骗案','针对老年人推销高价保健品。','销售记录显示价格严重虚高。','产品合格，价格是市场行为。',{s:'我卖的是正规保健品！',q:[['批号齐全？','齐全，官方可查'],['价格为何虚高？','那是市场价'],['老人吃亏了？','可以退货']]});
+/* ====== 搞笑 / 生活化罪名 ====== */
+add('偷吃零食案','偷吃同学藏在书包里的零食，价值约{amt}元。','监控拍下他趁课间掏同学书包拿零食。','那包零食本就是同学请他吃的，同学忘了。',{s:'法官大人……那包薯片真不是我偷的！',q:[['监控里你拿了？','那是同学让我拿的'],['同学作证了吗？','他能证明'],['你偷吃了几次？','就一次！']]});
+add('偷吃零食案','趁同学上体育课，偷吃了他私藏的巧克力与辣条。','桌洞里的零食包装上留下他的指纹。','那些零食是他和同学凑钱合买的。',{s:'那是我们一起买的零食啊！',q:[['为何只有你的指纹？','我分装的时候碰过'],['同学承认了吗？','他忘了这事'],['你怎么证明？','有转账记录']]});
+add('偷喝奶茶案','趁同事离开，偷喝了同事桌上没喝完的奶茶。','同事回来发现奶茶见底，杯沿有他的口红印。','那是同事请他帮忙保管的奶茶。',{s:'我是帮她看着奶茶！',q:[['那怎么喝完了？','我给倒了，怕凉'],['她请你喝的吗？','她说过可以'],['为什么撒谎？','我慌了']]});
+add('起外号案','偷偷给同学起侮辱性外号并在全班流传。','多个同学指证外号由他最先起。','他只是跟风喊，外号是别人起的。',{s:'大家都这么喊啊！',q:[['第一个喊的是你？','我看别人喊的'],['你喊了吗？','喊了，可大家都喊'],['道歉了吗？','我道歉了']]});
+add('上课玩手机案','上课时偷偷玩手机被老师没收。','老师当场抓到他低头看手机。','他只是帮同学查资料，并非玩手机。',{s:'我是在帮同桌查题！',q:[['查什么题？','数学题'],['为何不举手？','怕耽误大家'],['手机是谁的？','我自己的']]});
+add('上班摸鱼案','上班时间躲在厕所刷剧摸鱼。','公司监控记录他频繁长时间进出厕所。','他肠胃不好，一天上十几次厕所。',{s:'我肚子不舒服！',q:[['怎么每次这么久？','拉肚子'],['有医生证明？','有，我有病历'],['刷剧了吗？','真没有']]});
+add('偷办公室笔案','偷偷把公司一盒圆珠笔带回家。','他的包里搜出未拆封的公司文具。','那是部门发的办公用品，人人都有。',{s:'这是公司发的福利！',q:[['为何在你包里？','我领回家用'],['领了多少？','一盒而已'],['财务有记录？','有的']]});
+add('蹭WiFi案','未经同意破解邻居WiFi密码蹭网。','路由器后台显示他的设备长期连接。','邻居曾把密码告诉过他。',{s:'邻居告诉过我密码！',q:[['怎么证明？','有聊天记录'],['你破解了吗？','我直接输的密码'],['占了多少流量？','没多少']]});
+add('占位案','长期霸占公司休息室的沙发午睡。','同事多次投诉他一个人占整张沙发。','那张沙发本就是休息区公共设施。',{s:'我睡的是公共沙发！',q:[['占了多少时间？','就睡个午觉'],['同事都投诉了？','他们嫉妒我睡得好'],['你收敛点？','好，我以后不躺了']]});
+add('偷藏零食案','把家里的零食偷偷藏到公司工位独享。','同事发现他的抽屉里全是没分享的零食。','那些零食是准备开分享会的。',{s:'我是打算分给大家！',q:[['那怎么还没分？','还没到时间'],['藏了多少？','就几包'],['现在分？','现在分！']]});
+/* ====== 重罪 ====== */
+add('故意杀人案','与人有深仇大恨后，持刀行凶致人死亡。','凶器上的DNA与他的完全匹配，有目击者。','案发时他在千里之外，监控与车票为证。',{s:'我发誓我没杀人！',q:[['凶器上怎么有你的DNA？','被人陷害了'],['你有不在场证明？','我有车票和监控'],['你与死者有仇？','确实有过节，但我没杀']]});
+add('故意杀人案','蓄意投毒致人死亡。','死者体内毒素与他的藏毒完全一致。','毒素系死者自购，与他无关。',{s:'那毒不是我下的！',q:[['毒素为何与你的一致？','我根本不知道'],['你与死者有仇？','从无交集'],['案发时在哪？','我在外地']]});
+add('绑架案','绑架他人并索要巨额赎金。','赎金到账账户与他的实名信息一致。','他是被绑架者的亲属，赎金是代付的。',{s:'那是我给绑匪的赎金！',q:[['为何用你账户？','绑匪指定的'],['你认识绑匪？','从没见过'],['报警了吗？','报了']]});
+add('贩毒案','贩卖毒品被当场抓获。','交易现场人赃并获，毒品重量巨大。','他被人设局陷害，包里的"毒品"是面粉。',{s:'那包是面粉！我被人设计了！',q:[['毒品鉴定结果？','真是面粉'],['交易对象是谁？','他们说有货'],['你报警了吗？','报了，有回执']]});
+add('杀人碎尸案','作案后残忍碎尸并抛尸。','多个抛尸点提取的DNA均指向他。','DNA系被人栽赃，真正的凶手另有其人。',{s:'那是有人栽赃我！',q:[['DNA怎么解释？','我被设计了'],['案发时你在哪？','有不在场证明'],['你知道凶手吗？','我知道是谁']]});
+add('走私毒品案','从境外走私大量毒品入境。','海关在行李夹层查获大量毒品。','行李被他人调包，他毫不知情。',{s:'那包不是我的！',q:[['行李牌是你的？','被人换了'],['你知道里面是啥？','不知道'],['有证人吗？','有同行旅客']]});
+
+/* 生成案件池 */
+let casePool=[];
+function buildCasePool(){
+  casePool=[];
+  let ni=0;
+  for(const t of TEMPLATES){
+    for(let v=0; v<4; v++){
+      const name=surnames[ni%surnames.length]+given[(ni*5+3)%given.length];
+      ni++;
+      const amt=300+((ni*137)%5000);
+      const times=2+((ni*3)%5);
+      const real=(ni%2===0);
+      casePool.push({
+        name,title:t.title,
+        crime:t.crime.replace('{amt}',amt).replace('{times}',times),
+        evidence: real? t.G : '（案情存疑，请谨慎判断）'+t.I,
+        real,
+        voice: voiceFor(name),   // 每个犯人独特的声音特征
+        dialogue:{
+          start: real? t.diag.s : '法官大人，我是被冤枉的！'+t.diag.s,
+          q1:{text:t.diag.q[0][0],r:t.diag.q[0][1]},
+          q2:{text:t.diag.q[1][0],r:t.diag.q[1][1]},
+          q3:{text:t.diag.q[2][0],r:t.diag.q[2][1]},
+        }
+      });
+    }
+  }
+}
+
+/* ==================================================================
+ * 法典生成引擎 — 上千条法律
+ * ================================================================== */
+const lawBooks=[
+  {name:'中华人民共和国刑法',chapters:['第一编 总则','危害公共安全罪','破坏社会主义市场经济秩序罪','侵犯公民人身权利罪','侵犯财产罪','妨害社会管理秩序罪','贪污贿赂罪','渎职罪']},
+  {name:'中华人民共和国民法典',chapters:['总则','物权编','合同编','人格权编','婚姻家庭编','继承编','侵权责任编']},
+  {name:'中华人民共和国行政处罚法',chapters:['总则','行政处罚的种类和设定','行政处罚的实施','行政处罚的执行']},
+  {name:'中华人民共和国行政许可法',chapters:['总则','行政许可的设定','行政许可的实施','监督检查']},
+  {name:'中华人民共和国公司法',chapters:['总则','有限责任公司','股份有限公司','公司治理']},
+  {name:'中华人民共和国劳动法',chapters:['总则','劳动合同','工作时间与休息','劳动保护','社会保险','劳动争议']},
+  {name:'中华人民共和国环境保护法',chapters:['总则','污染防治','生态保护','环境影响评价','法律责任']},
+  {name:'中华人民共和国刑事诉讼法',chapters:['总则','立案与侦查','审查起诉','审判程序','执行']},
+  {name:'中华人民共和国民事诉讼法',chapters:['总则','审判程序','执行程序','涉外程序']},
+  {name:'中华人民共和国治安管理处罚法',chapters:['总则','处罚的种类和适用','常见治安违法行为','处罚程序']},
+  {name:'中华人民共和国食品安全法',chapters:['总则','食品生产经营','食品检验','监督管理','法律责任']},
+  {name:'中华人民共和国消费者权益保护法',chapters:['总则','消费者的权利','经营者的义务','法律责任']},
+];
+const lawTpl=[
+  '凡因{act}，应当承担{liability}。',
+  '行为人{act}，致使{harm}，应依法{liability}。',
+  '任何人不得{act}，违者{liability}。',
+  '对{act}的行为，法律予以{punish}。',
+  '{act}者，视情节轻重，处以{punish}。',
+  '因{act}造成严重后果的，从重{liability}。',
+  '禁止{act}，违反本条规定者{liability}。',
+  '实施{act}，侵害他人合法权益的，应{liability}。',
+  '{act}并造成损失的，应当{liability}。',
+  '任何{act}均属违法行为，依法{punish}。',
+  '本条所称{act}，是指{harm}的行为，应承担{liability}。',
+  '对{act}，根据犯罪情节，可并处{punish}。',
+];
+const acts=['故意伤害他人','非法侵占公私财物','违反合同约定','制造环境污染','侵犯他人隐私','伪造虚假文件','扰乱公共秩序','损害他人名誉','非法拘禁他人','盗窃他人财产','欺诈他人钱财','故意毁坏财物','非法经营活动','违规排放污染物','侵犯消费者权益','拖欠劳动报酬','非法集会','散布谣言','走私违禁物品','行贿受贿','玩忽职守','危害公共安全','伪造证件','恶意拖欠债务','破坏公共设施','非法传播信息','偷税漏税','非法开采资源','雇佣童工','虐待家庭成员','遗弃被扶养人','生产销售伪劣商品','侵犯知识产权','容留他人吸毒','非法持有枪支','非法搜查他人身体','非法侵入他人住宅','强迫交易','寻衅滋事','组织赌博','非法吸收公众存款','故意杀人','非法剥夺他人生命','绑架他人','贩卖毒品','走私毒品','伪造国家机关证件','妨碍公务','非法集资','传授犯罪方法','教唆他人犯罪','协助组织卖淫','强迫他人劳动','侵占他人财产','故意损坏公共财物','非法使用管制刀具','违规经营危险物品','偷窃他人财物','骗取他人财物','实施电信网络诈骗','诈骗他人财物','抢劫他人财物','敲诈勒索他人','危害公共食品卫生']; 
+const liabilities=['法律责任','赔偿责任','民事赔偿','行政责任','刑事责任','侵权责任','相应法律责任','法律责任与赔偿','恢复原状的责任','加倍赔偿责任'];
+const harms=['他人权益受损','社会公共利益受损','公私财产遭受损失','他人身心受到伤害','市场秩序遭到破坏','公共利益遭到损害','公民合法权益受到侵害'];
+const punishes=['罚款','行政处罚','刑事处罚','责令改正','赔偿损失','警告处分','没收违法所得','吊销许可证','记过处分','依法追究责任'];
+
+let lawList=[];
+function buildLaws(){
+  lawList=[];
+  let article=1;
+  for(const book of lawBooks){
+    for(const ch of book.chapters){
+      const per=Math.ceil(1100/book.chapters.length/book.chapters.length);
+      for(let i=0;i<per;i++){
+        const tpl=lawTpl[(article+i)%lawTpl.length];
+        const act=acts[(article*7+i*3)%acts.length];
+        const liab=liabilities[(article*5+i*11)%liabilities.length];
+        const harm=harms[(article*3+i)%harms.length];
+        const pun=punishes[(article*13+i*7)%punishes.length];
+        const content=tpl.replace('{act}',act).replace('{liability}',liab).replace('{harm}',harm).replace('{punish}',pun);
+        lawList.push({book:book.name,chapter:ch,article,content});
+        article++;
+      }
+    }
+  }
+}
+
+/* ==================================================================
+ * 法庭场景绘制
+ * ================================================================== */
+function buildCourt(){
+  let s='';
+  s += `<rect x="0" y="0" width="800" height="560" fill="#4a3520"/>`;
+  for(let i=0;i<14;i++) s += `<rect x="0" y="${i*40}" width="800" height="2" fill="rgba(0,0,0,0.15)"/>`;
+  // 后墙
+  s += `<rect x="40" y="20" width="720" height="200" fill="#5a3a22" rx="8"/>`;
+  s += `<rect x="50" y="30" width="700" height="180" fill="#7a4e2d" rx="6"/>`;
+  // 法徽
+  s += `<circle cx="400" cy="110" r="50" fill="#d4af37" stroke="#8a5a1f" stroke-width="4"/>`;
+  s += `<text x="400" y="104" font-size="42" text-anchor="middle">⚖️</text>`;
+  s += `<text x="400" y="144" font-size="16" text-anchor="middle" fill="#5a3a22" font-weight="bold">正 义</text>`;
+  s += `<text x="400" y="190" font-size="22" text-anchor="middle" fill="#e8dcc0" font-weight="bold" letter-spacing="8">人民法院</text>`;
+  // 审判席
+  s += `<rect x="280" y="48" width="240" height="60" fill="#8a5a1f" rx="8"/>`;
+  s += `<rect x="280" y="48" width="240" height="12" fill="#a06a3c" rx="4"/>`;
+  s += `<rect x="290" y="62" width="220" height="38" fill="#6d4628" rx="4"/>`;
+  s += `<text x="400" y="88" font-size="15" text-anchor="middle" fill="#f5efe0" font-weight="bold">审判席</text>`;
+  s += `<rect x="498" y="52" width="14" height="44" fill="#5a3a22" rx="4"/>`;
+  s += `<rect x="490" y="44" width="30" height="12" fill="#6b4528" rx="5"/>`;
+  drawJudge(s);
+  drawDefendantTable(s);
+  drawDefendant(s);
+  // 旁听席
+  drawGallery(s,20,'left');
+  drawGallery(s,660,'right');
+  courtSvg.innerHTML=s;
+}
+function drawJudge(s){
+  const cx=400, cy=28, skin='#e8b98a', robe='#3b2f63';
+  s += `<rect x="${cx-32}" y="${cy-5}" width="64" height="60" fill="${robe}" rx="16"/>`;
+  s += `<rect x="${cx-28}" y="${cy+35}" width="56" height="18" fill="#2a2040" rx="5"/>`;
+  s += `<rect x="${cx-8}" y="${cy+2}" width="16" height="20" fill="#fff" rx="4"/>`;
+  s += `<circle cx="${cx}" cy="${cy-22}" r="20" fill="${skin}"/>`;
+  s += `<path d="M ${cx-22} ${cy-28} a 22 22 0 0 1 44 0 z" fill="#e6e6e6"/>`;
+  s += `<circle cx="${cx}" cy="${cy-32}" r="7" fill="#e6e6e6"/>`;
+  s += `<circle cx="${cx-7}" cy="${cy-20}" r="2.5" fill="#333"/>`;
+  s += `<circle cx="${cx+7}" cy="${cy-20}" r="2.5" fill="#333"/>`;
+  s += `<path d="M ${cx-7} ${cy-12} q 7 4 14 0" stroke="#a05a2c" stroke-width="2" fill="none"/>`;
+  s += `<rect x="${cx-42}" y="${cy+42}" width="84" height="16" fill="#1c1108" rx="4"/>`;
+  s += `<text x="${cx}" y="${cy+54}" font-size="10" text-anchor="middle" fill="#d4af37" font-weight="bold">法官大人</text>`;
+}
+function drawDefendantTable(s){
+  s += `<rect x="320" y="370" width="160" height="48" fill="#7a4e2d" rx="8"/>`;
+  s += `<rect x="320" y="370" width="160" height="10" fill="#a06a3c" rx="4"/>`;
+  s += `<rect x="330" y="384" width="140" height="28" fill="#5a3a22" rx="4"/>`;
+  s += `<text x="400" y="404" font-size="14" text-anchor="middle" fill="#f5efe0" font-weight="bold">被告席</text>`;
+  s += `<rect x="300" y="416" width="200" height="10" fill="#8a5a1f" rx="3"/>`;
+  s += `<rect x="305" y="424" width="8" height="56" fill="#8a5a1f" rx="3"/>`;
+  s += `<rect x="487" y="424" width="8" height="56" fill="#8a5a1f" rx="3"/>`;
+}
+function drawDefendant(s){
+  const cx=400, cy=330, skin='#e8b98a';
+  s += `<rect x="${cx-28}" y="${cy-5}" width="56" height="52" fill="#556b2f" rx="14"/>`;
+  s += `<line x1="${cx-26}" y1="${cy+12}" x2="${cx+26}" y2="${cy+12}" stroke="#d4d4d4" stroke-width="3"/>`;
+  s += `<line x1="${cx-26}" y1="${cy+22}" x2="${cx+26}" y2="${cy+22}" stroke="#d4d4d4" stroke-width="3"/>`;
+  s += `<line x1="${cx-26}" y1="${cy+32}" x2="${cx+26}" y2="${cy+32}" stroke="#d4d4d4" stroke-width="3"/>`;
+  s += `<circle cx="${cx-26}" cy="${cy+36}" r="6" fill="#c0c0c0" stroke="#888" stroke-width="1.5"/>`;
+  s += `<circle cx="${cx+26}" cy="${cy+36}" r="6" fill="#c0c0c0" stroke="#888" stroke-width="1.5"/>`;
+  s += `<line x1="${cx-20}" y1="${cy+40}" x2="${cx+20}" y2="${cy+40}" stroke="#c0c0c0" stroke-width="3"/>`;
+  s += `<circle cx="${cx}" cy="${cy-24}" r="18" fill="${skin}"/>`;
+  s += `<path d="M ${cx-7} ${cy-20} q 7 4 14 0" stroke="#a05a2c" stroke-width="2" fill="none"/>`;
+  s += `<circle cx="${cx-6}" cy="${cy-26}" r="2.2" fill="#333"/>`;
+  s += `<circle cx="${cx+6}" cy="${cy-26}" r="2.2" fill="#333"/>`;
+  s += `<rect x="${cx-44}" y="${cy+46}" width="88" height="16" fill="#1c1108" rx="4"/>`;
+  s += `<text x="${cx}" y="${cy+58}" font-size="10" text-anchor="middle" fill="#d4af37" font-weight="bold">${currentCase?currentCase.name:'被告人'}</text>`;
+}
+function drawGallery(s,x,side){
+  s += `<rect x="${x}" y="250" width="120" height="280" fill="#3d2c1c" rx="8" opacity="0.8"/>`;
+  s += `<text x="${x+60}" y="275" font-size="12" text-anchor="middle" fill="#8a7a60" font-weight="bold">旁听席</text>`;
+  for(let i=0;i<4;i++){
+    const y=295+i*55;
+    s += `<circle cx="${x+40}" cy="${y}" r="14" fill="#2a1c10"/>`;
+    s += `<rect x="${x+26}" y="${y+10}" width="28" height="30" fill="#2a1c10" rx="8"/>`;
+    s += `<circle cx="${x+80}" cy="${y}" r="14" fill="#2a1c10"/>`;
+    s += `<rect x="${x+66}" y="${y+10}" width="28" height="30" fill="#2a1c10" rx="8"/>`;
+  }
+}
+
+/* ==================================================================
+ * 游戏流程
+ * ================================================================== */
+function startGame(){
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.add('active');
+  buildCasePool();
+  buildLaws();
+  document.getElementById('lawCount').textContent='共 '+lawList.length+' 条';
+  renderLaws('');
+  score=0; caseNum=0; updateStats();
+  buildCourt();
+  nextCase();
+  // 法典按钮提示
+  setTimeout(()=>{document.getElementById('lawBtn').classList.add('glow');},800);
+}
+function updateStats(){
+  scoreVal.textContent=score;
+  caseCount.textContent=caseNum;
+}
+function showToast(msg){
+  infoToast.textContent=msg;
+  infoToast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>infoToast.classList.remove('show'),2200);
+}
+function nextCase(){
+  if(casePool.length===0) buildCasePool();
+  // 随机取一个未用过的案件(避免连续重复)
+  const idx=Math.floor(Math.random()*casePool.length);
+  currentCase=casePool.splice(idx,1)[0];
+  buildCourt();
+  caseContent.innerHTML=`
+    <div class="case-title">${currentCase.name} · ${currentCase.title}</div>
+    <p><b>案情：</b>${currentCase.crime}</p>
+    <p><b>证据：</b>${currentCase.evidence}</p>
+    <p style="color:#8e8e8e;font-size:12px;margin-top:6px">剩余案件 ${casePool.length} 个</p>
+  `;
+  showBubble(currentCase.dialogue.start);
+  renderOptions();
+  customInput.value='';
+  resultBanner.classList.remove('show');
+  verdictPanel.classList.remove('active');
+  penaltyArea.classList.remove('show');
+  document.getElementById('numPanel').classList.remove('active');
+  document.getElementById('deathConfirm').classList.remove('active');
+  penaltyChosen.style.display='none';
+  currentPenalty=null; pendingVerdict=null; penaltyList=[];
+}
+function renderOptions(){
+  const d=currentCase.dialogue;
+  const opts=[d.q1,d.q2,d.q3];
+  dialogOptions.innerHTML='';
+  opts.forEach((o,i)=>{
+    const btn=document.createElement('button');
+    btn.className='dialog-btn';
+    btn.innerHTML=`<span class="key">${i+1}</span>${o.text}`;
+    btn.onclick=()=>ask(o);
+    dialogOptions.appendChild(btn);
+  });
+}
+function showBubble(text){
+  document.getElementById('bubbleText').textContent=text;
+  defendantBubble.style.display='block';
+  defendantBubble.style.animation='none';
+  void defendantBubble.offsetWidth;
+  defendantBubble.style.animation='';
+  // 自动朗读
+  speak(text);
+}
+
+/* ==================================================================
+ * 语音朗读系统 (Web Speech API)
+ * ================================================================== */
+let voiceOn = true;      // 语音总开关
+let zhVoice = null;      // 选中的中文语音
+let isSpeaking = false;  // 是否正在朗读
+
+/* 法官声音配置：低沉威严 */
+const JUDGE_VOICE = {pitch:0.42, rate:0.82, volume:1.15};
+/* 法官专属朗读气泡提示文本 */
+const JUDGE_SPEAKING = '（你威严的声音在法庭中回荡…）';
+
+/* 根据名字生成确定性声音特征（同一人物声音稳定） */
+function voiceFor(name){
+  let h=0;
+  for(let i=0;i<name.length;i++){ h=(h*31+name.charCodeAt(i))>>>0; }
+  // 音调范围 0.8 ~ 1.35，语速范围 0.9 ~ 1.15 —— 不同人声音高低快慢不同
+  const pitch = 0.8 + (h%55)/100;         // 0.80 ~ 1.34
+  const rate  = 0.9 + ((h>>8)%25)/100;    // 0.90 ~ 1.14
+  const volume= 0.85 + ((h>>16)%30)/100;  // 0.85 ~ 1.14
+  return {pitch, rate, volume};
+}
+
+function loadVoices(){
+  if(!('speechSynthesis' in window)) return;
+  const voices = speechSynthesis.getVoices();
+  if(voices.length===0) return;
+  // 优先中文语音
+  zhVoice = voices.find(v=>/zh[-_]?(CN|Hans)/i.test(v.lang)) ||
+            voices.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if('speechSynthesis' in window){
+  loadVoices();
+  speechSynthesis.onvoiceschanged=loadVoices;
+}
+
+/* 朗读一段话。speaker: 'defendant' 犯人(默认) / 'judge' 法官 */
+function speak(text, speaker){
+  if(!voiceOn) return;
+  if(!('speechSynthesis' in window)) return;
+  const clean = text.replace(/[（）()《》「」『』]/g,'');
+  if(!clean.trim()) return;
+  speechSynthesis.cancel(); // 停止上一句
+  const utter=new SpeechSynthesisUtterance(clean);
+  utter.lang='zh-CN';
+  if(zhVoice) utter.voice=zhVoice;
+  if(speaker==='judge'){
+    // 法官：低沉威严
+    utter.pitch=JUDGE_VOICE.pitch;
+    utter.rate=JUDGE_VOICE.rate;
+    utter.volume=JUDGE_VOICE.volume;
+  }else{
+    // 犯人：用该人物独特的声音
+    const v=currentCase && currentCase.voice ? currentCase.voice : voiceFor('路人');
+    utter.pitch=v.pitch;
+    utter.rate=v.rate;
+    utter.volume=v.volume;
+  }
+  // 朗读状态提示（法官朗读时用不同强调）
+  isSpeaking=true;
+  defendantBubble.classList.add('speaking');
+  const bs=document.getElementById('bubbleSound');
+  if(bs){
+    bs.classList.add('playing');
+    bs.textContent = speaker==='judge' ? '⚖️' : '🔊';
+  }
+  utter.onend=()=>{
+    isSpeaking=false;
+    defendantBubble.classList.remove('speaking');
+    if(bs){bs.classList.remove('playing'); bs.textContent='🔊';}
+  };
+  utter.onerror=()=>{
+    isSpeaking=false;
+    defendantBubble.classList.remove('speaking');
+    if(bs){bs.classList.remove('playing'); bs.textContent='🔊';}
+  };
+  speechSynthesis.speak(utter);
+}
+
+/* 停止朗读 */
+function stopSpeak(){
+  if(!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  isSpeaking=false;
+  defendantBubble.classList.remove('speaking');
+  const bs=document.getElementById('bubbleSound');
+  if(bs){bs.classList.remove('playing'); bs.textContent='🔊';}
+}
+
+/* 朗读按钮：点击重新朗读当前话 */
+document.getElementById('bubbleSound').onclick=function(e){
+  e.stopPropagation();
+  const text=document.getElementById('bubbleText').textContent;
+  if(isSpeaking){ stopSpeak(); return; }
+  speak(text);
+};
+
+/* 语音总开关 */
+document.getElementById('voiceToggle').onclick=function(){
+  voiceOn=!voiceOn;
+  this.classList.toggle('on',voiceOn);
+  this.classList.toggle('off',!voiceOn);
+  if(!voiceOn){ stopSpeak(); }
+  showToast(voiceOn?'🔊 语音已开启':'🔇 语音已关闭');
+};
+
+function ask(option){
+  showBubble(option.r);
+  setTimeout(()=>{
+    if(currentCase && !resultBanner.classList.contains('show')){
+      showToast('你可以继续问话，或点击右上角「宣判」作出裁决');
+    }
+  },1500);
+}
+function sendCustom(){
+  const val=customInput.value.trim();
+  if(!val||!currentCase) return;
+  const responses=[
+    '（法官大人，我……我低头认罪，您说得对。）',
+    '（听了您的话，我彻底明白自己错在哪里了。）',
+    '（我张了张嘴，却说不出一句反驳的话……）',
+    '（法官大人，我请求您给我一个改过自新的机会。）',
+    '（我低下头，声音发颤：是，我认罪。）'
+  ];
+  customInput.value='';
+  // 显示法官在说话
+  showBubbleSilent('（你威严地开口道：）"'+val+'"');
+  // 播放法官低沉威严的声音
+  playJudgeThen(()=>{
+    // 法官说完后，犯人回应
+    showBubble(responses[Math.floor(Math.random()*responses.length)]);
+    setTimeout(()=>showToast('你可以继续问话，或点击「宣判」'),1400);
+  }, val);
+}
+
+/* 法官说话(低沉威严)，说完后执行回调 */
+function playJudgeThen(callback, text){
+  if(!voiceOn || !('speechSynthesis' in window)){
+    setTimeout(callback, 1200); // 无语音时延时后直接回应
+    return;
+  }
+  const clean=(text||'').replace(/[（）()《》「」『』]/g,'');
+  speechSynthesis.cancel();
+  const utter=new SpeechSynthesisUtterance(clean||'');
+  utter.lang='zh-CN';
+  if(zhVoice) utter.voice=zhVoice;
+  utter.pitch=JUDGE_VOICE.pitch;
+  utter.rate=JUDGE_VOICE.rate;
+  utter.volume=JUDGE_VOICE.volume;
+  isSpeaking=true;
+  defendantBubble.classList.add('speaking');
+  const bs=document.getElementById('bubbleSound');
+  if(bs){bs.classList.add('playing'); bs.textContent='⚖️';}
+  let done=false;
+  const finish=()=>{
+    if(done) return; done=true;
+    isSpeaking=false;
+    defendantBubble.classList.remove('speaking');
+    if(bs){bs.classList.remove('playing'); bs.textContent='🔊';}
+    callback();
+  };
+  utter.onend=finish;
+  utter.onerror=finish;
+  // 防止语音引擎异常导致永久等待
+  setTimeout(()=>{ if(isSpeaking) finish(); }, Math.max(2500, clean.length*120));
+  speechSynthesis.speak(utter);
+}
+
+/* 显示气泡但不自动朗读(用于法官说话时的文字提示) */
+function showBubbleSilent(text){
+  document.getElementById('bubbleText').textContent=text;
+  defendantBubble.style.display='block';
+  defendantBubble.style.animation='none';
+  void defendantBubble.offsetWidth;
+  defendantBubble.style.animation='';
+}
+
+/* ==================================================================
+ * 宣判系统
+ * ================================================================== */
+verdictBtn.onclick=()=>{
+  if(!currentCase) return;
+  stopSpeak();
+  verdictPanel.classList.add('active');
+  penaltyArea.classList.remove('show');
+  document.getElementById('verdictSub').textContent='请对你的审判对象作出裁决：有罪 or 无罪？';
+};
+cancelVerdict.onclick=()=>verdictPanel.classList.remove('active');
+
+gtyBtn.onclick=()=>{
+  // 开始有罪宣判，进入惩罚叠加面板
+  document.getElementById('verdictSub').textContent='请选择对被告的惩罚（可叠加多项）：';
+  penaltyArea.classList.add('show');
+  penaltyBtns.innerHTML='';
+  currentPenalty=null;
+  penaltyList=[];
+  renderChosenList();
+  const pens=[
+    {id:'fine', name:'💵 罚款', cls:''},
+    {id:'comp', name:'🏠 赔偿', cls:''},
+    {id:'prison', name:'⛓️ 有期徒刑', cls:''},
+    {id:'death', name:'⚔️ 磔刑', cls:'death-btn'}
+  ];
+  pens.forEach(p=>{
+    const b=document.createElement('button');
+    b.className='pbtn '+p.cls;
+    b.textContent=p.name;
+    b.onclick=()=>{
+      if(p.id==='death'){ confirmDeath(); }
+      else{ openPenaltyInput(p.id); }
+    };
+    penaltyBtns.appendChild(b);
+  });
+  renderChosenList();
+};
+innBtn.onclick=()=>finalizeVerdict(false,[]);
+
+/* 打开自定义数量输入 */
+function openPenaltyInput(type){
+  verdictPanel.classList.remove('active');
+  penaltyArea.classList.remove('show');
+  const numPanel=document.getElementById('numPanel');
+  const t=document.getElementById('numTitle');
+  const sub=document.getElementById('numSub');
+  const unit=document.getElementById('numUnit');
+  const helper=document.getElementById('numHelper');
+  const input=document.getElementById('numInput');
+  currentPenalty=type;
+  if(type==='fine'){
+    t.textContent='判处罚款';
+    sub.textContent='请裁定罚款金额（由你决定）：';
+    unit.textContent='元';
+    helper.textContent='金额越高，惩戒越重，公正度考量也越大';
+    input.value='1000';
+  }else if(type==='comp'){
+    t.textContent='判决赔偿';
+    sub.textContent='请裁定对受害人的赔偿金额：';
+    unit.textContent='元';
+    helper.textContent='赔偿应尽量弥补受害人的损失';
+    input.value='1000';
+  }else if(type==='prison'){
+    t.textContent='判处有期徒刑';
+    sub.textContent='请裁定监禁年数（0.5 - 25 年）：';
+    unit.textContent='年';
+    helper.textContent='刑期越长，惩戒越重，可与其他惩罚叠加';
+    input.value='3';
+  }
+  numPanel.classList.add('active');
+  input.focus();
+  input.select();
+}
+numCancel.onclick=()=>{
+  document.getElementById('numPanel').classList.remove('active');
+  // 返回宣判叠加面板
+  verdictPanel.classList.add('active');
+  document.getElementById('verdictSub').textContent='请选择对被告的惩罚（可叠加多项）：';
+  penaltyArea.classList.add('show');
+};
+numOk.onclick=()=>{
+  const input=document.getElementById('numInput');
+  let val=parseFloat(input.value);
+  if(isNaN(val)||val<0){ showToast('请输入有效数字'); return; }
+  document.getElementById('numPanel').classList.remove('active');
+  // 添加到惩罚列表
+  addPenalty({type:currentPenalty, value:val});
+};
+
+/* 添加惩罚到列表 */
+function addPenalty(p){
+  if(p.type==='fine') p.text='罚款 ¥'+fmtMoney(Math.round(p.value));
+  else if(p.type==='comp') p.text='赔偿 ¥'+fmtMoney(Math.round(p.value));
+  else if(p.type==='prison') p.text='有期徒刑 '+p.value+' 年';
+  else if(p.type==='death') p.text='磔刑（立即处决）';
+  penaltyList.push(p);
+  currentPenalty=null;
+  // 返回宣判面板并刷新列表
+  verdictPanel.classList.add('active');
+  penaltyArea.classList.add('show');
+  renderChosenList();
+  showToast('已添加「'+p.text+'」，可继续添加其他惩罚');
+}
+
+/* 渲染已选惩罚列表 */
+function renderChosenList(){
+  penaltyChosen.style.display = penaltyList.length>0 ? 'block' : 'none';
+  chosenList.innerHTML='';
+  penaltyList.forEach((p,i)=>{
+    const div=document.createElement('div');
+    div.className='chosen-item'+(p.type==='death'?' death-chosen':'');
+    div.innerHTML=`<span>${p.text}</span><button class="rm" data-i="${i}">✕</button>`;
+    div.querySelector('.rm').onclick=()=>{
+      penaltyList.splice(i,1);
+      renderChosenList();
+      showToast('已移除一项惩罚');
+    };
+    chosenList.appendChild(div);
+  });
+  confirmVerdictBtn.disabled = penaltyList.length===0;
+  confirmVerdictBtn.textContent = penaltyList.length===0 ? '请先选择惩罚' : '✅ 确认宣判（'+penaltyList.length+'项）';
+}
+
+/* 磔刑确认 */
+function confirmDeath(){
+  verdictPanel.classList.remove('active');
+  penaltyArea.classList.remove('show');
+  document.getElementById('deathDesc').innerHTML='你确定要对被告 <b>'+currentCase.name+'</b> 处以磔刑吗？<br>此刑罚立即处决，不可挽回！<br><span style="font-size:12px;color:#ff8a7a;">⚠️ 警告：若被证实是冤案，你将因此被革职！</span>';
+  document.getElementById('deathConfirm').classList.add('active');
+}
+deathYes.onclick=()=>{
+  document.getElementById('deathConfirm').classList.remove('active');
+  addPenalty({type:'death', value:0});
+};
+deathNo.onclick=()=>{
+  document.getElementById('deathConfirm').classList.remove('active');
+  verdictPanel.classList.add('active');
+  penaltyArea.classList.add('show');
+};
+
+/* 确认宣判按钮 */
+confirmVerdictBtn.onclick=()=>{
+  if(penaltyList.length===0){ showToast('请至少选择一项惩罚'); return; }
+  finalizeVerdict(true, penaltyList.slice());
+};
+
+/* 最终宣判执行 */
+function finalizeVerdict(gty, penalties){
+  const c=currentCase;
+  let verdictStr,gavelIcon,detail,addScore,penaltyText='';
+  const pens=penalties||[];
+  if(gty){
+    verdictStr='有罪'; gavelIcon='🔨';
+    // 生成叠加惩罚文本
+    penaltyText = pens.map(p=>p.text).join('，');
+    if(!penaltyText) penaltyText='未处罚';
+    // 计算总严重度
+    let severity=0;
+    let hasDeath=false;
+    pens.forEach(p=>{
+      if(p.type==='fine') severity+=Math.min(4, p.value/2000);
+      else if(p.type==='comp') severity+=Math.min(3, p.value/2000);
+      else if(p.type==='prison') severity+=Math.min(8, p.value/2);
+      else if(p.type==='death'){ severity+=10; hasDeath=true; }
+    });
+    if(c.real){
+      addScore=Math.round(5+severity);
+      if(hasDeath) addScore=15;
+      detail=`你判处 <b>${c.name}</b> 有罪，处以「${penaltyText}」。经核实他确为真凶，正义得到伸张！`;
+    }else{
+      // 无罪之人被误判有罪 —— 若用了磔刑，直接革职！
+      if(hasDeath){
+        triggerFired('death');
+        return;
+      }
+      addScore=Math.round(2+severity*0.5);
+      detail=`你判处 <b>${c.name}</b> 有罪，处以「${penaltyText}」。虽然证据对他不利，但案件尚有疑点，量刑需谨慎。`;
+    }
+  }else{
+    if(c.real){
+      addScore=-20; verdictStr='无罪'; gavelIcon='😨';
+      detail=`你宣判 <b>${c.name}</b> 无罪，但证据显示他确是真凶！罪犯被无罪释放，你心中的正义何在？`;
+    }else{
+      addScore=12; verdictStr='无罪'; gavelIcon='🙏';
+      detail=`你宣判 <b>${c.name}</b> 无罪，经查他确被冤枉，你守住了正义！`;
+    }
+  }
+  score+=addScore; if(score<0)score=0;
+  caseNum++; updateStats();
+  document.getElementById('resultVerdict').textContent=verdictStr;
+  document.getElementById('resultVerdict').className='result-verdict '+(gty?'result-gty':'result-innc');
+  document.getElementById('resultGavel').textContent=gavelIcon;
+  document.getElementById('resultPenalty').textContent=penaltyText;
+  document.getElementById('resultDetail').innerHTML=detail;
+  document.getElementById('resultScore').textContent='公正度 '+(addScore>0?'+':'')+addScore+' 分';
+  resultBanner.classList.add('show');
+  verdictPanel.classList.remove('active');
+  penaltyArea.classList.remove('show');
+  document.getElementById('numPanel').classList.remove('active');
+  document.getElementById('deathConfirm').classList.remove('active');
+  currentPenalty=null;
+  penaltyList=[];
+}
+
+/* 法官被革职 */
+function triggerFired(reason){
+  const c=currentCase;
+  const fireStats=document.getElementById('fireStats');
+  document.getElementById('fireSub').innerHTML=
+    '你判处 <b>'+c.name+'</b>（'+c.title+'）磔刑，但经查明，<b>他实为清白无辜之人</b>！'+
+    '<br>你将无辜者处决，舆论哗然，正义荡然无存，你被当场革职查办！';
+  fireStats.innerHTML=
+    '⚖️ 你的法官生涯到此为止<br>'+
+    '📊 最终公正度：<b>'+score+'</b><br>'+
+    '🕵️ 累计审判案件：<b>'+caseNum+'</b><br>'+
+    '💀 误杀人数：<b>1</b>（'+c.name+'）';
+  fireScreen.classList.add('active');
+  // 隐藏其他界面
+  resultBanner.classList.remove('show');
+  verdictPanel.classList.remove('active');
+  penaltyArea.classList.remove('show');
+  document.getElementById('numPanel').classList.remove('active');
+  document.getElementById('deathConfirm').classList.remove('active');
+}
+const fireScreen=document.getElementById('fireScreen');
+fireRestartBtn.onclick=()=>{
+  fireScreen.classList.remove('active');
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('startScreen').classList.remove('hidden');
+  score=0;caseNum=0;currentCase=null;penaltyList=[];
+  updateStats();
+};
+
+function fmtMoney(n){return n.toLocaleString('zh-CN');}
+
+/* 下一位 */
+nextBtn.onclick=()=>{
+  resultBanner.classList.remove('show');
+  nextCase();
+};
+
+/* 键盘事件 */
+document.addEventListener('keydown',e=>{
+  if(!currentCase) return;
+  if(e.key==='1') ask(currentCase.dialogue.q1);
+  if(e.key==='2') ask(currentCase.dialogue.q2);
+  if(e.key==='3') ask(currentCase.dialogue.q3);
+  if(e.key==='Enter' && e.target && e.target.id==='customInput') sendCustom();
+});
+sendBtn.onclick=sendCustom;
+
+/* 重开 */
+restartBtn.onclick=()=>{
+  if(confirm('确定重新开始吗？当前进度将清零。')){
+    document.getElementById('gameScreen').classList.remove('active');
+    document.getElementById('startScreen').classList.remove('hidden');
+    score=0;caseNum=0;currentCase=null;
+    updateStats();
+  }
+};
+
+/* ==================================================================
+ * 法典界面
+ * ================================================================== */
+function renderLaws(filter){
+  const body=document.getElementById('lawBody');
+  if(lawList.length===0){ body.innerHTML='<div class="law-empty">法典正在生成中...</div>'; return; }
+  let kw=filter.trim().toLowerCase();
+  let html='';
+  let shown=0;
+  // 按书分组
+  for(const book of lawBooks){
+    const items=lawList.filter(l=>l.book===book.name);
+    if(!items.length) continue;
+    let bookHtml='';
+    let bookCount=0;
+    // 按章节分组
+    const chapters={};
+    items.forEach(it=>{
+      if(!chapters[it.chapter]) chapters[it.chapter]=[];
+      chapters[it.chapter].push(it);
+    });
+    for(const ch of Object.keys(chapters)){
+      const arts=chapters[ch];
+      let chapterHtml='';
+      let chCount=0;
+      arts.forEach(l=>{
+        const match= !kw || l.content.toLowerCase().includes(kw) || l.chapter.toLowerCase().includes(kw) || l.book.toLowerCase().includes(kw);
+        if(match){
+          chCount++; bookCount++;
+          chapterHtml+=`<div class="law-item"><span class="art">第${l.article}条</span>${l.content}</div>`;
+        }
+      });
+      if(chCount>0){
+        bookHtml+=`<div class="law-chapter">${ch}（${chCount}条）</div>${chapterHtml}`;
+      }
+    }
+    if(bookCount>0){
+      shown+=bookCount;
+      html+=`<div class="law-book"><div class="law-book-title">${book.name}（${bookCount}条）</div>${bookHtml}</div>`;
+    }
+  }
+  if(shown===0) html='<div class="law-empty">未找到相关法律条文</div>';
+  body.innerHTML=html;
+}
+lawBtn.onclick=()=>{
+  document.getElementById('lawPanel').classList.add('active');
+  renderLaws(document.getElementById('lawSearch').value);
+};
+lawClose.onclick=()=>document.getElementById('lawPanel').classList.remove('active');
+lawSearch.oninput=()=>renderLaws(lawSearch.value);
+
+/* 初始化 */
+startBtn.onclick=startGame;
+</script>
+</body>
+</html>
